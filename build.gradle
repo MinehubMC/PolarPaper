@@ -1,10 +1,14 @@
+import org.gradle.api.publish.maven.MavenPublication
+
 plugins {
     id 'java'
+    id 'maven-publish'
+
     id 'com.gradleup.shadow' version '8.3.5'
     id("io.papermc.paperweight.userdev") version "1.7.2"
 }
 
-group = 'dev.emortal'
+group = 'live.minehub'
 version = '1.0.0'
 
 repositories {
@@ -20,4 +24,32 @@ dependencies {
 tasks.assemble {
     dependsOn(tasks.named("shadowJar"))
     dependsOn(tasks.reobfJar)
+}
+
+publishing {
+    repositories {
+        // Publish to Maven Local only if not running in an action environment
+        if (!isAction()) {
+            mavenLocal()
+        } else {
+            maven {
+                name = "GithubPackages"
+                url = uri("https://maven.pkg.github.com/MinehubMC/PolarPaper")
+                credentials {
+                    username = System.getenv("GITHUB_ACTOR")
+                    password = System.getenv("GITHUB_TOKEN")
+                }
+            }
+        }
+    }
+
+    publications {
+        shadow(MavenPublication) { publication ->
+            from components.java
+        }
+    }
+}
+
+static boolean isAction() {
+    return System.getenv("CI") != null
 }
