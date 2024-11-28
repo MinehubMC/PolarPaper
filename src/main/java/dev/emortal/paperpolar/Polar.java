@@ -256,7 +256,7 @@ public class Polar {
         PrimaryLevelData worlddata;
         WorldLoader.DataLoadContext worldloader_a = craftServer.getServer().worldLoader;
         RegistryAccess.Frozen iregistrycustom_dimension = worldloader_a.datapackDimensions();
-        net.minecraft.core.Registry<LevelStem> iregistry = iregistrycustom_dimension.registryOrThrow(Registries.LEVEL_STEM);
+        net.minecraft.core.Registry<LevelStem> iregistry = iregistrycustom_dimension.lookupOrThrow(Registries.LEVEL_STEM);
         if (dynamic != null) {
             LevelDataAndDimensions leveldataanddimensions = LevelStorageSource.getLevelDataAndDimensions(dynamic, worldloader_a.dataConfiguration(), iregistry, worldloader_a.datapackWorldgen());
 
@@ -269,7 +269,7 @@ public class Polar {
 
             DedicatedServerProperties.WorldDimensionData properties = new DedicatedServerProperties.WorldDimensionData(GsonHelper.parse((creator.generatorSettings().isEmpty()) ? "{}" : creator.generatorSettings()), creator.type().name().toLowerCase(Locale.ROOT));
 
-            worldsettings = new LevelSettings(name, GameType.byId(craftServer.getDefaultGameMode().getValue()), hardcore, Difficulty.EASY, false, new GameRules(), worldloader_a.dataConfiguration());
+            worldsettings = new LevelSettings(name, GameType.byId(craftServer.getDefaultGameMode().getValue()), hardcore, Difficulty.EASY, false, new GameRules(worldloader_a.dataConfiguration().enabledFeatures()), worldloader_a.dataConfiguration());
             worlddimensions = properties.create(worldloader_a.datapackWorldgen());
 
             WorldDimensions.Complete worlddimensions_b = worlddimensions.bake(iregistry);
@@ -278,13 +278,13 @@ public class Polar {
             worlddata = new PrimaryLevelData(worldsettings, worldoptions, worlddimensions_b.specialWorldProperty(), lifecycle);
             iregistrycustom_dimension = worlddimensions_b.dimensionsRegistryAccess();
         }
-        iregistry = iregistrycustom_dimension.registryOrThrow(Registries.LEVEL_STEM);
+        iregistry = iregistrycustom_dimension.lookupOrThrow(Registries.LEVEL_STEM);
         worlddata.customDimensions = iregistry;
         worlddata.checkName(name);
 
         long j = BiomeManager.obfuscateSeed(worlddata.worldGenOptions().seed()); // Paper - use world seed
         List<CustomSpawner> list = ImmutableList.of(new PhantomSpawner(), new PatrolSpawner(), new CatSpawner(), new VillageSiege(), new WanderingTraderSpawner(worlddata));
-        LevelStem worlddimension = iregistry.get(actualDimension);
+        LevelStem worlddimension = iregistry.getValue(actualDimension);
 
         ResourceKey<net.minecraft.world.level.Level> worldKey;
         String levelName = craftServer.getServer().getProperties().levelName;
@@ -307,7 +307,7 @@ public class Polar {
         craftServer.getServer().addLevel(internal); // Paper - Put world into worldlist before initing the world; move up
         craftServer.getServer().initWorld(internal, worlddata, worlddata, worlddata.worldGenOptions());
 
-        internal.setSpawnSettings(true, true);
+        internal.setSpawnSettings(true);
         // Paper - Put world into worldlist before initing the world; move up
 
         craftServer.getServer().prepareLevels(internal.getChunkSource().chunkMap.progressListener, internal);
