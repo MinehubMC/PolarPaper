@@ -14,6 +14,7 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtException;
+import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.ReportedNbtException;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -48,6 +49,7 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.craftbukkit.CraftChunk;
 import org.bukkit.craftbukkit.CraftServer;
+import org.bukkit.craftbukkit.entity.CraftEntity;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.generator.BiomeProvider;
@@ -55,6 +57,8 @@ import org.bukkit.generator.ChunkGenerator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -448,6 +452,9 @@ public class Polar {
         for (Map.Entry<BlockPos, BlockEntity> entry : blockEntities) {
             BlockPos blockPos = entry.getKey();
             BlockEntity blockEntity = entry.getValue();
+
+            if (blockPos == null || blockEntity == null) continue;
+
             CompoundTag compoundTag = blockEntity.saveWithFullMetadata(registryAccess);
 
             CompoundBinaryTag nbt;
@@ -471,7 +478,27 @@ public class Polar {
         List<PolarChunk.Entity> polarEntities = new ArrayList<>();
         for (@NotNull Entity entity : entities) {
             if (entity.getType() == EntityType.PLAYER) continue;
-            byte[] entityBytes = Bukkit.getUnsafe().serializeEntity(entity);
+
+            CompoundTag compound = new CompoundTag();
+            ((CraftEntity) entity).getHandle().serializeEntity(compound);
+            String id = compound.getString("id");
+            if (id.isBlank()) {
+                LOGGER.warning("Failed to serialize entity type " + entity.getType().name() + " at " + entity.getLocation().toString());
+                continue;
+            }
+            compound.putInt("DataVersion", Bukkit.getUnsafe().getDataVersion());
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            DataOutputStream dataOutput = new DataOutputStream(outputStream);
+            try {
+                NbtIo.write(
+                        compound,
+                        dataOutput
+                );
+                outputStream.flush();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+            byte[] entityBytes = outputStream.toByteArray();
 
             Location entityPos = entity.getLocation();
             polarEntities.add(new PolarChunk.Entity(
