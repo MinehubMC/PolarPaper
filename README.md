@@ -12,6 +12,8 @@ Polar is a world format very similar to Slime, with the same advantages:
 
 Polar is also a single plugin without requiring classloaders or a Paper fork
 
+### [Download the latest jar](https://github.com/MinehubMC/PolarPaper/releases/latest)
+
 Polar was originally developed for [Minestom](https://github.com/Minestom/Minestom), see the Minestom loader [here](https://github.com/hollow-cube/polar)
 
 ## Permissions
