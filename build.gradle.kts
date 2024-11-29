@@ -2,7 +2,6 @@ plugins {
     java
     `maven-publish`
 
-    alias(libs.plugins.shadow)
     alias(libs.plugins.paperweight.userdev)
     alias(libs.plugins.run)
     alias(libs.plugins.resource.paper)
@@ -24,7 +23,7 @@ dependencies {
 
 tasks {
     assemble {
-        dependsOn(shadowJar, reobfJar)
+        dependsOn(reobfJar)
     }
 
     runServer {

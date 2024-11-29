@@ -1,7 +1,6 @@
 [versions]
 zstd = "1.5.6-8"
 adventure = "4.17.0"
-shadow = "8.3.5"
 paperweight = "1.7.2"
 run = "2.3.1"
 resource = "1.2.0"
@@ -12,7 +11,6 @@ zstd = { module = "com.github.luben:zstd-jni", version.ref = "zstd" }
 adventure-nbt = { module = "net.kyori:adventure-nbt", version.ref = "adventure" }
 
 [plugins]
-shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 paperweight-userdev = { id = "io.papermc.paperweight.userdev", version.ref = "paperweight" }
 run = { id = "xyz.jpenilla.run-paper", version.ref = "run" }
 resource-paper = { id = "xyz.jpenilla.resource-factory-paper-convention", version.ref = "resource" }
