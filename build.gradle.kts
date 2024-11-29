@@ -1,29 +1,34 @@
-import org.gradle.api.publish.maven.MavenPublication
-
 plugins {
-    id 'java'
-    id 'maven-publish'
+    java
+    `maven-publish`
 
-    id 'com.gradleup.shadow' version '8.3.5'
-    id("io.papermc.paperweight.userdev") version "1.7.2"
+    alias(libs.plugins.shadow)
+    alias(libs.plugins.paperweight.userdev)
+    alias(libs.plugins.run)
 }
 
-group = 'live.minehub'
-version = '1.0.0'
+group = "live.minehub"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    paperweight.paperDevBundle("1.21.3-R0.1-SNAPSHOT")
-    implementation 'com.github.luben:zstd-jni:1.5.6-8'
-    implementation 'net.kyori:adventure-nbt:4.17.0'
+    paperweight.paperDevBundle("${libs.versions.minecraft.get()}-R0.1-SNAPSHOT")
+
+    implementation(libs.zstd)
+    implementation(libs.adventure.nbt)
 }
 
-tasks.assemble {
-    dependsOn(tasks.named("shadowJar"))
-    dependsOn(tasks.reobfJar)
+tasks {
+    assemble {
+        dependsOn(shadowJar, reobfJar)
+    }
+
+    runServer {
+        minecraftVersion(libs.versions.minecraft.get())
+    }
 }
 
 publishing {
@@ -44,12 +49,12 @@ publishing {
     }
 
     publications {
-        shadow(MavenPublication) { publication ->
-            from components.java
+        create<MavenPublication>("shadow") {
+            from(components["java"])
         }
     }
 }
 
-static boolean isAction() {
+fun isAction(): Boolean {
     return System.getenv("CI") != null
 }
