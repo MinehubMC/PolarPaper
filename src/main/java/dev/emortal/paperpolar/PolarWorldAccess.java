@@ -1,7 +1,7 @@
 package dev.emortal.paperpolar;
 
 import com.google.common.io.ByteArrayDataOutput;
-import org.bukkit.Chunk;
+import org.bukkit.ChunkSnapshot;
 import org.bukkit.generator.ChunkGenerator;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
@@ -61,7 +61,7 @@ public interface PolarWorldAccess {
      * @param chunk The chunk being saved
      * @param userData A buffer to write user data to save
      */
-    default void saveChunkData(@NotNull Chunk chunk, @NotNull ByteArrayDataOutput userData) {
+    default void saveChunkData(@NotNull ChunkSnapshot chunk, @NotNull ByteArrayDataOutput userData) {
     }
 
     @ApiStatus.Experimental
@@ -69,38 +69,7 @@ public interface PolarWorldAccess {
     }
 
     @ApiStatus.Experimental
-    default void saveHeightmaps(@NotNull Chunk chunk, int[][] heightmaps) {
+    default void saveHeightmaps(@NotNull ChunkSnapshot chunk, int[][] heightmaps) {
     }
-
-//    /**
-//     * Called when a chunk is being loaded by a {@link PolarLoader} to convert biome ids back to instances.
-//     * <br/><br/>
-//     * It is valid to change the behavior as long as a biome is returned in all cases (i.e. have a default).
-//     * <br/><br/>
-//     * Biomes are cached by the loader per loader instance, so there will only be a single call per loader, even over many chunks.
-//     *
-//     * @param name The namespace ID of the biome, eg minecraft:plains
-//     * @return The biome instance
-//     */
-//    default @NotNull DynamicRegistry.Key<Biome> getBiome(@NotNull String name) {
-//        var biomeRegistry = MinecraftServer.getBiomeRegistry();
-//        var key = DynamicRegistry.Key.<Biome>of(name);
-//        var biome = biomeRegistry.get(key);
-//        if (biome == null) {
-//            PolarLoader.logger.error("Failed to find biome: {}", name);
-//            return Biome.PLAINS;
-//        }
-//        return key;
-//    }
-
-//    default @NotNull String getBiomeName(int id) {
-//        var biomeRegistry = MinecraftServer.getBiomeRegistry();
-//        var biome = biomeRegistry.getKey(id);
-//        if (biome == null) {
-//            PolarLoader.logger.error("Failed to find biome: {}", id);
-//            return Biome.PLAINS.name();
-//        }
-//        return biome.name();
-//    }
 
 }

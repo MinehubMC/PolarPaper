@@ -10,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class PolarWorld {
 
@@ -40,6 +41,7 @@ public class PolarWorld {
 
     // Chunk data
     private final Long2ObjectMap<PolarChunk> chunks = new Long2ObjectOpenHashMap<>();
+    private final ReentrantReadWriteLock chunksLock = new ReentrantReadWriteLock();
 
     public PolarWorld() {
         this(LATEST_VERSION, 3953, DEFAULT_COMPRESSION, (byte) -4, (byte) 19, new byte[0], List.of());
@@ -112,11 +114,16 @@ public class PolarWorld {
     }
 
     public @Nullable PolarChunk chunkAt(int x, int z) {
-        return chunks.getOrDefault(CoordConversion.chunkIndex(x, z), null);
+        chunksLock.readLock().lock();
+        PolarChunk chunk = chunks.getOrDefault(CoordConversion.chunkIndex(x, z), null);
+        chunksLock.readLock().unlock();
+        return chunk;
     }
 
     public void updateChunkAt(int x, int z, @NotNull PolarChunk chunk) {
+        chunksLock.writeLock().lock();
         chunks.put(CoordConversion.chunkIndex(x, z), chunk);
+        chunksLock.writeLock().unlock();
     }
 
     public @NotNull Collection<PolarChunk> chunks() {

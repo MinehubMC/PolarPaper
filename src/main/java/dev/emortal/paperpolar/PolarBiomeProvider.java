@@ -1,12 +1,15 @@
 package dev.emortal.paperpolar;
 
 import dev.emortal.paperpolar.util.CoordConversion;
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
+import net.kyori.adventure.key.Key;
+import org.bukkit.Registry;
 import org.bukkit.block.Biome;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.WorldInfo;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -26,7 +29,7 @@ public class PolarBiomeProvider extends BiomeProvider {
         int chunkX = CoordConversion.globalToChunk(x);
         int chunkZ = CoordConversion.globalToChunk(z);
 
-        PolarChunk chunk = polarWorld.chunkAt(chunkX, chunkZ); // TODO: double check thread safety
+        PolarChunk chunk = polarWorld.chunkAt(chunkX, chunkZ);
         if (chunk == null) return Biome.PLAINS;
 
         int sectionIndex = ((int)Math.floor((double)y / CHUNK_SECTION_SIZE)) + 4; // -4 = min section
@@ -53,12 +56,14 @@ public class PolarBiomeProvider extends BiomeProvider {
 
     @Override
     public @NotNull List<Biome> getBiomes(@NotNull WorldInfo worldInfo) {
-        return Arrays.stream(Biome.values()).filter(a -> a != Biome.CUSTOM).toList();
+        Registry<Biome> registry = RegistryAccess.registryAccess().getRegistry(RegistryKey.BIOME);
+        return registry.stream().toList();
     }
 
     private Biome parseBiome(String s) {
+        Registry<Biome> registry = RegistryAccess.registryAccess().getRegistry(RegistryKey.BIOME);
         try {
-            return Biome.valueOf(s.split(":")[1].toUpperCase());
+            return registry.get(Key.key(s));
         } catch (IllegalArgumentException e) {
             LOGGER.warning("Failed to parse biome " + s);
             return Biome.PLAINS;

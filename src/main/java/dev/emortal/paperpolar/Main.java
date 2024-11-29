@@ -4,11 +4,12 @@ import dev.emortal.paperpolar.commands.PolarCommand;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,12 +26,9 @@ public class Main extends JavaPlugin {
             PolarCommand.register(commands);
         });
 
-
         getServer().getPluginManager().registerEvents(new PolarListener(), this);
 
         Path pluginFolder = Path.of(getDataFolder().getAbsolutePath());
-        Path configFilePath = pluginFolder.resolve("config.yml");
-        File configFile = configFilePath.toFile();
         Path worldsFolder = pluginFolder.resolve("worlds");
 
         worldsFolder.toFile().mkdirs();
@@ -43,17 +41,9 @@ public class Main extends JavaPlugin {
                     return;
                 }
 
-                String worldName = path.getFileName().toString().split(".polar")[0];
+                String worldName = path.getFileName().toString().split("\\.polar")[0];
 
                 initWorld(worldName, getConfig());
-
-                byte[] bytes;
-                try {
-                    getConfig().save(configFile);
-                    bytes = Files.readAllBytes(path);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
 
                 Config config = Config.readFromConfig(getConfig(), worldName);
                 if (config == null) {
@@ -65,8 +55,7 @@ public class Main extends JavaPlugin {
 
                 getLogger().info("Loading polar world: " + worldName);
 
-                PolarWorld polarWorld = PolarReader.read(bytes);
-                Polar.loadWorld(polarWorld, worldName);
+                Polar.loadWorldConfigSource(worldName);
             });
         } catch (IOException e) {
             getLogger().warning("Failed to load world on startup");
@@ -75,16 +64,25 @@ public class Main extends JavaPlugin {
     }
 
     public static void initWorld(String worldName, FileConfiguration config) {
-        if (config.isSet("worlds." + worldName)) return;
+        if (Polar.isInConfig(worldName)) return;
 
         Config.writeToConfig(config, worldName, Config.DEFAULT);
     }
 
     @Override
     public void onDisable() {
-        // TODO: save worlds that are configured to autosave
-    }
+        // Save worlds that are configured to autosave
+        for (World world : Bukkit.getWorlds()) {
+            PolarWorld pw = PolarWorld.fromWorld(world);
+            if (pw == null) continue;
+            Config config = Config.readFromConfig(getConfig(), world.getName());
+            if (config == null) config = Config.DEFAULT;
 
+            if (!config.autoSave()) continue;
+
+            Polar.saveWorldConfigSource(world);
+        }
+    }
 
     public static Main getPlugin() {
         return Main.getPlugin(Main.class);

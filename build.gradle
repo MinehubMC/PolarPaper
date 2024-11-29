@@ -16,7 +16,7 @@ repositories {
 }
 
 dependencies {
-    paperweight.paperDevBundle("1.21-R0.1-SNAPSHOT")
+    paperweight.paperDevBundle("1.21.3-R0.1-SNAPSHOT")
     implementation 'com.github.luben:zstd-jni:1.5.6-8'
     implementation 'net.kyori:adventure-nbt:4.17.0'
 }
