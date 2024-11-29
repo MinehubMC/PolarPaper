@@ -1,5 +1,0 @@
-name: PolarLoader
-version: '1.0'
-main: dev.emortal.paperpolar.Main
-description: Polar world format for Paper
-api-version: '1.21'

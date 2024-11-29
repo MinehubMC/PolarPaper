@@ -3,7 +3,7 @@ package dev.emortal.paperpolar.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import dev.emortal.paperpolar.Config;
-import dev.emortal.paperpolar.Main;
+import dev.emortal.paperpolar.PaperPolar;
 import dev.emortal.paperpolar.PolarWorld;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import net.kyori.adventure.text.Component;
@@ -46,7 +46,7 @@ public class GotoCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        Config config = Config.readFromConfig(Main.getPlugin().getConfig(), bukkitWorld.getName());
+        Config config = Config.readFromConfig(PaperPolar.getPlugin().getConfig(), bukkitWorld.getName());
 
         sender.sendMessage(
                 Component.text()
