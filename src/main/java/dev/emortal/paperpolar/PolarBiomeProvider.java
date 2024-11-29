@@ -29,7 +29,7 @@ public class PolarBiomeProvider extends BiomeProvider {
         int chunkX = CoordConversion.globalToChunk(x);
         int chunkZ = CoordConversion.globalToChunk(z);
 
-        PolarChunk chunk = polarWorld.chunkAt(chunkX, chunkZ); // TODO: double check thread safety
+        PolarChunk chunk = polarWorld.chunkAt(chunkX, chunkZ);
         if (chunk == null) return Biome.PLAINS;
 
         int sectionIndex = ((int)Math.floor((double)y / CHUNK_SECTION_SIZE)) + 4; // -4 = min section

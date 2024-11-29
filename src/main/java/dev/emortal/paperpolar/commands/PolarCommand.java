@@ -64,8 +64,18 @@ public class PolarCommand {
                                             return builder.buildFuture();
                                         })
                                         .executes(SaveCommand::run)))
-                        .then(
-                                Commands.literal("info")
+                        .then(Commands.literal("load")
+                                .requires(source -> source.getSender().hasPermission("paperpolar.load"))
+                                .executes(ctx -> {
+                                    ctx.getSource().getSender().sendMessage(
+                                            Component.text()
+                                                    .append(Component.text("Usage: /polar load <worldname>", NamedTextColor.RED))
+                                    );
+                                    return Command.SINGLE_SUCCESS;
+                                })
+                                .then(Commands.argument("worldname", StringArgumentType.word())
+                                        .executes(LoadCommand::run)))
+                        .then(Commands.literal("info")
                                 .requires(source -> source.getSender().hasPermission("paperpolar.info"))
                                 .executes(InfoCommand::run)
                         )

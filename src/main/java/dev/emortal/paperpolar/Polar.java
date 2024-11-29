@@ -58,10 +58,8 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
 public class Polar {
@@ -70,6 +68,10 @@ public class Polar {
 
     private Polar() {
 
+    }
+
+    public static boolean isInConfig(@NotNull String worldName) {
+        return Main.getPlugin().getConfig().isSet("worlds." + worldName);
     }
 
     /**
@@ -113,6 +115,37 @@ public class Polar {
 //        newWorld.setAutoSave(config.autoSave());
     }
 
+    public static boolean loadWorldConfigSource(String worldName) {
+        FileConfiguration fileConfig = Main.getPlugin().getConfig();
+        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
+
+        switch (config.source()) {
+            case "file" -> {
+                Path pluginFolder = Path.of(Main.getPlugin().getDataFolder().getAbsolutePath());
+                Path worldsFolder = pluginFolder.resolve("worlds");
+
+                Path worldPath = worldsFolder.resolve(worldName + ".polar");
+                if (!Files.exists(worldPath)) return false;
+
+                try {
+                    byte[] bytes = Files.readAllBytes(worldPath);
+                    PolarWorld polarWorld = PolarReader.read(bytes);
+                    loadWorld(polarWorld, worldName);
+                    return true;
+                } catch (IOException e) {
+                    LOGGER.warning("Failed to read polar world from file");
+                    LOGGER.warning(e.toString());
+                    return false;
+                }
+            }
+            // TODO: mysql?
+            default -> {
+                LOGGER.warning("Source " + config.source() + " not recognised");
+                return false;
+            }
+        }
+    }
+
     public static boolean saveWorldConfigSource(World world) {
         PolarWorld polarWorld = PolarWorld.fromWorld(world);
         if (polarWorld == null) return false;
@@ -122,8 +155,7 @@ public class Polar {
         String worldName = world.getName();
 
         FileConfiguration fileConfig = Main.getPlugin().getConfig();
-        if (!fileConfig.isSet("worlds." + worldName)) return false; // Save world from config but config is not set
-        Config config = Config.readFromConfig(fileConfig, worldName);
+        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         if (config == null) {
             LOGGER.warning("Polar world '" + worldName + "' has an invalid config, skipping.");
             return false;
@@ -138,6 +170,7 @@ public class Polar {
             }
             // TODO: mysql?
             default -> {
+                LOGGER.warning("Source " + config.source() + " not recognised");
                 return false;
             }
         }
@@ -151,6 +184,10 @@ public class Polar {
      */
     public static boolean saveWorld(World world, Path path) {
         byte[] worldBytes = saveWorld(world);
+        return saveWorld(worldBytes, path);
+    }
+
+    public static boolean saveWorld(byte[] worldBytes, Path path) {
         if (worldBytes == null) return false;
         try {
             Files.write(path, worldBytes);
@@ -172,9 +209,12 @@ public class Polar {
         PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
         if (polarGenerator == null) return null;
 
+        List<CompletableFuture<Void>> futures = new ArrayList<>(polarWorld.chunks().size());
         for (PolarChunk chunk : polarWorld.chunks()) {
-            updateChunkData(polarWorld, polarGenerator.getWorldAccess(), world.getChunkAt(chunk.x(), chunk.z())); // TODO: async?
+            CompletableFuture<Void> future = updateChunkData(polarWorld, polarGenerator.getWorldAccess(), world.getChunkAt(chunk.x(), chunk.z()), chunk.x(), chunk.z());
+            futures.add(future);
         }
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         return PolarWriter.write(polarWorld);
     }
@@ -191,20 +231,12 @@ public class Polar {
         ChunkGenerator generator = creator.generator();
         BiomeProvider biomeProvider = creator.biomeProvider();
 
-        ResourceKey<LevelStem> actualDimension;
-        switch (creator.environment()) {
-            case NORMAL:
-                actualDimension = LevelStem.OVERWORLD;
-                break;
-            case NETHER:
-                actualDimension = LevelStem.NETHER;
-                break;
-            case THE_END:
-                actualDimension = LevelStem.END;
-                break;
-            default:
-                throw new IllegalArgumentException("Illegal dimension (" + creator.environment() + ")");
-        }
+        ResourceKey<LevelStem> actualDimension = switch (creator.environment()) {
+            case NORMAL -> LevelStem.OVERWORLD;
+            case NETHER -> LevelStem.NETHER;
+            case THE_END -> LevelStem.END;
+            default -> throw new IllegalArgumentException("Illegal dimension (" + creator.environment() + ")");
+        };
 
         LevelStorageSource.LevelStorageAccess worldSession;
         try {
@@ -318,22 +350,31 @@ public class Polar {
         return internal.getWorld();
     }
 
-    public static void updateChunkData(PolarWorld polarWorld, PolarWorldAccess worldAccess, Chunk chunk) {
-        updateChunkData(polarWorld, worldAccess, chunk, chunk.getX(), chunk.getZ());
-    }
-    public static void updateChunkData(PolarWorld polarWorld, PolarWorldAccess worldAccess, Chunk chunk, int newChunkX, int newChunkZ) {
+    public static CompletableFuture<Void> updateChunkData(PolarWorld polarWorld, PolarWorldAccess worldAccess, Chunk chunk, int newChunkX, int newChunkZ) {
         CraftChunk craftChunk = (CraftChunk) chunk;
+        ChunkSnapshot snapshot = craftChunk.getChunkSnapshot(true, true, false, true);
+        int minHeight = chunk.getWorld().getMinHeight();
+        int maxHeight = chunk.getWorld().getMaxHeight();
         LevelChunk chunkAccess = (LevelChunk) craftChunk.getHandle(ChunkStatus.FULL);
-        ChunkSnapshot snapshot = chunk.getChunkSnapshot(false, true, false, true);
+        HashSet<Map.Entry<BlockPos, BlockEntity>> blockEntities = new HashSet<>(chunkAccess.blockEntities.entrySet());
+        Entity[] entities = Arrays.copyOf(craftChunk.getEntities(), craftChunk.getEntities().length);
 
-        List<PolarChunk.BlockEntity> blockEntities = new ArrayList<>();
+        var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
 
-        int worldHeight = chunk.getWorld().getMaxHeight() - chunk.getWorld().getMinHeight();
+        return CompletableFuture.runAsync(() -> {
+            updateChunkData(polarWorld, worldAccess, snapshot, newChunkX, newChunkZ, minHeight, maxHeight, blockEntities, entities, registryAccess);
+        });
+    }
+
+    public static void updateChunkData(PolarWorld polarWorld, PolarWorldAccess worldAccess, ChunkSnapshot snapshot, int newChunkX, int newChunkZ, int minHeight, int maxHeight, Set<Map.Entry<BlockPos, BlockEntity>> blockEntities, Entity[] entities, RegistryAccess.Frozen registryAccess) {
+        List<PolarChunk.BlockEntity> polarBlockEntities = new ArrayList<>();
+
+        int worldHeight = maxHeight - minHeight + 1; // I hate paper
         int sectionCount = worldHeight / 16;
 
         PolarSection[] sections = new PolarSection[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
-            int sectionY = chunk.getWorld().getMinHeight() + i * 16;
+            int sectionY = minHeight + i * 16;
 
             // Blocks
             int[] blockData = new int[4096];
@@ -341,8 +382,9 @@ public class Polar {
 
             for (int x = 0; x < 16; x++) {
                 for (int y = 0; y < 16; y++) {
+                    int sectionLocalY = sectionY + y;
+
                     for (int z = 0; z < 16; z++) {
-                        int sectionLocalY = sectionY + y;
                         int blockIndex = x + y * 16 * 16 + z * 16;
 
                         BlockData data = snapshot.getBlockData(x, sectionLocalY, z);
@@ -387,9 +429,7 @@ public class Polar {
             );
         }
 
-        var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
-
-        for (Map.Entry<BlockPos, BlockEntity> entry : chunkAccess.blockEntities.entrySet()) {
+        for (Map.Entry<BlockPos, BlockEntity> entry : blockEntities) {
             BlockPos blockPos = entry.getKey();
             BlockEntity blockEntity = entry.getValue();
             CompoundTag compoundTag = blockEntity.saveWithFullMetadata(registryAccess);
@@ -402,18 +442,18 @@ public class Polar {
             }
 
             int index = CoordConversion.chunkBlockIndex(blockPos.getX(), blockPos.getY(), blockPos.getZ());
-            blockEntities.add(new PolarChunk.BlockEntity(index, nbt.getString("id"), nbt));
+            polarBlockEntities.add(new PolarChunk.BlockEntity(index, nbt.getString("id"), nbt));
         }
 
         int[][] heightMaps = new int[PolarChunk.MAX_HEIGHTMAPS][0];
-        worldAccess.saveHeightmaps(chunk, heightMaps);
+        worldAccess.saveHeightmaps(snapshot, heightMaps);
 
         ByteArrayDataOutput userDataOutput = ByteStreams.newDataOutput();
-        worldAccess.saveChunkData(chunk, userDataOutput);
+        worldAccess.saveChunkData(snapshot, userDataOutput);
         byte[] userData = userDataOutput.toByteArray();
 
         List<PolarChunk.Entity> polarEntities = new ArrayList<>();
-        for (@NotNull Entity entity : chunk.getEntities()) {
+        for (@NotNull Entity entity : entities) {
             if (entity.getType() == EntityType.PLAYER) continue;
             byte[] entityBytes = Bukkit.getUnsafe().serializeEntity(entity);
 
@@ -435,7 +475,7 @@ public class Polar {
                         newChunkX,
                         newChunkZ,
                         sections,
-                        blockEntities,
+                        polarBlockEntities,
                         polarEntities,
                         heightMaps,
                         userData

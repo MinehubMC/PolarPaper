@@ -16,6 +16,9 @@ import org.bukkit.entity.Player;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @SuppressWarnings("UnstableApiUsage")
 public class ConvertCommand {
@@ -66,9 +69,7 @@ public class ConvertCommand {
 
         ctx.getSource().getSender().sendMessage(
                 Component.text()
-                        .append(Component.text("Converting '", NamedTextColor.AQUA))
-                        .append(Component.text(worldName, NamedTextColor.AQUA))
-                        .append(Component.text("'...", NamedTextColor.AQUA))
+                        .append(Component.text("Loading chunks...", NamedTextColor.AQUA))
         );
 
         FileConfiguration config = Main.getPlugin().getConfig();
@@ -77,61 +78,79 @@ public class ConvertCommand {
         PolarWorld newPolarWorld = new PolarWorld();
 
         Chunk playerChunk = player.getChunk();
+
+        List<CompletableFuture<Chunk>> futures = new ArrayList<>();
         for (int x = -chunkRadius; x < chunkRadius; x++) {
             for (int z = -chunkRadius; z < chunkRadius; z++) {
-                Polar.updateChunkData(
-                        newPolarWorld,
-                        PolarWorldAccess.DEFAULT,
-                        bukkitWorld.getChunkAt(playerChunk.getX() + x, playerChunk.getZ() + z),
-                        centered ? x : playerChunk.getX() + x,
-                        centered ? z : playerChunk.getZ() + z
-                );
+                CompletableFuture<Chunk> future = bukkitWorld.getChunkAtAsync(playerChunk.getX() + x, playerChunk.getZ() + z);
+                futures.add(future);
             }
         }
-
-        ctx.getSource().getSender().sendMessage(
-                Component.text()
-                        .append(Component.text("Saving '", NamedTextColor.AQUA))
-                        .append(Component.text(worldName, NamedTextColor.AQUA))
-                        .append(Component.text("'...", NamedTextColor.AQUA))
-        );
-
-        byte[] polarBytes = PolarWriter.write(newPolarWorld);
-
-        Path pluginFolder = Path.of(Main.getPlugin().getDataFolder().getAbsolutePath());
-        Path worldsFolder = pluginFolder.resolve("worlds");
-        try {
-            Files.write(worldsFolder.resolve(newWorldName + ".polar"), polarBytes);
-        } catch (IOException e) {
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
-                            .append(Component.text("Failed to convert '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text("Converting '", NamedTextColor.AQUA))
+                            .append(Component.text(newWorldName, NamedTextColor.AQUA))
+                            .append(Component.text("'...", NamedTextColor.AQUA))
             );
 
-            return Command.SINGLE_SUCCESS;
-        }
+            List<CompletableFuture<Void>> futures2 = new ArrayList<>();
+            for (int x = -chunkRadius; x < chunkRadius; x++) {
+                for (int z = -chunkRadius; z < chunkRadius; z++) {
+                    CompletableFuture<Void> future2 = Polar.updateChunkData(
+                            newPolarWorld,
+                            PolarWorldAccess.DEFAULT,
+                            bukkitWorld.getChunkAt(playerChunk.getX() + x, playerChunk.getZ() + z),
+                            centered ? x : playerChunk.getX() + x,
+                            centered ? z : playerChunk.getZ() + z
+                    );
 
-        ctx.getSource().getSender().sendMessage(
-                Component.text()
-                        .append(Component.text("Saved '", NamedTextColor.AQUA))
-                        .append(Component.text(worldName, NamedTextColor.AQUA))
-                        .append(Component.text("'", NamedTextColor.AQUA))
-        );
+                    futures2.add(future2);
+                }
+            }
 
-        ctx.getSource().getSender().sendMessage(
-                Component.text()
-                        .append(Component.text("Loading '", NamedTextColor.AQUA))
-                        .append(Component.text(newWorldName, NamedTextColor.AQUA))
-                        .append(Component.text("'...", NamedTextColor.AQUA))
-        );
-        Polar.loadWorld(newPolarWorld, newWorldName);
-        ctx.getSource().getSender().sendMessage(
-                Component.text()
-                        .append(Component.text("Loaded '", NamedTextColor.AQUA))
-                        .append(Component.text(newWorldName, NamedTextColor.AQUA))
-                        .append(Component.text("'", NamedTextColor.AQUA))
-        );
+            CompletableFuture.allOf(futures2.toArray(new CompletableFuture[0])).thenRun(() -> {
+                ctx.getSource().getSender().sendMessage(
+                        Component.text()
+                                .append(Component.text("Saving '", NamedTextColor.AQUA))
+                                .append(Component.text(newWorldName, NamedTextColor.AQUA))
+                                .append(Component.text("'...", NamedTextColor.AQUA))
+                );
+
+                byte[] polarBytes = PolarWriter.write(newPolarWorld);
+
+                Path pluginFolder = Path.of(Main.getPlugin().getDataFolder().getAbsolutePath());
+                Path worldsFolder = pluginFolder.resolve("worlds");
+                try {
+                    Files.write(worldsFolder.resolve(newWorldName + ".polar"), polarBytes);
+                } catch (IOException e) {
+                    ctx.getSource().getSender().sendMessage(
+                            Component.text()
+                                    .append(Component.text("Failed to convert '", NamedTextColor.RED))
+                                    .append(Component.text(worldName, NamedTextColor.RED))
+                    );
+                }
+
+                ctx.getSource().getSender().sendMessage(
+                        Component.text()
+                                .append(Component.text("Done converting '", NamedTextColor.AQUA))
+                                .append(Component.text(worldName, NamedTextColor.AQUA))
+                                .append(Component.text("'. ", NamedTextColor.AQUA))
+                                .append(Component.text("Use ", NamedTextColor.AQUA))
+                                .append(Component.text("/polar load ", NamedTextColor.WHITE))
+                                .append(Component.text(newWorldName, NamedTextColor.WHITE))
+                                .append(Component.text(" to load the world now", NamedTextColor.AQUA))
+                );
+            }).exceptionally(throwable -> {
+                Main.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
+                Main.getPlugin().getLogger().warning(throwable.getMessage());
+                return null;
+            });
+        }).exceptionally(throwable -> {
+            Main.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
+            Main.getPlugin().getLogger().warning(throwable.getMessage());
+            return null;
+        });
 
         return Command.SINGLE_SUCCESS;
     }
