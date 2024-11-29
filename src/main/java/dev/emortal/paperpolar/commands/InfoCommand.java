@@ -2,6 +2,9 @@ package dev.emortal.paperpolar.commands;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
+import dev.emortal.paperpolar.Config;
+import dev.emortal.paperpolar.Main;
+import dev.emortal.paperpolar.PolarChunk;
 import dev.emortal.paperpolar.PolarWorld;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import net.kyori.adventure.text.Component;
@@ -18,7 +21,7 @@ public class InfoCommand {
         if (!(sender instanceof Player player)) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
-                            .append(Component.text("Usage: /polar info (While in a polar world)", NamedTextColor.RED))
+                            .append(Component.text("Usage: /polar info (while in a polar world)", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
         }
@@ -29,10 +32,18 @@ public class InfoCommand {
         if (polarWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
-                            .append(Component.text("Usage: /polar info (While in a polar world)", NamedTextColor.RED))
+                            .append(Component.text("Usage: /polar info (while in a polar world)", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
         }
+
+        int savedEntities = 0;
+        for (PolarChunk chunk : polarWorld.chunks()) {
+            savedEntities += chunk.entities().size();
+        }
+
+        Config config = Config.readFromConfig(Main.getPlugin().getConfig(), bukkitWorld.getName());
+        if (config == null) config = Config.DEFAULT;
 
         ctx.getSource().getSender().sendMessage(
                 Component.text()
@@ -40,11 +51,26 @@ public class InfoCommand {
                         .append(Component.text(bukkitWorld.getName(), NamedTextColor.AQUA))
                         .append(Component.text(":", NamedTextColor.AQUA))
                         .append(Component.newline())
-                        .append(Component.text("Entities: ", NamedTextColor.AQUA))
-                        .append(Component.text(bukkitWorld.getEntities().size(), NamedTextColor.AQUA))
-                // TODO: finish
-
-                // version
+                        .append(Component.text(" Version: ", NamedTextColor.AQUA))
+                        .append(Component.text(polarWorld.version(), NamedTextColor.AQUA))
+                        .append(Component.text(" (", NamedTextColor.AQUA))
+                        .append(Component.text(polarWorld.dataVersion(), NamedTextColor.AQUA))
+                        .append(Component.text(")", NamedTextColor.AQUA))
+                        .append(Component.newline())
+                        .append(Component.text(" Compression: ", NamedTextColor.AQUA))
+                        .append(Component.text(polarWorld.compression().name(), NamedTextColor.AQUA))
+                        .append(Component.newline())
+                        .append(Component.text(" Source: ", NamedTextColor.AQUA))
+                        .append(Component.text(config.source(), NamedTextColor.AQUA))
+                        .append(Component.newline())
+                        .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
+                        .append(Component.text(config.spawn(), NamedTextColor.AQUA))
+                        .append(Component.newline())
+                        .append(Component.text(" Saved Entities: ", NamedTextColor.AQUA))
+                        .append(Component.text(savedEntities, NamedTextColor.AQUA))
+                        .append(Component.newline())
+                        .append(Component.text(" Saved Chunks: ", NamedTextColor.AQUA))
+                        .append(Component.text(polarWorld.chunks().size(), NamedTextColor.AQUA))
         );
 
         return Command.SINGLE_SUCCESS;

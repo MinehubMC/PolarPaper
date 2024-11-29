@@ -24,6 +24,10 @@ public class PolarCommand {
                             );
                             return Command.SINGLE_SUCCESS;
                         })
+                        .then(Commands.literal("help")
+                                .requires(source -> source.getSender().hasPermission("paperpolar.help"))
+                                .executes(HelpCommand::run)
+                        )
                         .then(Commands.literal("goto")
                                 .requires(source -> source.getSender().hasPermission("paperpolar.goto"))
                                 .executes(ctx -> {
@@ -44,6 +48,17 @@ public class PolarCommand {
                                             return builder.buildFuture();
                                         })
                                         .executes(GotoCommand::run)))
+                        .then(Commands.literal("createblank")
+                                .requires(source -> source.getSender().hasPermission("paperpolar.createblank"))
+                                .executes(ctx -> {
+                                    ctx.getSource().getSender().sendMessage(
+                                            Component.text()
+                                                    .append(Component.text("Usage: /polar createblank <worldname>", NamedTextColor.RED))
+                                    );
+                                    return Command.SINGLE_SUCCESS;
+                                })
+                                .then(Commands.argument("worldname", StringArgumentType.word())
+                                        .executes(CreateBlankCommand::run)))
                         .then(Commands.literal("save")
                                 .requires(source -> source.getSender().hasPermission("paperpolar.save"))
                                 .executes(ctx -> {
@@ -76,11 +91,21 @@ public class PolarCommand {
                                 .then(Commands.argument("worldname", StringArgumentType.word())
                                         .executes(LoadCommand::run)))
                         .then(Commands.literal("info")
-                                .requires(source -> source.getSender().hasPermission("paperpolar.info"))
+                                .requires(source -> source.getSender().hasPermission("polarpaper.info"))
                                 .executes(InfoCommand::run)
                         )
+                        .then(Commands.literal("setspawn")
+                                .requires(source -> source.getSender().hasPermission("polarpaper.info"))
+                                .executes(ctx -> SetSpawnCommand.run(ctx, false))
+                                .then(Commands.literal("rounded")
+                                        .executes(ctx -> SetSpawnCommand.run(ctx, true)))
+                        )
+                        .then(Commands.literal("list")
+                                .requires(source -> source.getSender().hasPermission("polarpaper.list"))
+                                .executes(ListCommand::run)
+                        )
                         .then(Commands.literal("convert")
-                                    .requires(source -> source.getSender().hasPermission("paperpolar.convert"))
+                                    .requires(source -> source.getSender().hasPermission("polarpaper.convert"))
                                     .executes(ctx -> {
                                         ctx.getSource().getSender().sendMessage(
                                                 Component.text()

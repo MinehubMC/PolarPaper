@@ -129,6 +129,9 @@ public class ConvertCommand {
                                     .append(Component.text("Failed to convert '", NamedTextColor.RED))
                                     .append(Component.text(worldName, NamedTextColor.RED))
                     );
+                    Main.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
+                    Main.getPlugin().getLogger().warning(e.toString());
+                    return;
                 }
 
                 ctx.getSource().getSender().sendMessage(

@@ -7,6 +7,8 @@ import org.bukkit.WorldType;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -61,6 +63,13 @@ public record Config(
             LOGGER.warning("Failed to parse spawn pos: " + spawn);
             return new Location(null, 0, 64, 0);
         }
+    }
+
+    public @Nullable Config setSpawnPos(Location location) {
+        return setSpawnPos(String.format("%s, %s, %s, %s, %s", location.x(), location.y(), location.z(), location.getYaw(), location.getPitch()));
+    }
+    public @Nullable Config setSpawnPosRounded(Location location) {
+        return setSpawnPos(String.format("%s, %s, %s, %s, %s", location.blockX(), location.blockY(), location.blockZ(), Math.round(location.getYaw()), Math.round(location.getPitch())));
     }
 
     public @Nullable Config setSpawnPos(String string) {
@@ -133,6 +142,15 @@ public record Config(
         fileConfig.setInlineComments(prefix + "worldType", List.of("One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES"));
         fileConfig.set(prefix + "environment", config.environment.name());
         fileConfig.setInlineComments(prefix + "environment", List.of("One of: NORMAL, NETHER, THE_END, CUSTOM"));
+
+        Path pluginFolder = Path.of(Main.getPlugin().getDataFolder().getAbsolutePath());
+        Path configFile = pluginFolder.resolve("config.yml");
+        try {
+            fileConfig.save(configFile.toFile());
+        } catch (IOException e) {
+            LOGGER.warning("Failed to save world to config file");
+            LOGGER.warning(e.toString());
+        }
     }
 
 }

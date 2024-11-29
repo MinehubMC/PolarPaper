@@ -75,7 +75,7 @@ public class Polar {
     }
 
     /**
-     * Manually load a polar world
+     * Load a polar world
      * @param world The polar world
      * @param worldName The name for the polar world
      */
@@ -115,6 +115,11 @@ public class Polar {
 //        newWorld.setAutoSave(config.autoSave());
     }
 
+    /**
+     * Load a polar world using the source defined in the config
+     * @param worldName The name of the world to load
+     * @return Whether it was successful
+     */
     public static boolean loadWorldConfigSource(String worldName) {
         FileConfiguration fileConfig = Main.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
@@ -146,6 +151,11 @@ public class Polar {
         }
     }
 
+    /**
+     * Save a polar world using the source defined in the config
+     * @param world The bukkit World
+     * @return Whether it was successful
+     */
     public static boolean saveWorldConfigSource(World world) {
         PolarWorld polarWorld = PolarWorld.fromWorld(world);
         if (polarWorld == null) return false;
@@ -187,6 +197,12 @@ public class Polar {
         return saveWorld(worldBytes, path);
     }
 
+    /**
+     * Save a polar world to a file
+     * @param worldBytes The bytes of the polar world
+     * @param path The path to save the polar to (.polar extension recommended)
+     * @return Whether it was successful
+     */
     public static boolean saveWorld(byte[] worldBytes, Path path) {
         if (worldBytes == null) return false;
         try {

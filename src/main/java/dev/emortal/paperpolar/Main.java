@@ -4,6 +4,8 @@ import dev.emortal.paperpolar.commands.PolarCommand;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -69,9 +71,18 @@ public class Main extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // TODO: save worlds that are configured to autosave
-    }
+        // Save worlds that are configured to autosave
+        for (World world : Bukkit.getWorlds()) {
+            PolarWorld pw = PolarWorld.fromWorld(world);
+            if (pw == null) continue;
+            Config config = Config.readFromConfig(getConfig(), world.getName());
+            if (config == null) config = Config.DEFAULT;
 
+            if (!config.autoSave()) continue;
+
+            Polar.saveWorldConfigSource(world);
+        }
+    }
 
     public static Main getPlugin() {
         return Main.getPlugin(Main.class);
