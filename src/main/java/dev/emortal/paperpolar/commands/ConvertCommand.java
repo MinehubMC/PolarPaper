@@ -72,8 +72,8 @@ public class ConvertCommand {
                         .append(Component.text("Loading chunks...", NamedTextColor.AQUA))
         );
 
-        FileConfiguration config = Main.getPlugin().getConfig();
-        Main.initWorld(newWorldName, config);
+        FileConfiguration config = PaperPolar.getPlugin().getConfig();
+        PaperPolar.initWorld(newWorldName, config);
 
         PolarWorld newPolarWorld = new PolarWorld();
 
@@ -119,7 +119,7 @@ public class ConvertCommand {
 
                 byte[] polarBytes = PolarWriter.write(newPolarWorld);
 
-                Path pluginFolder = Path.of(Main.getPlugin().getDataFolder().getAbsolutePath());
+                Path pluginFolder = Path.of(PaperPolar.getPlugin().getDataFolder().getAbsolutePath());
                 Path worldsFolder = pluginFolder.resolve("worlds");
                 try {
                     Files.write(worldsFolder.resolve(newWorldName + ".polar"), polarBytes);
@@ -129,8 +129,8 @@ public class ConvertCommand {
                                     .append(Component.text("Failed to convert '", NamedTextColor.RED))
                                     .append(Component.text(worldName, NamedTextColor.RED))
                     );
-                    Main.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
-                    Main.getPlugin().getLogger().warning(e.toString());
+                    PaperPolar.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
+                    PaperPolar.getPlugin().getLogger().warning(e.toString());
                     return;
                 }
 
@@ -145,13 +145,13 @@ public class ConvertCommand {
                                 .append(Component.text(" to load the world now", NamedTextColor.AQUA))
                 );
             }).exceptionally(throwable -> {
-                Main.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
-                Main.getPlugin().getLogger().warning(throwable.getMessage());
+                PaperPolar.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
+                PaperPolar.getPlugin().getLogger().warning(throwable.getMessage());
                 return null;
             });
         }).exceptionally(throwable -> {
-            Main.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
-            Main.getPlugin().getLogger().warning(throwable.getMessage());
+            PaperPolar.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
+            PaperPolar.getPlugin().getLogger().warning(throwable.getMessage());
             return null;
         });
 

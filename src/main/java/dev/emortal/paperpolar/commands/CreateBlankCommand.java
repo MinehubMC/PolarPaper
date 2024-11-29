@@ -2,7 +2,7 @@ package dev.emortal.paperpolar.commands;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
-import dev.emortal.paperpolar.Main;
+import dev.emortal.paperpolar.PaperPolar;
 import dev.emortal.paperpolar.Polar;
 import dev.emortal.paperpolar.PolarWorld;
 import dev.emortal.paperpolar.PolarWriter;
@@ -35,7 +35,7 @@ public class CreateBlankCommand {
 
         byte[] polarBytes = PolarWriter.write(new PolarWorld());
 
-        Path pluginFolder = Path.of(Main.getPlugin().getDataFolder().getAbsolutePath());
+        Path pluginFolder = Path.of(PaperPolar.getPlugin().getDataFolder().getAbsolutePath());
         Path worldsFolder = pluginFolder.resolve("worlds");
         try {
             Files.write(worldsFolder.resolve(worldName + ".polar"), polarBytes);
@@ -45,8 +45,8 @@ public class CreateBlankCommand {
                             .append(Component.text("Failed to create world '", NamedTextColor.RED))
                             .append(Component.text(worldName, NamedTextColor.RED))
             );
-            Main.getPlugin().getLogger().warning("Error while creating blank world " + worldName);
-            Main.getPlugin().getLogger().warning(e.toString());
+            PaperPolar.getPlugin().getLogger().warning("Error while creating blank world " + worldName);
+            PaperPolar.getPlugin().getLogger().warning(e.toString());
             return Command.SINGLE_SUCCESS;
         }
 

@@ -71,7 +71,7 @@ public class Polar {
     }
 
     public static boolean isInConfig(@NotNull String worldName) {
-        return Main.getPlugin().getConfig().isSet("worlds." + worldName);
+        return PaperPolar.getPlugin().getConfig().isSet("worlds." + worldName);
     }
 
     /**
@@ -80,7 +80,7 @@ public class Polar {
      * @param worldName The name for the polar world
      */
     public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName) {
-        FileConfiguration fileConfig = Main.getPlugin().getConfig();
+        FileConfiguration fileConfig = PaperPolar.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName);
         if (config == null) {
             LOGGER.warning("Polar world '" + worldName + "' has an invalid config, skipping.");
@@ -121,12 +121,12 @@ public class Polar {
      * @return Whether it was successful
      */
     public static boolean loadWorldConfigSource(String worldName) {
-        FileConfiguration fileConfig = Main.getPlugin().getConfig();
+        FileConfiguration fileConfig = PaperPolar.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
 
         switch (config.source()) {
             case "file" -> {
-                Path pluginFolder = Path.of(Main.getPlugin().getDataFolder().getAbsolutePath());
+                Path pluginFolder = Path.of(PaperPolar.getPlugin().getDataFolder().getAbsolutePath());
                 Path worldsFolder = pluginFolder.resolve("worlds");
 
                 Path worldPath = worldsFolder.resolve(worldName + ".polar");
@@ -164,14 +164,14 @@ public class Polar {
 
         String worldName = world.getName();
 
-        FileConfiguration fileConfig = Main.getPlugin().getConfig();
+        FileConfiguration fileConfig = PaperPolar.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         if (config == null) {
             LOGGER.warning("Polar world '" + worldName + "' has an invalid config, skipping.");
             return false;
         }
 
-        Path pluginFolder = Path.of(Main.getPlugin().getDataFolder().getAbsolutePath());
+        Path pluginFolder = Path.of(PaperPolar.getPlugin().getDataFolder().getAbsolutePath());
         Path worldsFolder = pluginFolder.resolve("worlds");
 
         switch (config.source()) {

@@ -2,13 +2,13 @@ plugins {
     java
     `maven-publish`
 
-    alias(libs.plugins.shadow)
     alias(libs.plugins.paperweight.userdev)
     alias(libs.plugins.run)
+    alias(libs.plugins.resource.paper)
 }
 
 group = "live.minehub"
-version = "1.0.0"
+version = "1.0.1"
 
 repositories {
     mavenCentral()
@@ -17,13 +17,13 @@ repositories {
 dependencies {
     paperweight.paperDevBundle("${libs.versions.minecraft.get()}-R0.1-SNAPSHOT")
 
-    implementation(libs.zstd)
-    implementation(libs.adventure.nbt)
+    compileOnly(libs.zstd)
+    compileOnly(libs.adventure.nbt)
 }
 
 tasks {
     assemble {
-        dependsOn(shadowJar, reobfJar)
+        dependsOn(reobfJar)
     }
 
     runServer {
@@ -57,4 +57,14 @@ publishing {
 
 fun isAction(): Boolean {
     return System.getenv("CI") != null
+}
+
+paperPluginYaml {
+    name = project.name
+    version = project.version.toString()
+    description = "Polar world format for Paper"
+    apiVersion = "1.21"
+
+    main = "dev.emortal.paperpolar.PaperPolar"
+    loader = "dev.emortal.paperpolar.PaperPolarLoader"
 }

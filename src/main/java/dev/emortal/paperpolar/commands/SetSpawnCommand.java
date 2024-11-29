@@ -3,7 +3,7 @@ package dev.emortal.paperpolar.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import dev.emortal.paperpolar.Config;
-import dev.emortal.paperpolar.Main;
+import dev.emortal.paperpolar.PaperPolar;
 import dev.emortal.paperpolar.PolarWorld;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import net.kyori.adventure.text.Component;
@@ -36,13 +36,13 @@ public class SetSpawnCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        Config config = Config.readFromConfig(Main.getPlugin().getConfig(), bukkitWorld.getName());
+        Config config = Config.readFromConfig(PaperPolar.getPlugin().getConfig(), bukkitWorld.getName());
         if (config == null) config = Config.DEFAULT;
 
         Config newConfig = rounded ? config.setSpawnPosRounded(player.getLocation()) : config.setSpawnPos(player.getLocation());
         if (newConfig == null) newConfig = Config.DEFAULT;
 
-        Config.writeToConfig(Main.getPlugin().getConfig(), bukkitWorld.getName(), newConfig);
+        Config.writeToConfig(PaperPolar.getPlugin().getConfig(), bukkitWorld.getName(), newConfig);
 
         ctx.getSource().getSender().sendMessage(
                 Component.text()

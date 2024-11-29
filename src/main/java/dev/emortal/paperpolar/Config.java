@@ -143,7 +143,7 @@ public record Config(
         fileConfig.set(prefix + "environment", config.environment.name());
         fileConfig.setInlineComments(prefix + "environment", List.of("One of: NORMAL, NETHER, THE_END, CUSTOM"));
 
-        Path pluginFolder = Path.of(Main.getPlugin().getDataFolder().getAbsolutePath());
+        Path pluginFolder = Path.of(PaperPolar.getPlugin().getDataFolder().getAbsolutePath());
         Path configFile = pluginFolder.resolve("config.yml");
         try {
             fileConfig.save(configFile.toFile());
