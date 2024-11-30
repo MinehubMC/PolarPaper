@@ -26,6 +26,7 @@ public class ConvertCommand {
     protected static int run(CommandContext<CommandSourceStack> ctx) {
         return center(ctx, false);
     }
+
     protected static int runCentered(CommandContext<CommandSourceStack> ctx) {
         return center(ctx, true);
     }
@@ -73,7 +74,21 @@ public class ConvertCommand {
         );
 
         FileConfiguration config = PaperPolar.getPlugin().getConfig();
-        PaperPolar.initWorld(newWorldName, config);
+
+        Config worldConfig = new Config(
+                Config.DEFAULT.source(),
+                Config.DEFAULT.autoSave(),
+                Config.DEFAULT.loadOnStartup(),
+                player.getLocation(),
+                bukkitWorld.getDifficulty(),
+                bukkitWorld.getAllowMonsters(),
+                bukkitWorld.getAllowAnimals(),
+                bukkitWorld.getPVP(),
+                bukkitWorld.getWorldType(),
+                bukkitWorld.getEnvironment()
+        );
+
+        PaperPolar.initWorld(newWorldName, config, worldConfig);
 
         PolarWorld newPolarWorld = new PolarWorld();
 

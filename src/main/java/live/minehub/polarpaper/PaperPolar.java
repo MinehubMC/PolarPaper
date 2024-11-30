@@ -69,6 +69,16 @@ public final class PaperPolar extends JavaPlugin {
         Config.writeToConfig(config, worldName, Config.DEFAULT);
     }
 
+    /**
+     * Initializes a world with the default config provided through the method.
+     * Used when converting a world to save all its properties.
+     */
+    public static void initWorld(String worldName, FileConfiguration config, Config defaultConfig) {
+        if (Polar.isInConfig(worldName)) return;
+
+        Config.writeToConfig(config, worldName, defaultConfig);
+    }
+
     @Override
     public void onDisable() {
         // Save worlds that are configured to autosave
