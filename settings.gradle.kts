@@ -1,2 +1,2 @@
-rootProject.name = "PolarPaper"
+rootProject.name = "polarpaper"
 
