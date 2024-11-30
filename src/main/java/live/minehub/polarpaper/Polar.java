@@ -144,20 +144,11 @@ public class Polar {
 
                 scheduler.runTaskAsynchronously(PaperPolar.getPlugin(), () -> {
                     try {
-                        long readStart = System.currentTimeMillis();
-                        LOGGER.info("Reading file " + worldPath.getFileName() + "...");
-
                         byte[] bytes = Files.readAllBytes(worldPath);
                         PolarWorld polarWorld = PolarReader.read(bytes);
 
-                        LOGGER.info("Read " + worldPath.getFileName() + " in " + (System.currentTimeMillis() - readStart) + "ms!");
-
-                        long loadStart = System.currentTimeMillis();
-                        LOGGER.info("Creating world " + worldName + "...");
-
                         scheduler.runTask(PaperPolar.getPlugin(), () -> {
                             loadWorld(polarWorld, worldName);
-                            LOGGER.info("Created world " + worldName + " in " + (System.currentTimeMillis() - loadStart) + "ms!");
                             if (onSuccess != null) onSuccess.run();
                         });
                     } catch (IOException e) {
@@ -166,7 +157,6 @@ public class Polar {
                         if (onFailure != null) onFailure.run();
                     }
                 });
-
             }
             // TODO: mysql?
             default -> LOGGER.warning("Source " + config.source() + " not recognised");
