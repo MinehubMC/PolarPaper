@@ -7,8 +7,10 @@ plugins {
     alias(libs.plugins.resource.paper)
 }
 
+val developmentVersion = "1.1.3"
+
+version = getVersion()
 group = "live.minehub"
-version = "1.1.3"
 
 repositories {
     mavenCentral()
@@ -38,11 +40,11 @@ publishing {
             mavenLocal()
         } else {
             maven {
-                name = "GithubPackages"
-                url = uri("https://maven.pkg.github.com/MinehubMC/PolarPaper")
+                name = if (version.toString().endsWith("-SNAPSHOT")) "Snapshots" else "Releases"
+                url = uri("https://repo.minehub.live/" + if (version.toString().endsWith("-SNAPSHOT")) "snapshots" else "releases")
                 credentials {
-                    username = System.getenv("GITHUB_ACTOR")
-                    password = System.getenv("GITHUB_TOKEN")
+                    username = System.getenv("REPO_ACTOR")
+                    password = System.getenv("REPO_TOKEN")
                 }
             }
         }
@@ -57,6 +59,14 @@ publishing {
 
 fun isAction(): Boolean {
     return System.getenv("CI") != null
+}
+
+fun getVersion(): String {
+    return if (!isAction()) {
+        developmentVersion
+    } else {
+        project.findProperty("version") as String
+    }
 }
 
 paperPluginYaml {
