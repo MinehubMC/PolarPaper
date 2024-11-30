@@ -50,21 +50,17 @@ public class CreateBlankCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        boolean successful = Polar.loadWorldConfigSource(worldName);
-        if (!successful) {
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("Failed to load world '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
-            );
-        }
-
-        ctx.getSource().getSender().sendMessage(
-                Component.text()
-                        .append(Component.text("Created blank world '", NamedTextColor.AQUA))
-                        .append(Component.text(worldName, NamedTextColor.AQUA))
-                        .append(Component.text("'", NamedTextColor.AQUA))
-        );
+        Polar.loadWorldConfigSource(worldName, () -> ctx.getSource().getSender().sendMessage(
+                        Component.text()
+                                .append(Component.text("Created blank world '", NamedTextColor.AQUA))
+                                .append(Component.text(worldName, NamedTextColor.AQUA))
+                                .append(Component.text("'", NamedTextColor.AQUA))
+                ),
+                () -> ctx.getSource().getSender().sendMessage(
+                        Component.text()
+                                .append(Component.text("Failed to load world '", NamedTextColor.RED))
+                                .append(Component.text(worldName, NamedTextColor.RED))
+                ));
 
         return Command.SINGLE_SUCCESS;
     }

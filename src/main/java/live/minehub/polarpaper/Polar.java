@@ -54,6 +54,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
+import org.bukkit.scheduler.BukkitScheduler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -80,7 +81,8 @@ public class Polar {
 
     /**
      * Load a polar world
-     * @param world The polar world
+     *
+     * @param world     The polar world
      * @param worldName The name for the polar world
      */
     public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName) {
@@ -106,7 +108,7 @@ public class Polar {
                 .biomeProvider(polarBiomeProvider)
                 .keepSpawnLoaded(TriState.FALSE);
 
-        World newWorld = Polar.createPolarWorld(worldCreator);
+        World newWorld = Polar.createPolarWorld(worldCreator, config.getSpawnPos());
         if (newWorld == null) {
             LOGGER.warning("An error occurred loading polar world '" + worldName + "', skipping.");
             return;
@@ -121,10 +123,11 @@ public class Polar {
 
     /**
      * Load a polar world using the source defined in the config
+     *
      * @param worldName The name of the world to load
      * @return Whether it was successful
      */
-    public static boolean loadWorldConfigSource(String worldName) {
+    public static void loadWorldConfigSource(String worldName, @Nullable Runnable onSuccess, @Nullable Runnable onFailure) {
         FileConfiguration fileConfig = PaperPolar.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
 
@@ -134,29 +137,48 @@ public class Polar {
                 Path worldsFolder = pluginFolder.resolve("worlds");
 
                 Path worldPath = worldsFolder.resolve(worldName + ".polar");
-                if (!Files.exists(worldPath)) return false;
+                if (!Files.exists(worldPath)) return;
 
-                try {
-                    byte[] bytes = Files.readAllBytes(worldPath);
-                    PolarWorld polarWorld = PolarReader.read(bytes);
-                    loadWorld(polarWorld, worldName);
-                    return true;
-                } catch (IOException e) {
-                    LOGGER.warning("Failed to read polar world from file");
-                    LOGGER.warning(e.toString());
-                    return false;
-                }
+                BukkitScheduler scheduler = Bukkit.getScheduler();
+
+                scheduler.runTaskAsynchronously(PaperPolar.getPlugin(), () -> {
+                    try {
+                        long readStart = System.currentTimeMillis();
+                        LOGGER.info("Reading file " + worldPath.getFileName() + "...");
+
+                        byte[] bytes = Files.readAllBytes(worldPath);
+                        PolarWorld polarWorld = PolarReader.read(bytes);
+
+                        LOGGER.info("Read " + worldPath.getFileName() + " in " + (System.currentTimeMillis() - readStart) + "ms!");
+
+                        long loadStart = System.currentTimeMillis();
+                        LOGGER.info("Creating world " + worldName + "...");
+
+                        scheduler.runTask(PaperPolar.getPlugin(), () -> {
+                            loadWorld(polarWorld, worldName);
+                            LOGGER.info("Created world " + worldName + " in " + (System.currentTimeMillis() - loadStart) + "ms!");
+                            if (onSuccess != null) onSuccess.run();
+                        });
+                    } catch (IOException e) {
+                        LOGGER.warning("Failed to read polar world from file");
+                        LOGGER.warning(e.toString());
+                        if (onFailure != null) onFailure.run();
+                    }
+                });
+
             }
             // TODO: mysql?
-            default -> {
-                LOGGER.warning("Source " + config.source() + " not recognised");
-                return false;
-            }
+            default -> LOGGER.warning("Source " + config.source() + " not recognised");
         }
+    }
+
+    public static void loadWorldConfigSource(String worldName) {
+        loadWorldConfigSource(worldName, null, null);
     }
 
     /**
      * Save a polar world using the source defined in the config
+     *
      * @param world The bukkit World
      * @return Whether it was successful
      */
@@ -192,8 +214,9 @@ public class Polar {
 
     /**
      * Save a polar world to a file
+     *
      * @param world The bukkit World
-     * @param path The path to save the polar to (.polar extension recommended)
+     * @param path  The path to save the polar to (.polar extension recommended)
      * @return Whether it was successful
      */
     public static boolean saveWorld(World world, Path path) {
@@ -203,8 +226,9 @@ public class Polar {
 
     /**
      * Save a polar world to a file
+     *
      * @param worldBytes The bytes of the polar world
-     * @param path The path to save the polar to (.polar extension recommended)
+     * @param path       The path to save the polar to (.polar extension recommended)
      * @return Whether it was successful
      */
     public static boolean saveWorld(byte[] worldBytes, Path path) {
@@ -219,6 +243,7 @@ public class Polar {
 
     /**
      * Save a polar world
+     *
      * @param world The bukkit World
      * @return The byte array of the polar world, or null if it was not a polar world
      * @see Polar#saveWorld(World, Path)
@@ -240,6 +265,10 @@ public class Polar {
     }
 
     public static @Nullable World createPolarWorld(WorldCreator creator) {
+        return createPolarWorld(creator, new Location(null, 0, 64, 0));
+    }
+
+    public static @Nullable World createPolarWorld(WorldCreator creator, Location spawnLocation) {
         CraftServer craftServer = (CraftServer) Bukkit.getServer();
 
         // Check if already existing
@@ -357,7 +386,17 @@ public class Polar {
 
 
         craftServer.getServer().addLevel(internal); // Paper - Put world into worldlist before initing the world; move up
-        craftServer.getServer().initWorld(internal, worlddata, worlddata, worlddata.worldGenOptions());
+        // craftServer.getServer().initWorld(internal, worlddata, worlddata, worlddata.worldGenOptions());
+
+        // Recreate initWorld without the crazy for loop that looks for a
+        // spawnpoint, as we already have one from converting the world.
+        internal.getWorldBorder().applySettings(worlddata.getWorldBorder());
+        Bukkit.getPluginManager().callEvent(new org.bukkit.event.world.WorldInitEvent(internal.getWorld())); // CraftBukkit - SPIGOT-5569: Call WorldInitEvent before any chunks are generated
+
+        if (!worlddata.isInitialized()) {
+            worlddata.setSpawn(new BlockPos((int) spawnLocation.x(), (int) spawnLocation.y(), (int) spawnLocation.z()), 0.0f); // get from config (polar)
+            worlddata.setInitialized(true);
+        }
 
         internal.setSpawnSettings(true);
         // Paper - Put world into worldlist before initing the world; move up
@@ -428,7 +467,7 @@ public class Polar {
             for (int x = 0; x < 4; x++) {
                 for (int y = 0; y < 4; y++) {
                     for (int z = 0; z < 4; z++) {
-                        Biome biome = snapshot.getBiome(x*4, sectionY + y*4, z*4);
+                        Biome biome = snapshot.getBiome(x * 4, sectionY + y * 4, z * 4);
                         String biomeString = biome.key().toString();
 
                         int paletteId = biomePalette.indexOf(biomeString);

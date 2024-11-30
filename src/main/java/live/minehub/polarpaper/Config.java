@@ -13,17 +13,32 @@ import java.util.List;
 import java.util.logging.Logger;
 
 public record Config(
-    String source,
-    boolean autoSave,
-    boolean loadOnStartup,
-    String spawn,
-    Difficulty difficulty,
-    boolean allowMonsters,
-    boolean allowAnimals,
-    boolean pvp,
-    WorldType worldType,
-    World.Environment environment
+        String source,
+        boolean autoSave,
+        boolean loadOnStartup,
+        String spawn,
+        Difficulty difficulty,
+        boolean allowMonsters,
+        boolean allowAnimals,
+        boolean pvp,
+        WorldType worldType,
+        World.Environment environment
 ) {
+
+    public Config(
+            String source,
+            boolean autoSave,
+            boolean loadOnStartup,
+            Location spawn,
+            Difficulty difficulty,
+            boolean allowMonsters,
+            boolean allowAnimals,
+            boolean pvp,
+            WorldType worldType,
+            World.Environment environment
+    ) {
+        this(source, autoSave, loadOnStartup, formatSpawn(spawn, false), difficulty, allowMonsters, allowAnimals, pvp, worldType, environment);
+    }
 
     private static final Logger LOGGER = Logger.getLogger(Config.class.getName());
 
@@ -66,10 +81,11 @@ public record Config(
     }
 
     public @Nullable Config setSpawnPos(Location location) {
-        return setSpawnPos(String.format("%s, %s, %s, %s, %s", location.x(), location.y(), location.z(), location.getYaw(), location.getPitch()));
+        return setSpawnPos(formatSpawn(location, false));
     }
+
     public @Nullable Config setSpawnPosRounded(Location location) {
-        return setSpawnPos(String.format("%s, %s, %s, %s, %s", location.blockX(), location.blockY(), location.blockZ(), Math.round(location.getYaw()), Math.round(location.getPitch())));
+        return setSpawnPos(formatSpawn(location, true));
     }
 
     public @Nullable Config setSpawnPos(String string) {
@@ -151,6 +167,15 @@ public record Config(
             LOGGER.warning("Failed to save world to config file");
             LOGGER.warning(e.toString());
         }
+    }
+
+    public static String formatSpawn(Location spawn, boolean rounded) {
+        return String.format("%s, %s, %s, %s, %s",
+                rounded ? spawn.blockX() : spawn.x(),
+                rounded ? spawn.blockY() : spawn.y(),
+                rounded ? spawn.blockZ() : spawn.z(),
+                rounded ? Math.round(spawn.getYaw()) : spawn.getYaw(),
+                rounded ? Math.round(spawn.getPitch()) : spawn.getPitch());
     }
 
 }

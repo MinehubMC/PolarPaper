@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "live.minehub"
-version = "1.1.0"
+version = "1.1.1"
 
 repositories {
     mavenCentral()
@@ -65,6 +65,6 @@ paperPluginYaml {
     description = "Polar world format for Paper"
     apiVersion = "1.21"
 
-    main = "dev.emortal.paperpolar.PaperPolar"
-    loader = "dev.emortal.paperpolar.PaperPolarLoader"
+    main = "live.minehub.polarpaper.PaperPolar"
+    loader = "live.minehub.polarpaper.PaperPolarLoader"
 }
