@@ -76,7 +76,7 @@ public class Polar {
     }
 
     public static boolean isInConfig(@NotNull String worldName) {
-        return PaperPolar.getPlugin().getConfig().isSet("worlds." + worldName);
+        return PolarPaper.getPlugin().getConfig().isSet("worlds." + worldName);
     }
 
     /**
@@ -86,7 +86,7 @@ public class Polar {
      * @param worldName The name for the polar world
      */
     public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName) {
-        FileConfiguration fileConfig = PaperPolar.getPlugin().getConfig();
+        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName);
         if (config == null) {
             LOGGER.warning("Polar world '" + worldName + "' has an invalid config, skipping.");
@@ -129,12 +129,12 @@ public class Polar {
      * @param onFailure Runnable executed when the world fails to be loaded.
      */
     public static void loadWorldConfigSource(String worldName, @Nullable Runnable onSuccess, @Nullable Runnable onFailure) {
-        FileConfiguration fileConfig = PaperPolar.getPlugin().getConfig();
+        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
 
         switch (config.source()) {
             case "file" -> {
-                Path pluginFolder = Path.of(PaperPolar.getPlugin().getDataFolder().getAbsolutePath());
+                Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
                 Path worldsFolder = pluginFolder.resolve("worlds");
 
                 Path worldPath = worldsFolder.resolve(worldName + ".polar");
@@ -142,12 +142,12 @@ public class Polar {
 
                 BukkitScheduler scheduler = Bukkit.getScheduler();
 
-                scheduler.runTaskAsynchronously(PaperPolar.getPlugin(), () -> {
+                scheduler.runTaskAsynchronously(PolarPaper.getPlugin(), () -> {
                     try {
                         byte[] bytes = Files.readAllBytes(worldPath);
                         PolarWorld polarWorld = PolarReader.read(bytes);
 
-                        scheduler.runTask(PaperPolar.getPlugin(), () -> {
+                        scheduler.runTask(PolarPaper.getPlugin(), () -> {
                             loadWorld(polarWorld, worldName);
                             if (onSuccess != null) onSuccess.run();
                         });
@@ -191,7 +191,7 @@ public class Polar {
 
         String worldName = world.getName();
 
-        FileConfiguration fileConfig = PaperPolar.getPlugin().getConfig();
+        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         if (config == null) {
             LOGGER.warning("Polar world '" + worldName + "' has an invalid config, skipping.");
@@ -199,14 +199,14 @@ public class Polar {
             return;
         }
 
-        Path pluginFolder = Path.of(PaperPolar.getPlugin().getDataFolder().getAbsolutePath());
+        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
         Path worldsFolder = pluginFolder.resolve("worlds");
 
         switch (config.source()) {
             case "file" -> {
                 BukkitScheduler scheduler = Bukkit.getScheduler();
 
-                scheduler.runTaskAsynchronously(PaperPolar.getPlugin(), () -> {
+                scheduler.runTaskAsynchronously(PolarPaper.getPlugin(), () -> {
                     saveWorld(world, worldsFolder.resolve(worldName + ".polar")).thenAccept(successful -> {
                         if (successful) {
                             if (onSuccess != null) onSuccess.run();
@@ -279,7 +279,7 @@ public class Polar {
         List<CompletableFuture<Void>> futures = new ArrayList<>(polarWorld.chunks().size());
         for (PolarChunk chunk : polarWorld.chunks()) {
             CompletableFuture<Void> future = world.getChunkAtAsync(chunk.x(), chunk.z())
-                    .thenRun(() -> scheduler.runTaskAsynchronously(PaperPolar.getPlugin(), () -> {
+                    .thenRun(() -> scheduler.runTaskAsynchronously(PolarPaper.getPlugin(), () -> {
                         updateChunkData(polarWorld, polarGenerator.getWorldAccess(), world.getChunkAt(chunk.x(), chunk.z()), chunk.x(), chunk.z());
                     }))
                     .exceptionally(e -> {

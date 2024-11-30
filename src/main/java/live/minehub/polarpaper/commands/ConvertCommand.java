@@ -74,7 +74,7 @@ public class ConvertCommand {
                         .append(Component.text("Loading chunks...", NamedTextColor.AQUA))
         );
 
-        FileConfiguration config = PaperPolar.getPlugin().getConfig();
+        FileConfiguration config = PolarPaper.getPlugin().getConfig();
 
         Config worldConfig = new Config(
                 Config.DEFAULT.source(),
@@ -89,7 +89,7 @@ public class ConvertCommand {
                 bukkitWorld.getEnvironment()
         );
 
-        PaperPolar.initWorld(newWorldName, config, worldConfig);
+        PolarPaper.initWorld(newWorldName, config, worldConfig);
 
         PolarWorld newPolarWorld = new PolarWorld();
 
@@ -119,7 +119,7 @@ public class ConvertCommand {
 
                     int finalX = x;
                     int finalZ = z;
-                    scheduler.runTaskAsynchronously(PaperPolar.getPlugin(), () -> {
+                    scheduler.runTaskAsynchronously(PolarPaper.getPlugin(), () -> {
                         Polar.updateChunkData(
                                 newPolarWorld,
                                 PolarWorldAccess.DEFAULT,
@@ -144,7 +144,7 @@ public class ConvertCommand {
 
                 byte[] polarBytes = PolarWriter.write(newPolarWorld);
 
-                Path pluginFolder = Path.of(PaperPolar.getPlugin().getDataFolder().getAbsolutePath());
+                Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
                 Path worldsFolder = pluginFolder.resolve("worlds");
                 try {
                     Files.write(worldsFolder.resolve(newWorldName + ".polar"), polarBytes);
@@ -154,8 +154,8 @@ public class ConvertCommand {
                                     .append(Component.text("Failed to convert '", NamedTextColor.RED))
                                     .append(Component.text(worldName, NamedTextColor.RED))
                     );
-                    PaperPolar.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
-                    PaperPolar.getPlugin().getLogger().warning(e.toString());
+                    PolarPaper.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
+                    PolarPaper.getPlugin().getLogger().warning(e.toString());
                     return;
                 }
 
@@ -170,13 +170,13 @@ public class ConvertCommand {
                                 .append(Component.text(" to load the world now", NamedTextColor.AQUA))
                 );
             }).exceptionally(throwable -> {
-                PaperPolar.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
-                PaperPolar.getPlugin().getLogger().warning(throwable.getMessage());
+                PolarPaper.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
+                PolarPaper.getPlugin().getLogger().warning(throwable.getMessage());
                 return null;
             });
         }).exceptionally(throwable -> {
-            PaperPolar.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
-            PaperPolar.getPlugin().getLogger().warning(throwable.getMessage());
+            PolarPaper.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
+            PolarPaper.getPlugin().getLogger().warning(throwable.getMessage());
             return null;
         });
 

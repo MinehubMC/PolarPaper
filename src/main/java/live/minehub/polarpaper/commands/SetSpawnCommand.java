@@ -2,10 +2,10 @@ package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
-import live.minehub.polarpaper.Config;
-import live.minehub.polarpaper.PaperPolar;
-import live.minehub.polarpaper.PolarWorld;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import live.minehub.polarpaper.Config;
+import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.World;
@@ -36,13 +36,13 @@ public class SetSpawnCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        Config config = Config.readFromConfig(PaperPolar.getPlugin().getConfig(), bukkitWorld.getName());
+        Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName());
         if (config == null) config = Config.DEFAULT;
 
         Config newConfig = rounded ? config.setSpawnPosRounded(player.getLocation()) : config.setSpawnPos(player.getLocation());
         if (newConfig == null) newConfig = Config.DEFAULT;
 
-        Config.writeToConfig(PaperPolar.getPlugin().getConfig(), bukkitWorld.getName(), newConfig);
+        Config.writeToConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName(), newConfig);
 
         ctx.getSource().getSender().sendMessage(
                 Component.text()

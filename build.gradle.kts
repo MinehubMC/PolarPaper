@@ -65,6 +65,6 @@ paperPluginYaml {
     description = "Polar world format for Paper"
     apiVersion = "1.21"
 
-    main = "live.minehub.polarpaper.PaperPolar"
-    loader = "live.minehub.polarpaper.PaperPolarLoader"
+    main = "live.minehub.polarpaper.PolarPaper"
+    loader = "live.minehub.polarpaper.PolarPaperLoader"
 }

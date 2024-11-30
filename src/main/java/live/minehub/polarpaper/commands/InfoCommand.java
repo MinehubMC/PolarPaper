@@ -2,11 +2,11 @@ package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
-import live.minehub.polarpaper.Config;
-import live.minehub.polarpaper.PaperPolar;
-import live.minehub.polarpaper.PolarChunk;
-import live.minehub.polarpaper.PolarWorld;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import live.minehub.polarpaper.Config;
+import live.minehub.polarpaper.PolarChunk;
+import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.World;
@@ -42,7 +42,7 @@ public class InfoCommand {
             savedEntities += chunk.entities().size();
         }
 
-        Config config = Config.readFromConfig(PaperPolar.getPlugin().getConfig(), bukkitWorld.getName());
+        Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName());
         if (config == null) config = Config.DEFAULT;
 
         ctx.getSource().getSender().sendMessage(

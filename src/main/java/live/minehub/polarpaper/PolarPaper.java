@@ -15,7 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 @SuppressWarnings("UnstableApiUsage")
-public final class PaperPolar extends JavaPlugin {
+public final class PolarPaper extends JavaPlugin {
 
     @Override
     public void onEnable() {
@@ -96,8 +96,8 @@ public final class PaperPolar extends JavaPlugin {
         }
     }
 
-    public static PaperPolar getPlugin() {
-        return PaperPolar.getPlugin(PaperPolar.class);
+    public static PolarPaper getPlugin() {
+        return PolarPaper.getPlugin(PolarPaper.class);
     }
 
 
