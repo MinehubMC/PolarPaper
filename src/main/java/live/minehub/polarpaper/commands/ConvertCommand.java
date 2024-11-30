@@ -12,6 +12,7 @@ import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitScheduler;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -109,16 +110,25 @@ public class ConvertCommand {
                             .append(Component.text("'...", NamedTextColor.AQUA))
             );
 
+            BukkitScheduler scheduler = Bukkit.getScheduler();
+
             List<CompletableFuture<Void>> futures2 = new ArrayList<>();
             for (int x = -chunkRadius; x < chunkRadius; x++) {
                 for (int z = -chunkRadius; z < chunkRadius; z++) {
-                    CompletableFuture<Void> future2 = Polar.updateChunkData(
-                            newPolarWorld,
-                            PolarWorldAccess.DEFAULT,
-                            bukkitWorld.getChunkAt(playerChunk.getX() + x, playerChunk.getZ() + z),
-                            centered ? x : playerChunk.getX() + x,
-                            centered ? z : playerChunk.getZ() + z
-                    );
+                    CompletableFuture<Void> future2 = new CompletableFuture<>();
+
+                    int finalX = x;
+                    int finalZ = z;
+                    scheduler.runTaskAsynchronously(PaperPolar.getPlugin(), () -> {
+                        Polar.updateChunkData(
+                                newPolarWorld,
+                                PolarWorldAccess.DEFAULT,
+                                bukkitWorld.getChunkAt(playerChunk.getX() + finalX, playerChunk.getZ() + finalZ),
+                                centered ? finalX : playerChunk.getX() + finalX,
+                                centered ? finalZ : playerChunk.getZ() + finalZ
+                        );
+                        future2.complete(null);
+                    });
 
                     futures2.add(future2);
                 }

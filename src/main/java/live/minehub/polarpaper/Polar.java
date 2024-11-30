@@ -159,7 +159,10 @@ public class Polar {
                 });
             }
             // TODO: mysql?
-            default -> LOGGER.warning("Source " + config.source() + " not recognised");
+            default -> {
+                LOGGER.warning("Source " + config.source() + " not recognised");
+                if (onFailure != null) onFailure.run();
+            }
         }
     }
 
@@ -170,14 +173,21 @@ public class Polar {
     /**
      * Save a polar world using the source defined in the config
      *
-     * @param world The bukkit World
-     * @return Whether it was successful
+     * @param world The bukkit World (needs to be a polar world)
+     * @param onSuccess Runnable executed when the world is successfully loaded.
+     * @param onFailure Runnable executed when the world fails to be loaded.
      */
-    public static boolean saveWorldConfigSource(World world) {
+    public static void saveWorldConfigSource(World world, @Nullable Runnable onSuccess, @Nullable Runnable onFailure) {
         PolarWorld polarWorld = PolarWorld.fromWorld(world);
-        if (polarWorld == null) return false;
+        if (polarWorld == null) {
+            if (onFailure != null) onFailure.run();
+            return;
+        }
         PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
-        if (polarGenerator == null) return false;
+        if (polarGenerator == null) {
+            if (onFailure != null) onFailure.run();
+            return;
+        }
 
         String worldName = world.getName();
 
@@ -185,7 +195,8 @@ public class Polar {
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         if (config == null) {
             LOGGER.warning("Polar world '" + worldName + "' has an invalid config, skipping.");
-            return false;
+            if (onFailure != null) onFailure.run();
+            return;
         }
 
         Path pluginFolder = Path.of(PaperPolar.getPlugin().getDataFolder().getAbsolutePath());
@@ -193,12 +204,22 @@ public class Polar {
 
         switch (config.source()) {
             case "file" -> {
-                return saveWorld(world, worldsFolder.resolve(worldName + ".polar"));
+                BukkitScheduler scheduler = Bukkit.getScheduler();
+
+                scheduler.runTaskAsynchronously(PaperPolar.getPlugin(), () -> {
+                    saveWorld(world, worldsFolder.resolve(worldName + ".polar")).thenAccept(successful -> {
+                        if (successful) {
+                            if (onSuccess != null) onSuccess.run();
+                        } else {
+                            if (onFailure != null) onFailure.run();
+                        }
+                    });
+                });
             }
             // TODO: mysql?
             default -> {
                 LOGGER.warning("Source " + config.source() + " not recognised");
-                return false;
+                if (onFailure != null) onFailure.run();
             }
         }
     }
@@ -210,9 +231,14 @@ public class Polar {
      * @param path  The path to save the polar to (.polar extension recommended)
      * @return Whether it was successful
      */
-    public static boolean saveWorld(World world, Path path) {
-        byte[] worldBytes = saveWorld(world);
-        return saveWorld(worldBytes, path);
+    public static CompletableFuture<Boolean> saveWorld(World world, Path path) {
+        PolarWorld polarWorld = PolarWorld.fromWorld(world);
+        if (polarWorld == null) return CompletableFuture.completedFuture(false);
+
+        return saveWorld(world).thenApply((a) -> {
+            byte[] worldBytes = PolarWriter.write(polarWorld);
+            return saveWorld(worldBytes, path);
+        }).exceptionally(e -> false);
     }
 
     /**
@@ -228,31 +254,42 @@ public class Polar {
             Files.write(path, worldBytes);
             return true;
         } catch (IOException e) {
+            LOGGER.warning("Failed to save world to file");
+            LOGGER.warning(e.toString());
             throw new RuntimeException(e);
         }
     }
 
     /**
      * Save a polar world
+     * Runs updateChunkData on all polar chunks
      *
      * @param world The bukkit World
-     * @return The byte array of the polar world, or null if it was not a polar world
+     * @return A CompletableFuture that completes once the world has finished updating
      * @see Polar#saveWorld(World, Path)
      */
-    public static byte @Nullable [] saveWorld(World world) {
+    public static CompletableFuture<Void> saveWorld(World world) {
         PolarWorld polarWorld = PolarWorld.fromWorld(world);
-        if (polarWorld == null) return null;
+        if (polarWorld == null) return CompletableFuture.completedFuture(null);
         PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
-        if (polarGenerator == null) return null;
+        if (polarGenerator == null) CompletableFuture.completedFuture(null);
+
+        BukkitScheduler scheduler = Bukkit.getScheduler();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>(polarWorld.chunks().size());
         for (PolarChunk chunk : polarWorld.chunks()) {
-            CompletableFuture<Void> future = updateChunkData(polarWorld, polarGenerator.getWorldAccess(), world.getChunkAt(chunk.x(), chunk.z()), chunk.x(), chunk.z());
+            CompletableFuture<Void> future = world.getChunkAtAsync(chunk.x(), chunk.z())
+                    .thenRun(() -> scheduler.runTaskAsynchronously(PaperPolar.getPlugin(), () -> {
+                        updateChunkData(polarWorld, polarGenerator.getWorldAccess(), world.getChunkAt(chunk.x(), chunk.z()), chunk.x(), chunk.z());
+                    }))
+                    .exceptionally(e -> {
+                        LOGGER.warning(e.toString());
+                        return null;
+                    });
+
             futures.add(future);
         }
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-        return PolarWriter.write(polarWorld);
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
     }
 
     public static @Nullable World createPolarWorld(WorldCreator creator) {
@@ -400,7 +437,7 @@ public class Polar {
         return internal.getWorld();
     }
 
-    public static CompletableFuture<Void> updateChunkData(PolarWorld polarWorld, PolarWorldAccess worldAccess, Chunk chunk, int newChunkX, int newChunkZ) {
+    public static void updateChunkData(PolarWorld polarWorld, PolarWorldAccess worldAccess, Chunk chunk, int newChunkX, int newChunkZ) {
         CraftChunk craftChunk = (CraftChunk) chunk;
         ChunkSnapshot snapshot = craftChunk.getChunkSnapshot(true, true, false, true);
         int minHeight = chunk.getWorld().getMinHeight();
@@ -411,9 +448,7 @@ public class Polar {
 
         var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
 
-        return CompletableFuture.runAsync(() -> {
-            updateChunkData(polarWorld, worldAccess, snapshot, newChunkX, newChunkZ, minHeight, maxHeight, blockEntities, entities, registryAccess);
-        });
+        updateChunkData(polarWorld, worldAccess, snapshot, newChunkX, newChunkZ, minHeight, maxHeight, blockEntities, entities, registryAccess);
     }
 
     public static void updateChunkData(PolarWorld polarWorld, PolarWorldAccess worldAccess, ChunkSnapshot snapshot, int newChunkX, int newChunkZ, int minHeight, int maxHeight, Set<Map.Entry<BlockPos, BlockEntity>> blockEntities, Entity[] entities, RegistryAccess.Frozen registryAccess) {
@@ -513,7 +548,7 @@ public class Polar {
             ((CraftEntity) entity).getHandle().serializeEntity(compound);
             String id = compound.getString("id");
             if (id.isBlank()) {
-                LOGGER.warning("Failed to serialize entity type " + entity.getType().name() + " at " + entity.getLocation().toString());
+                LOGGER.warning("Failed to serialize entity type " + entity.getType().name() + " at " + entity.getLocation());
                 continue;
             }
             compound.putInt("DataVersion", Bukkit.getUnsafe().getDataVersion());

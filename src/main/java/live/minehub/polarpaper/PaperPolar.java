@@ -1,9 +1,9 @@
 package live.minehub.polarpaper;
 
-import live.minehub.polarpaper.commands.PolarCommand;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import live.minehub.polarpaper.commands.PolarCommand;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -90,7 +90,9 @@ public final class PaperPolar extends JavaPlugin {
 
             if (!config.autoSave()) continue;
 
-            Polar.saveWorldConfigSource(world);
+            getLogger().info("Saving polar world: " + world.getName());
+
+            Polar.saveWorldConfigSource(world, null, null);
         }
     }
 
