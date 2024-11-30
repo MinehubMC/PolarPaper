@@ -21,7 +21,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
       - name: Build
-        run: ./gradlew -Pversion=${{ github.event.release.tag_name || github.ref_name }} -Dmaven.repo.local=${{github.workspace}}/localM2Repository shadowJar
+        run: ./gradlew -Pversion=${{ github.event.release.tag_name || github.ref_name }} -Dmaven.repo.local=${{github.workspace}}/localM2Repository build
       - name: Publish
         run: ./gradlew -Pversion=${{ github.event.release.tag_name || github.ref_name }} -Dmaven.repo.local=${{github.workspace}}/localM2Repository publish
         env:
