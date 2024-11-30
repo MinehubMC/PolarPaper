@@ -125,7 +125,8 @@ public class Polar {
      * Load a polar world using the source defined in the config
      *
      * @param worldName The name of the world to load
-     * @return Whether it was successful
+     * @param onSuccess Runnable executed when the world is successfully loaded.
+     * @param onFailure Runnable executed when the world fails to be loaded.
      */
     public static void loadWorldConfigSource(String worldName, @Nullable Runnable onSuccess, @Nullable Runnable onFailure) {
         FileConfiguration fileConfig = PaperPolar.getPlugin().getConfig();
