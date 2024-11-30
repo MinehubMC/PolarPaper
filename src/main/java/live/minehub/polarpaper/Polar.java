@@ -85,20 +85,13 @@ public class Polar {
      * @param world     The polar world
      * @param worldName The name for the polar world
      */
-    public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName) {
-        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
-        Config config = Config.readFromConfig(fileConfig, worldName);
-        if (config == null) {
-            LOGGER.warning("Polar world '" + worldName + "' has an invalid config, skipping.");
-            return;
-        }
-
+    public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config) {
         if (Bukkit.getWorld(worldName) != null) {
             LOGGER.warning("A world with the name '" + worldName + "' already exists, skipping.");
             return;
         }
 
-        PolarGenerator polar = new PolarGenerator(world);
+        PolarGenerator polar = new PolarGenerator(world, config);
         PolarBiomeProvider polarBiomeProvider = new PolarBiomeProvider(world);
 
         WorldCreator worldCreator = WorldCreator.name(worldName)
@@ -148,7 +141,7 @@ public class Polar {
                         PolarWorld polarWorld = PolarReader.read(bytes);
 
                         scheduler.runTask(PolarPaper.getPlugin(), () -> {
-                            loadWorld(polarWorld, worldName);
+                            loadWorld(polarWorld, worldName, config);
                             if (onSuccess != null) onSuccess.run();
                         });
                     } catch (IOException e) {
@@ -414,19 +407,9 @@ public class Polar {
 
 
         craftServer.getServer().addLevel(internal); // Paper - Put world into worldlist before initing the world; move up
-        // craftServer.getServer().initWorld(internal, worlddata, worlddata, worlddata.worldGenOptions());
+        craftServer.getServer().initWorld(internal, worlddata, worlddata, worlddata.worldGenOptions());
 
-        // Recreate initWorld without the crazy for loop that looks for a
-        // spawnpoint, as we already have one from converting the world.
-        internal.getWorldBorder().applySettings(worlddata.getWorldBorder());
-        Bukkit.getPluginManager().callEvent(new org.bukkit.event.world.WorldInitEvent(internal.getWorld())); // CraftBukkit - SPIGOT-5569: Call WorldInitEvent before any chunks are generated
-
-        if (!worlddata.isInitialized()) {
-            worlddata.setSpawn(new BlockPos((int) spawnLocation.x(), (int) spawnLocation.y(), (int) spawnLocation.z()), 0.0f); // get from config (polar)
-            worlddata.setInitialized(true);
-        }
-
-        internal.setSpawnSettings(true);
+//        internal.setSpawnSettings(true);
         // Paper - Put world into worldlist before initing the world; move up
 
         craftServer.getServer().prepareLevels(internal.getChunkSource().chunkMap.progressListener, internal);

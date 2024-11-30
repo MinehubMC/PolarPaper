@@ -11,6 +11,7 @@ import net.minecraft.nbt.TagParser;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.craftbukkit.CraftServer;
@@ -33,14 +34,16 @@ public class PolarGenerator extends ChunkGenerator {
 
     private final PolarWorld polarWorld;
     private final PolarWorldAccess worldAccess;
+    private final Config config;
 
-    public PolarGenerator(PolarWorld polarWorld) {
-        this(polarWorld, PolarWorldAccess.DEFAULT);
+    public PolarGenerator(PolarWorld polarWorld, Config config) {
+        this(polarWorld, PolarWorldAccess.DEFAULT, config);
     }
 
-    public PolarGenerator(PolarWorld polarWorld, PolarWorldAccess worldAccess) {
+    public PolarGenerator(PolarWorld polarWorld, PolarWorldAccess worldAccess, Config config) {
         this.polarWorld = polarWorld;
         this.worldAccess = worldAccess;
+        this.config = config;
     }
 
     @Override
@@ -137,6 +140,13 @@ public class PolarGenerator extends ChunkGenerator {
 
     public PolarWorldAccess getWorldAccess() {
         return worldAccess;
+    }
+
+    @Override
+    public @Nullable Location getFixedSpawnLocation(@NotNull World world, @NotNull Random random) {
+        Location loc = config.getSpawnPos();
+        loc.setWorld(world);
+        return loc;
     }
 
     /**
