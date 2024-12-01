@@ -80,10 +80,27 @@ public class Polar {
     }
 
     /**
+     * Load a polar world with config read from config.yml
+     *
+     * @param world     The polar world
+     * @param worldName The name for the polar world
+     */
+    public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName) {
+        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
+        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
+        if (config == null) {
+            LOGGER.warning("Polar world '" + worldName + "' has an invalid config");
+            return;
+        }
+        loadWorld(world, worldName, config);
+    }
+
+    /**
      * Load a polar world
      *
      * @param world     The polar world
      * @param worldName The name for the polar world
+     * @param config    Custom config for the polar world
      */
     public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config) {
         if (Bukkit.getWorld(worldName) != null) {
@@ -124,6 +141,11 @@ public class Polar {
     public static void loadWorldConfigSource(String worldName, @Nullable Runnable onSuccess, @Nullable Runnable onFailure) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
+        if (config == null) {
+            LOGGER.warning("Polar world '" + worldName + "' has an invalid config, skipping.");
+            if (onFailure != null) onFailure.run();
+            return;
+        }
 
         switch (config.source()) {
             case "file" -> {

@@ -22,7 +22,6 @@ import java.util.concurrent.Executor;
 public class PolarServerLevel extends ServerLevel {
     public PolarServerLevel(MinecraftServer minecraftserver, Executor executor, LevelStorageSource.LevelStorageAccess convertable_conversionsession, PrimaryLevelData iworlddataserver, ResourceKey<Level> resourcekey, LevelStem worlddimension, ChunkProgressListener worldloadlistener, boolean flag, long i, List<CustomSpawner> list, boolean flag1, @Nullable RandomSequences randomsequences, World.Environment env, ChunkGenerator gen, BiomeProvider biomeProvider) {
         super(minecraftserver, executor, convertable_conversionsession, iworlddataserver, resourcekey, worlddimension, worldloadlistener, flag, i, list, flag1, randomsequences, env, gen, biomeProvider);
-
     }
 
     @Override

@@ -35,6 +35,10 @@ public final class PolarPaper extends JavaPlugin {
 
         saveDefaultConfig();
 
+
+
+
+
         try (var files = Files.list(worldsFolder)) {
             files.forEach(path -> {
                 if (!path.getFileName().toString().endsWith(".polar")) {
