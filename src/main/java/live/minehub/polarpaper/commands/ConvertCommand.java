@@ -8,6 +8,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
+import org.bukkit.GameRule;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -19,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @SuppressWarnings("UnstableApiUsage")
@@ -76,6 +78,19 @@ public class ConvertCommand {
 
         FileConfiguration config = PolarPaper.getPlugin().getConfig();
 
+        List<Map<String, ?>> gameruleList = new ArrayList<>();
+        for (String name : bukkitWorld.getGameRules()) {
+            GameRule<?> gamerule = GameRule.getByName(name);
+            if (gamerule == null) continue;
+
+            Object gameRuleValue = bukkitWorld.getGameRuleValue(gamerule);
+            if (gameRuleValue == null) continue;
+            Object gameRuleDefault = bukkitWorld.getGameRuleDefault(gamerule);
+            if (gameRuleValue != gameRuleDefault) {
+                gameruleList.add(Map.of(name, gameRuleValue));
+            }
+        }
+
         Config worldConfig = new Config(
                 Config.DEFAULT.source(),
                 Config.DEFAULT.autoSave(),
@@ -86,7 +101,8 @@ public class ConvertCommand {
                 bukkitWorld.getAllowAnimals(),
                 bukkitWorld.getPVP(),
                 bukkitWorld.getWorldType(),
-                bukkitWorld.getEnvironment()
+                bukkitWorld.getEnvironment(),
+                gameruleList
         );
 
         PolarPaper.initWorld(newWorldName, config, worldConfig);

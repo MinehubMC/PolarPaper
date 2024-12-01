@@ -128,7 +128,20 @@ public class Polar {
         newWorld.setPVP(config.pvp());
         newWorld.setSpawnFlags(config.allowMonsters(), config.allowAnimals());
         newWorld.setAutoSave(false);
+
+        for (Map<String, ?> gamerule : config.gamerules()) {
+            for (Map.Entry<String, ?> entry : gamerule.entrySet()) {
+                GameRule<?> rule = GameRule.getByName(entry.getKey());
+                if (rule == null) return;
+                setGameRule(newWorld, rule, entry.getValue());
+            }
+        }
+
 //        newWorld.setAutoSave(config.autoSave());
+    }
+
+    private static <T> void setGameRule(World world, GameRule<?> rule, Object value) {
+        world.setGameRule((GameRule<T>) rule, (T)value);
     }
 
     /**

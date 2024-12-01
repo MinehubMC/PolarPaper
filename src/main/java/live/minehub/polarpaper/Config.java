@@ -9,7 +9,9 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 public record Config(
@@ -22,7 +24,8 @@ public record Config(
         boolean allowAnimals,
         boolean pvp,
         WorldType worldType,
-        World.Environment environment
+        World.Environment environment,
+        List<Map<String, ?>> gamerules
 ) {
 
     public Config(
@@ -35,9 +38,10 @@ public record Config(
             boolean allowAnimals,
             boolean pvp,
             WorldType worldType,
-            World.Environment environment
+            World.Environment environment,
+            List<Map<String, ?>> gamerules
     ) {
-        this(source, autoSave, loadOnStartup, formatSpawn(spawn, false), difficulty, allowMonsters, allowAnimals, pvp, worldType, environment);
+        this(source, autoSave, loadOnStartup, formatSpawn(spawn, false), difficulty, allowMonsters, allowAnimals, pvp, worldType, environment, gamerules);
     }
 
     private static final Logger LOGGER = Logger.getLogger(Config.class.getName());
@@ -51,8 +55,9 @@ public record Config(
             false,
             false,
             true,
-            WorldType.FLAT,
-            World.Environment.NORMAL
+            WorldType.NORMAL,
+            World.Environment.NORMAL,
+            List.of()
     );
 
     public Location getSpawnPos() {
@@ -104,7 +109,7 @@ public record Config(
                 Float.parseFloat(split[4]);
             }
 
-            return new Config(this.source, this.autoSave, this.loadOnStartup, string, this.difficulty, this.allowMonsters, this.allowAnimals, this.pvp, this.worldType, this.environment);
+            return new Config(this.source, this.autoSave, this.loadOnStartup, string, this.difficulty, this.allowMonsters, this.allowAnimals, this.pvp, this.worldType, this.environment, this.gamerules);
         } catch (Exception e) {
             LOGGER.warning("Failed to parse spawn pos: " + spawn);
             return null;
@@ -126,6 +131,14 @@ public record Config(
             WorldType worldType = WorldType.valueOf(config.getString(prefix + "worldType", DEFAULT.worldType.name()));
             World.Environment environment = World.Environment.valueOf(config.getString(prefix + "environment", DEFAULT.environment.name()));
 
+            List<Map<?, ?>> gamerules = config.getMapList(prefix + "gamerules");
+            List<Map<String, ?>> gamerulesList = new ArrayList<>();
+            for (Map<?, ?> gamerule : gamerules) {
+                for (Map.Entry<?, ?> entry : gamerule.entrySet()) {
+                    gamerulesList.add(Map.of((String)entry.getKey(), entry.getValue()));
+                }
+            }
+
             return new Config(
                     source,
                     autoSave,
@@ -136,7 +149,8 @@ public record Config(
                     allowAnimals,
                     pvp,
                     worldType,
-                    environment
+                    environment,
+                    gamerulesList
             );
         } catch (IllegalArgumentException e) {
             return null;
@@ -158,6 +172,7 @@ public record Config(
         fileConfig.setInlineComments(prefix + "worldType", List.of("One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES"));
         fileConfig.set(prefix + "environment", config.environment.name());
         fileConfig.setInlineComments(prefix + "environment", List.of("One of: NORMAL, NETHER, THE_END, CUSTOM"));
+        fileConfig.set(prefix + "gamerules", config.gamerules);
 
         Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
         Path configFile = pluginFolder.resolve("config.yml");
