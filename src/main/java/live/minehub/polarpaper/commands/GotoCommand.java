@@ -35,18 +35,15 @@ public class GotoCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
-        if (polarWorld == null) {
-            sender.sendMessage(
-                    Component.text()
-                            .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
-                            .append(Component.text("' is not a polar world!", NamedTextColor.RED))
-            );
-            return Command.SINGLE_SUCCESS;
-        }
+        Location spawnPos;
 
-        Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName());
+        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
+        if (polarWorld != null) {
+            Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName());
+            spawnPos = config.getSpawnPos();
+        } else {
+            spawnPos = bukkitWorld.getSpawnLocation();
+        }
 
         sender.sendMessage(
                 Component.text()
@@ -55,7 +52,6 @@ public class GotoCommand {
                         .append(Component.text("'...", NamedTextColor.AQUA))
         );
 
-        Location spawnPos = config.getSpawnPos();
         spawnPos.setWorld(bukkitWorld);
         player.teleportAsync(spawnPos);
 
