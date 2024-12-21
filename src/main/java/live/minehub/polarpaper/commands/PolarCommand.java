@@ -3,8 +3,8 @@ package live.minehub.polarpaper.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import live.minehub.polarpaper.PolarWorld;
 import io.papermc.paper.command.brigadier.Commands;
+import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -37,11 +37,11 @@ public class PolarCommand {
                                     );
                                     return Command.SINGLE_SUCCESS;
                                 })
-                                .then(Commands.argument("worldname", StringArgumentType.word())
+                                .then(Commands.argument("worldname", StringArgumentType.greedyString())
                                         .suggests((ctx, builder) -> {
                                             for (World world : Bukkit.getWorlds()) {
-                                                PolarWorld polarWorld = PolarWorld.fromWorld(world);
-                                                if (polarWorld == null) continue;
+//                                                PolarWorld polarWorld = PolarWorld.fromWorld(world);
+//                                                if (polarWorld == null) continue;
 
                                                 builder.suggest(world.getName());
                                             }
@@ -57,7 +57,7 @@ public class PolarCommand {
                                     );
                                     return Command.SINGLE_SUCCESS;
                                 })
-                                .then(Commands.argument("worldname", StringArgumentType.word())
+                                .then(Commands.argument("worldname", StringArgumentType.greedyString())
                                         .executes(CreateBlankCommand::run)))
                         .then(Commands.literal("save")
                                 .requires(source -> source.getSender().hasPermission("paperpolar.save"))
@@ -68,7 +68,7 @@ public class PolarCommand {
                                     );
                                     return Command.SINGLE_SUCCESS;
                                 })
-                                .then(Commands.argument("worldname", StringArgumentType.word())
+                                .then(Commands.argument("worldname", StringArgumentType.greedyString())
                                         .suggests((ctx, builder) -> {
                                             for (World world : Bukkit.getWorlds()) {
                                                 PolarWorld polarWorld = PolarWorld.fromWorld(world);
@@ -88,7 +88,7 @@ public class PolarCommand {
                                     );
                                     return Command.SINGLE_SUCCESS;
                                 })
-                                .then(Commands.argument("worldname", StringArgumentType.word())
+                                .then(Commands.argument("worldname", StringArgumentType.greedyString())
                                         .executes(LoadCommand::run)))
                         .then(Commands.literal("info")
                                 .requires(source -> source.getSender().hasPermission("polarpaper.info"))

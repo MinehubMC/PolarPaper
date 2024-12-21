@@ -166,7 +166,10 @@ public class Polar {
                 Path worldsFolder = pluginFolder.resolve("worlds");
 
                 Path worldPath = worldsFolder.resolve(worldName + ".polar");
-                if (!Files.exists(worldPath)) return;
+                if (!Files.exists(worldPath)) {
+                    if (onFailure != null) onFailure.run();
+                    return;
+                }
 
                 BukkitScheduler scheduler = Bukkit.getScheduler();
 
@@ -226,6 +229,35 @@ public class Polar {
             if (onFailure != null) onFailure.run();
             return;
         }
+
+        List<Map<String, ?>> gameruleList = new ArrayList<>();
+        for (String name : world.getGameRules()) {
+            GameRule<?> gamerule = GameRule.getByName(name);
+            if (gamerule == null) continue;
+
+            Object gameRuleValue = world.getGameRuleValue(gamerule);
+            if (gameRuleValue == null) continue;
+            Object gameRuleDefault = world.getGameRuleDefault(gamerule);
+            if (gameRuleValue != gameRuleDefault) {
+                gameruleList.add(Map.of(name, gameRuleValue));
+            }
+        }
+
+        // Update gamerules
+        Config newConfig = new Config(
+                config.source(),
+                config.autoSave(),
+                config.loadOnStartup(),
+                config.spawn(),
+                config.difficulty(),
+                config.allowMonsters(),
+                config.allowAnimals(),
+                config.pvp(),
+                config.worldType(),
+                config.environment(),
+                gameruleList
+        );
+        Config.writeToConfig(fileConfig, worldName, newConfig);
 
         Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
         Path worldsFolder = pluginFolder.resolve("worlds");

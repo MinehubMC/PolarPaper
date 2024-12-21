@@ -52,12 +52,18 @@ public record Config(
             true,
             "0, 64, 0",
             Difficulty.NORMAL,
-            false,
-            false,
+            true,
+            true,
             true,
             WorldType.NORMAL,
             World.Environment.NORMAL,
-            List.of()
+            List.of(
+                    Map.of("doMobSpawning", false),
+                    Map.of("doFireTick", false),
+                    Map.of("randomTickSpeed", 0),
+                    Map.of("mobGriefing", false),
+                    Map.of("doVinesSpread", false)
+            )
     );
 
     public Location getSpawnPos() {
