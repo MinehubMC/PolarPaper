@@ -4,7 +4,7 @@ adventure = "4.17.0"
 paperweight = "1.7.2"
 run = "2.3.1"
 resource = "1.2.0"
-minecraft = "1.21.4"
+minecraft = "1.21.3"
 
 [libraries]
 zstd = { module = "com.github.luben:zstd-jni", version.ref = "zstd" }
