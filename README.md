@@ -71,3 +71,10 @@ byte[] bytes = PolarWriter.write(polarWorld);
 // or by using config
 Polar.saveWorldConfigSource("gamingworld", null, null);
 ```
+
+### Versioning
+To be used starting from this point, does not include older releases.
+
+`<mc version>.<our version>`
+
+for example `1.21.4.1`
