@@ -298,7 +298,10 @@ public class Polar {
         return saveWorld(world).thenApply((a) -> {
             byte[] worldBytes = PolarWriter.write(polarWorld);
             return saveWorld(worldBytes, path);
-        }).exceptionally(e -> false);
+        }).exceptionally(e -> {
+            e.printStackTrace();
+            return false;
+        });
     }
 
     /**
@@ -338,6 +341,7 @@ public class Polar {
 
         List<CompletableFuture<Void>> futures = new ArrayList<>(polarWorld.chunks().size());
         for (PolarChunk chunk : polarWorld.chunks()) {
+
             CompletableFuture<Void> future = world.getChunkAtAsync(chunk.x(), chunk.z())
                     .thenRun(() -> scheduler.runTaskAsynchronously(PolarPaper.getPlugin(), () -> {
                         updateChunkData(polarWorld, polarGenerator.getWorldAccess(), world.getChunkAt(chunk.x(), chunk.z()), chunk.x(), chunk.z());
@@ -595,9 +599,10 @@ public class Polar {
             if (entity.getType() == EntityType.PLAYER) continue;
 
             CompoundTag compound = new CompoundTag();
-            ((CraftEntity) entity).getHandle().serializeEntity(compound);
+
+            boolean successful = ((CraftEntity) entity).getHandle().saveAsPassenger(compound, true, false, false);
             String id = compound.getString("id");
-            if (id.isBlank()) {
+            if (id.isBlank() || !successful) {
                 LOGGER.warning("Failed to serialize entity type " + entity.getType().name() + " at " + entity.getLocation());
                 continue;
             }

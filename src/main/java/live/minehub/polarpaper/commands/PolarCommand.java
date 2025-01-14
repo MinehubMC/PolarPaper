@@ -4,6 +4,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
+import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -20,7 +21,8 @@ public class PolarCommand {
                         .executes(ctx -> {
                             ctx.getSource().getSender().sendMessage(
                                     Component.text()
-                                            .append(Component.text("Polar for Paper", NamedTextColor.AQUA))
+                                            .append(Component.text("Polar for Paper v", NamedTextColor.AQUA))
+                                            .append(Component.text(PolarPaper.getPlugin().getPluginMeta().getVersion(), NamedTextColor.AQUA))
                             );
                             return Command.SINGLE_SUCCESS;
                         })

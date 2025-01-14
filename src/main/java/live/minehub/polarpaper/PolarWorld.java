@@ -1,8 +1,9 @@
 package live.minehub.polarpaper;
 
-import live.minehub.polarpaper.util.CoordConversion;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import live.minehub.polarpaper.util.CoordConversion;
+import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.generator.ChunkGenerator;
 import org.jetbrains.annotations.NotNull;
@@ -44,7 +45,7 @@ public class PolarWorld {
     private final ReentrantReadWriteLock chunksLock = new ReentrantReadWriteLock();
 
     public PolarWorld() {
-        this(LATEST_VERSION, 3953, DEFAULT_COMPRESSION, (byte) -4, (byte) 19, new byte[0], List.of());
+        this(LATEST_VERSION, Bukkit.getUnsafe().getDataVersion(), DEFAULT_COMPRESSION, (byte) -4, (byte) 19, new byte[0], List.of());
     }
 
     public PolarWorld(
