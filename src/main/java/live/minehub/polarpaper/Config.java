@@ -22,6 +22,7 @@ public record Config(
         Difficulty difficulty,
         boolean allowMonsters,
         boolean allowAnimals,
+        boolean allowWorldExpansion,
         boolean pvp,
         WorldType worldType,
         World.Environment environment,
@@ -36,12 +37,13 @@ public record Config(
             Difficulty difficulty,
             boolean allowMonsters,
             boolean allowAnimals,
+            boolean allowWorldExpansion,
             boolean pvp,
             WorldType worldType,
             World.Environment environment,
             List<Map<String, ?>> gamerules
     ) {
-        this(source, autoSave, loadOnStartup, formatSpawn(spawn, false), difficulty, allowMonsters, allowAnimals, pvp, worldType, environment, gamerules);
+        this(source, autoSave, loadOnStartup, formatSpawn(spawn, false), difficulty, allowMonsters, allowAnimals, allowWorldExpansion, pvp, worldType, environment, gamerules);
     }
 
     private static final Logger LOGGER = Logger.getLogger(Config.class.getName());
@@ -52,6 +54,7 @@ public record Config(
             true,
             "0, 64, 0",
             Difficulty.NORMAL,
+            true,
             true,
             true,
             true,
@@ -115,7 +118,7 @@ public record Config(
                 Float.parseFloat(split[4]);
             }
 
-            return new Config(this.source, this.autoSave, this.loadOnStartup, string, this.difficulty, this.allowMonsters, this.allowAnimals, this.pvp, this.worldType, this.environment, this.gamerules);
+            return new Config(this.source, this.autoSave, this.loadOnStartup, string, this.difficulty, this.allowMonsters, this.allowAnimals, this.allowWorldExpansion, this.pvp, this.worldType, this.environment, this.gamerules);
         } catch (Exception e) {
             LOGGER.warning("Failed to parse spawn pos: " + spawn);
             return null;
@@ -133,6 +136,7 @@ public record Config(
             Difficulty difficulty = Difficulty.valueOf(config.getString(prefix + "difficulty", DEFAULT.difficulty.name()));
             boolean allowMonsters = config.getBoolean(prefix + "allowMonsters", DEFAULT.allowMonsters);
             boolean allowAnimals = config.getBoolean(prefix + "allowAnimals", DEFAULT.allowAnimals);
+            boolean allowWorldExpansion = config.getBoolean(prefix + "allowWorldExpansion", DEFAULT.allowWorldExpansion);
             boolean pvp = config.getBoolean(prefix + "pvp", DEFAULT.pvp);
             WorldType worldType = WorldType.valueOf(config.getString(prefix + "worldType", DEFAULT.worldType.name()));
             World.Environment environment = World.Environment.valueOf(config.getString(prefix + "environment", DEFAULT.environment.name()));
@@ -153,6 +157,7 @@ public record Config(
                     difficulty,
                     allowMonsters,
                     allowAnimals,
+                    allowWorldExpansion,
                     pvp,
                     worldType,
                     environment,
@@ -173,6 +178,8 @@ public record Config(
         fileConfig.set(prefix + "difficulty", config.difficulty.name());
         fileConfig.set(prefix + "allowMonsters", config.allowMonsters);
         fileConfig.set(prefix + "allowAnimals", config.allowAnimals);
+        fileConfig.set(prefix + "allowWorldExpansion", config.allowWorldExpansion);
+        fileConfig.setInlineComments(prefix + "allowWorldExpansion", List.of("Whether the world can grow and load more chunks"));
         fileConfig.set(prefix + "pvp", config.pvp);
         fileConfig.set(prefix + "worldType", config.worldType.name());
         fileConfig.setInlineComments(prefix + "worldType", List.of("One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES"));

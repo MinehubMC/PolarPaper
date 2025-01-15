@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
@@ -66,21 +67,32 @@ public class PolarCommand {
                                 .executes(ctx -> {
                                     ctx.getSource().getSender().sendMessage(
                                             Component.text()
-                                                    .append(Component.text("Usage: /polar save <worldname>", NamedTextColor.RED))
+                                                    .append(Component.text("Usage: /polar save <worldname> to save all chunks\n", NamedTextColor.RED))
+                                                    .append(Component.text(" OR /polar save <worldname> [chunk radius] [centered] to save a region", NamedTextColor.RED))
+                                                    .append(Component.text("\nUse centered to center the saved radius around your player", NamedTextColor.RED))
                                     );
                                     return Command.SINGLE_SUCCESS;
                                 })
-                                .then(Commands.argument("worldname", StringArgumentType.greedyString())
+                                .then(Commands.argument("worldname", StringArgumentType.string())
                                         .suggests((ctx, builder) -> {
                                             for (World world : Bukkit.getWorlds()) {
                                                 PolarWorld polarWorld = PolarWorld.fromWorld(world);
                                                 if (polarWorld == null) continue;
 
-                                                builder.suggest(world.getName());
+                                                if (world.getName().contains(" ")) {
+                                                    builder.suggest("\"" + world.getName() + "\"");
+                                                } else {
+                                                    builder.suggest(world.getName());
+                                                }
                                             }
                                             return builder.buildFuture();
                                         })
-                                        .executes(SaveCommand::run)))
+                                        .executes(SaveCommand::run)
+                                        .then(Commands.argument("chunkradius", IntegerArgumentType.integer(1))
+                                                .executes(SaveCommand::runSelected)
+                                                .then(Commands.literal("centered")
+                                                        .executes(SaveCommand::runSelectedCentered))
+                                        )))
                         .then(Commands.literal("load")
                                 .requires(source -> source.getSender().hasPermission("paperpolar.load"))
                                 .executes(ctx -> {
@@ -92,10 +104,48 @@ public class PolarCommand {
                                 })
                                 .then(Commands.argument("worldname", StringArgumentType.greedyString())
                                         .executes(LoadCommand::run)))
+                        .then(Commands.literal("unload")
+                                .requires(source -> source.getSender().hasPermission("paperpolar.load"))
+                                .executes(ctx -> {
+                                    ctx.getSource().getSender().sendMessage(
+                                            Component.text()
+                                                    .append(Component.text("Usage: /polar load <worldname> [save]", NamedTextColor.RED))
+                                                    .append(Component.text("Setting save will override config", NamedTextColor.RED))
+                                    );
+                                    return Command.SINGLE_SUCCESS;
+                                })
+                                .then(Commands.argument("worldname", StringArgumentType.string())
+                                        .suggests((ctx, builder) -> {
+                                            for (World world : Bukkit.getWorlds()) {
+                                                PolarWorld polarWorld = PolarWorld.fromWorld(world);
+                                                if (polarWorld == null) continue;
+
+                                                if (world.getName().contains(" ")) {
+                                                    builder.suggest("\"" + world.getName() + "\"");
+                                                } else {
+                                                    builder.suggest(world.getName());
+                                                }
+                                            }
+                                            return builder.buildFuture();
+                                        })
+                                        .executes(UnloadCommand::run)
+                                        .then(Commands.argument("save", BoolArgumentType.bool())
+                                                .executes(UnloadCommand::runOverrided))
+                                ))
                         .then(Commands.literal("info")
                                 .requires(source -> source.getSender().hasPermission("polarpaper.info"))
                                 .executes(InfoCommand::run)
-                        )
+                                .then(Commands.argument("worldname", StringArgumentType.greedyString())
+                                        .suggests((ctx, builder) -> {
+                                            for (World world : Bukkit.getWorlds()) {
+                                                PolarWorld polarWorld = PolarWorld.fromWorld(world);
+                                                if (polarWorld == null) continue;
+
+                                                builder.suggest(world.getName());
+                                            }
+                                            return builder.buildFuture();
+                                        })
+                                        .executes(InfoCommand::runArg)))
                         .then(Commands.literal("setspawn")
                                 .requires(source -> source.getSender().hasPermission("polarpaper.info"))
                                 .executes(ctx -> SetSpawnCommand.run(ctx, false))
@@ -112,7 +162,7 @@ public class PolarCommand {
                                         ctx.getSource().getSender().sendMessage(
                                                 Component.text()
                                                         .append(Component.text("Usage: /polar convert <new worldname> <chunk radius> (While in a non-polar world) to convert the chunks around you", NamedTextColor.RED))
-                                                        .append(Component.text(" OR: /polar convert <new worldname> <chunk radius> centered (While in a non-polar world) to center the converted chunks at 0,0", NamedTextColor.RED))
+                                                        .append(Component.text(" OR: /polar convert <new worldname> <chunk radius> centered (While in a non-polar world) to center the new converted chunks at 0,0", NamedTextColor.RED))
                                         );
                                         return Command.SINGLE_SUCCESS;
                                     })

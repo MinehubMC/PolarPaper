@@ -6,35 +6,28 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.*;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
-import org.bukkit.GameRule;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitScheduler;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 @SuppressWarnings("UnstableApiUsage")
 public class ConvertCommand {
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
-        return center(ctx, false);
+        return convert(ctx, false);
     }
 
     protected static int runCentered(CommandContext<CommandSourceStack> ctx) {
-        return center(ctx, true);
+        return convert(ctx, true);
     }
 
-    private static int center(CommandContext<CommandSourceStack> ctx, boolean centered) {
+    private static int convert(CommandContext<CommandSourceStack> ctx, boolean centered) {
         CommandSender sender = ctx.getSource().getSender();
         // Being ran from console
         if (!(sender instanceof Player player)) return Command.SINGLE_SUCCESS;
@@ -65,16 +58,13 @@ public class ConvertCommand {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(newBukkitWorld.getName(), NamedTextColor.RED))
                             .append(Component.text("' already exists!", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
         }
 
-        ctx.getSource().getSender().sendMessage(
-                Component.text()
-                        .append(Component.text("Loading chunks...", NamedTextColor.AQUA))
-        );
+        Chunk playerChunk = player.getChunk();
 
         FileConfiguration config = PolarPaper.getPlugin().getConfig();
 
@@ -91,109 +81,74 @@ public class ConvertCommand {
             }
         }
 
+        Location spawnLocation = player.getLocation().clone();
+        if (centered) {
+            spawnLocation.set(0, spawnLocation.getY(), 0);
+        }
         Config worldConfig = new Config(
                 Config.DEFAULT.source(),
                 Config.DEFAULT.autoSave(),
                 Config.DEFAULT.loadOnStartup(),
-                player.getLocation(),
+                spawnLocation,
                 bukkitWorld.getDifficulty(),
                 bukkitWorld.getAllowMonsters(),
                 bukkitWorld.getAllowAnimals(),
+                Config.DEFAULT.allowWorldExpansion(),
                 bukkitWorld.getPVP(),
                 bukkitWorld.getWorldType(),
                 bukkitWorld.getEnvironment(),
                 gameruleList
         );
 
+        long before = System.nanoTime();
+
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Converting '", NamedTextColor.AQUA))
+                        .append(Component.text(newWorldName, NamedTextColor.AQUA))
+                        .append(Component.text("'...", NamedTextColor.AQUA))
+        );
+
         PolarPaper.initWorld(newWorldName, config, worldConfig);
 
         PolarWorld newPolarWorld = new PolarWorld();
+        PolarGenerator polarGenerator = new PolarGenerator(newPolarWorld, worldConfig);
 
-        Chunk playerChunk = player.getChunk();
-
-        List<CompletableFuture<Chunk>> futures = new ArrayList<>();
-        for (int x = -chunkRadius; x < chunkRadius; x++) {
-            for (int z = -chunkRadius; z < chunkRadius; z++) {
-                CompletableFuture<Chunk> future = bukkitWorld.getChunkAtAsync(playerChunk.getX() + x, playerChunk.getZ() + z);
-                futures.add(future);
+        int offsetX = centered ? 0 : playerChunk.getX();
+        int offsetZ = centered ? 0 : playerChunk.getZ();
+        for (int x = -chunkRadius; x <= chunkRadius; x++) {
+            for (int z = -chunkRadius; z <= chunkRadius; z++) {
+                newPolarWorld.updateChunkAt(x + offsetX, z + offsetZ, new PolarChunk(x + offsetX, z + offsetZ));
             }
         }
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
+
+        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+        Path worldsFolder = pluginFolder.resolve("worlds");
+
+        int offset2X = centered ? playerChunk.getX() : 0;
+        int offset2Z = centered ? playerChunk.getZ() : 0;
+
+        Polar.saveWorldConfigSource(bukkitWorld, newPolarWorld, polarGenerator, worldsFolder.resolve(newWorldName + ".polar"), ChunkSelector.square(offsetX, offsetZ, chunkRadius), offset2X, offset2Z, () -> {
+            int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             ctx.getSource().getSender().sendMessage(
                     Component.text()
-                            .append(Component.text("Converting '", NamedTextColor.AQUA))
-                            .append(Component.text(newWorldName, NamedTextColor.AQUA))
-                            .append(Component.text("'...", NamedTextColor.AQUA))
+                            .append(Component.text("Done converting '", NamedTextColor.AQUA))
+                            .append(Component.text(worldName, NamedTextColor.AQUA))
+                            .append(Component.text("' in ", NamedTextColor.AQUA))
+                            .append(Component.text(ms, NamedTextColor.AQUA))
+                            .append(Component.text("ms. ", NamedTextColor.AQUA))
+                            .append(Component.text("Use ", NamedTextColor.AQUA))
+                            .append(Component.text("/polar load ", NamedTextColor.WHITE))
+                            .append(Component.text(newWorldName, NamedTextColor.WHITE))
+                            .append(Component.text(" to load the world now", NamedTextColor.AQUA))
             );
-
-            BukkitScheduler scheduler = Bukkit.getScheduler();
-
-            List<CompletableFuture<Void>> futures2 = new ArrayList<>();
-            for (int x = -chunkRadius; x < chunkRadius; x++) {
-                for (int z = -chunkRadius; z < chunkRadius; z++) {
-                    CompletableFuture<Void> future2 = new CompletableFuture<>();
-
-                    int finalX = x;
-                    int finalZ = z;
-                    scheduler.runTaskAsynchronously(PolarPaper.getPlugin(), () -> {
-                        Polar.updateChunkData(
-                                newPolarWorld,
-                                PolarWorldAccess.DEFAULT,
-                                bukkitWorld.getChunkAt(playerChunk.getX() + finalX, playerChunk.getZ() + finalZ),
-                                centered ? finalX : playerChunk.getX() + finalX,
-                                centered ? finalZ : playerChunk.getZ() + finalZ
-                        );
-                        future2.complete(null);
-                    });
-
-                    futures2.add(future2);
-                }
-            }
-
-            CompletableFuture.allOf(futures2.toArray(new CompletableFuture[0])).thenRun(() -> {
-                ctx.getSource().getSender().sendMessage(
-                        Component.text()
-                                .append(Component.text("Saving '", NamedTextColor.AQUA))
-                                .append(Component.text(newWorldName, NamedTextColor.AQUA))
-                                .append(Component.text("'...", NamedTextColor.AQUA))
-                );
-
-                byte[] polarBytes = PolarWriter.write(newPolarWorld);
-
-                Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
-                Path worldsFolder = pluginFolder.resolve("worlds");
-                try {
-                    Files.write(worldsFolder.resolve(newWorldName + ".polar"), polarBytes);
-                } catch (IOException e) {
-                    ctx.getSource().getSender().sendMessage(
-                            Component.text()
-                                    .append(Component.text("Failed to convert '", NamedTextColor.RED))
-                                    .append(Component.text(worldName, NamedTextColor.RED))
-                    );
-                    PolarPaper.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
-                    PolarPaper.getPlugin().getLogger().warning(e.toString());
-                    return;
-                }
-
-                ctx.getSource().getSender().sendMessage(
-                        Component.text()
-                                .append(Component.text("Done converting '", NamedTextColor.AQUA))
-                                .append(Component.text(worldName, NamedTextColor.AQUA))
-                                .append(Component.text("'. ", NamedTextColor.AQUA))
-                                .append(Component.text("Use ", NamedTextColor.AQUA))
-                                .append(Component.text("/polar load ", NamedTextColor.WHITE))
-                                .append(Component.text(newWorldName, NamedTextColor.WHITE))
-                                .append(Component.text(" to load the world now", NamedTextColor.AQUA))
-                );
-            }).exceptionally(throwable -> {
-                PolarPaper.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
-                PolarPaper.getPlugin().getLogger().warning(throwable.getMessage());
-                return null;
-            });
-        }).exceptionally(throwable -> {
+        }, () -> {
+            ctx.getSource().getSender().sendMessage(
+                    Component.text()
+                            .append(Component.text("Failed to convert '", NamedTextColor.RED))
+                            .append(Component.text(worldName, NamedTextColor.RED))
+            );
             PolarPaper.getPlugin().getLogger().warning("Error while converting world " + newWorldName);
-            PolarPaper.getPlugin().getLogger().warning(throwable.getMessage());
-            return null;
         });
 
         return Command.SINGLE_SUCCESS;

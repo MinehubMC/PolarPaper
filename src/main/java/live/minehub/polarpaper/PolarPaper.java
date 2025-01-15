@@ -4,8 +4,6 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import live.minehub.polarpaper.commands.PolarCommand;
-import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -86,18 +84,28 @@ public final class PolarPaper extends JavaPlugin {
     @Override
     public void onDisable() {
         // Save worlds that are configured to autosave
-        for (World world : Bukkit.getWorlds()) {
-            PolarWorld pw = PolarWorld.fromWorld(world);
-            if (pw == null) continue;
-            Config config = Config.readFromConfig(getConfig(), world.getName());
-            if (config == null) config = Config.DEFAULT;
-
-            if (!config.autoSave()) continue;
-
-            getLogger().info("Saving polar world: " + world.getName());
-
-            Polar.saveWorldConfigSource(world, null, null);
-        }
+        // TODO: Not working
+//        List<CompletableFuture<Void>> futures = new ArrayList<>();
+//        getLogger().info("Autosaving worlds...");
+//        for (World world : Bukkit.getWorlds()) {
+//            PolarWorld pw = PolarWorld.fromWorld(world);
+//            if (pw == null) continue;
+//            PolarGenerator pg = PolarGenerator.fromWorld(world);
+//            if (pg == null) continue;
+//            Config config = Config.readFromConfig(getConfig(), world.getName());
+//            if (config == null) config = Config.DEFAULT;
+//
+//            if (!config.autoSave()) continue;
+//
+//            getLogger().info("Autosaving polar world: " + world.getName());
+//
+//            CompletableFuture<Void> future = new CompletableFuture<>();
+//            futures.add(future);
+//
+//            Polar.saveWorldConfigSource(world, pw, pg, () -> future.complete(null), () -> future.complete(null));
+//        }
+//        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+//        getLogger().info("Autosaved worlds!");
     }
 
     public static PolarPaper getPlugin() {

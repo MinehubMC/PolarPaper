@@ -128,6 +128,7 @@ public class Polar {
         newWorld.setPVP(config.pvp());
         newWorld.setSpawnFlags(config.allowMonsters(), config.allowAnimals());
         newWorld.setAutoSave(false);
+//        newWorld.setAutoSave(config.autoSave());
 
         for (Map<String, ?> gamerule : config.gamerules()) {
             for (Map.Entry<String, ?> entry : gamerule.entrySet()) {
@@ -136,8 +137,6 @@ public class Polar {
                 setGameRule(newWorld, rule, entry.getValue());
             }
         }
-
-//        newWorld.setAutoSave(config.autoSave());
     }
 
     private static <T> void setGameRule(World world, GameRule<?> rule, Object value) {
@@ -204,22 +203,15 @@ public class Polar {
     /**
      * Save a polar world using the source defined in the config
      *
-     * @param world The bukkit World (needs to be a polar world)
+     * @param world The bukkit world
+     * @param polarWorld The polar world
+     * @param chunkSelector Used to filter which chunks should save
+     * @param offsetX Offset in chunks added to the new chunk
+     * @param offsetZ Offset in chunks added to the new chunk
      * @param onSuccess Runnable executed when the world is successfully loaded.
      * @param onFailure Runnable executed when the world fails to be loaded.
      */
-    public static void saveWorldConfigSource(World world, @Nullable Runnable onSuccess, @Nullable Runnable onFailure) {
-        PolarWorld polarWorld = PolarWorld.fromWorld(world);
-        if (polarWorld == null) {
-            if (onFailure != null) onFailure.run();
-            return;
-        }
-        PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
-        if (polarGenerator == null) {
-            if (onFailure != null) onFailure.run();
-            return;
-        }
-
+    public static void saveWorldConfigSource(World world, PolarWorld polarWorld, PolarGenerator polarGenerator, Path path, ChunkSelector chunkSelector, int offsetX, int offsetZ, @Nullable Runnable onSuccess, @Nullable Runnable onFailure) {
         String worldName = world.getName();
 
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
@@ -252,6 +244,7 @@ public class Polar {
                 config.difficulty(),
                 config.allowMonsters(),
                 config.allowAnimals(),
+                config.allowWorldExpansion(),
                 config.pvp(),
                 config.worldType(),
                 config.environment(),
@@ -259,15 +252,10 @@ public class Polar {
         );
         Config.writeToConfig(fileConfig, worldName, newConfig);
 
-        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
-        Path worldsFolder = pluginFolder.resolve("worlds");
-
         switch (config.source()) {
             case "file" -> {
-                BukkitScheduler scheduler = Bukkit.getScheduler();
-
-                scheduler.runTaskAsynchronously(PolarPaper.getPlugin(), () -> {
-                    saveWorld(world, worldsFolder.resolve(worldName + ".polar")).thenAccept(successful -> {
+                Bukkit.getScheduler().runTaskAsynchronously(PolarPaper.getPlugin(), () -> {
+                    saveWorld(world, polarWorld, polarGenerator, path, chunkSelector, offsetX, offsetZ).thenAccept(successful -> {
                         if (successful) {
                             if (onSuccess != null) onSuccess.run();
                         } else {
@@ -283,7 +271,38 @@ public class Polar {
             }
         }
     }
+    /**
+     * Save a polar world using the source defined in the config
+     *
+     * @param world The bukkit world
+     * @param onSuccess Runnable executed when the world is successfully loaded.
+     * @param onFailure Runnable executed when the world fails to be loaded.
+     */
+    public static void saveWorldConfigSource(World world, PolarWorld polarWorld, PolarGenerator polarGenerator, @Nullable Runnable onSuccess, @Nullable Runnable onFailure) {
+        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+        Path worldsFolder = pluginFolder.resolve("worlds");
+        saveWorldConfigSource(world, polarWorld, polarGenerator, worldsFolder.resolve(world.getName() + ".polar"), ChunkSelector.all(), 0, 0, onSuccess, onFailure);
+    }
 
+    /**
+     * Save a polar world to a file
+     *
+     * @param world The bukkit World
+     * @param path  The path to save the polar to (.polar extension recommended)
+     * @param chunkSelector Used to filter which chunks should save
+     * @param offsetX Offset in chunks added to the new chunk
+     * @param offsetZ Offset in chunks added to the new chunk
+     * @return Whether it was successful
+     */
+    public static CompletableFuture<Boolean> saveWorld(World world, PolarWorld polarWorld, PolarGenerator polarGenerator, Path path, ChunkSelector chunkSelector, int offsetX, int offsetZ) {
+        return updateWorld(world, polarWorld, polarGenerator, chunkSelector, offsetX, offsetZ).thenApply((a) -> {
+            byte[] worldBytes = PolarWriter.write(polarWorld);
+            return saveWorld(worldBytes, path);
+        }).exceptionally(e -> {
+            e.printStackTrace();
+            return false;
+        });
+    }
     /**
      * Save a polar world to a file
      *
@@ -291,17 +310,8 @@ public class Polar {
      * @param path  The path to save the polar to (.polar extension recommended)
      * @return Whether it was successful
      */
-    public static CompletableFuture<Boolean> saveWorld(World world, Path path) {
-        PolarWorld polarWorld = PolarWorld.fromWorld(world);
-        if (polarWorld == null) return CompletableFuture.completedFuture(false);
-
-        return saveWorld(world).thenApply((a) -> {
-            byte[] worldBytes = PolarWriter.write(polarWorld);
-            return saveWorld(worldBytes, path);
-        }).exceptionally(e -> {
-            e.printStackTrace();
-            return false;
-        });
+    public static CompletableFuture<Boolean> saveWorld(World world, PolarWorld polarWorld, PolarGenerator polarGenerator, Path path) {
+        return saveWorld(world, polarWorld, polarGenerator, path, ChunkSelector.all(), 0, 0);
     }
 
     /**
@@ -329,23 +339,26 @@ public class Polar {
      *
      * @param world The bukkit World
      * @return A CompletableFuture that completes once the world has finished updating
-     * @see Polar#saveWorld(World, Path)
+     * @see Polar#saveWorld(World, PolarWorld, PolarGenerator, Path)
      */
-    public static CompletableFuture<Void> saveWorld(World world) {
-        PolarWorld polarWorld = PolarWorld.fromWorld(world);
-        if (polarWorld == null) return CompletableFuture.completedFuture(null);
-        PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
-        if (polarGenerator == null) CompletableFuture.completedFuture(null);
+    public static CompletableFuture<Void> updateWorld(World world, PolarWorld polarWorld, PolarGenerator polarGenerator, ChunkSelector chunkSelector, int offsetX, int offsetZ) {
+        List<PolarChunk> chunks = new ArrayList<>(polarWorld.chunks());
+        List<CompletableFuture<Void>> futures = new ArrayList<>(chunks.size());
+        for (PolarChunk chunk : chunks) {
+            if (!chunkSelector.test(chunk.x(), chunk.z())) {
+                polarWorld.removeChunkAt(chunk.x(), chunk.z());
+                continue;
+            }
 
-        BukkitScheduler scheduler = Bukkit.getScheduler();
+            CompletableFuture<Void> future = new CompletableFuture<>();
 
-        List<CompletableFuture<Void>> futures = new ArrayList<>(polarWorld.chunks().size());
-        for (PolarChunk chunk : polarWorld.chunks()) {
-
-            CompletableFuture<Void> future = world.getChunkAtAsync(chunk.x(), chunk.z())
-                    .thenRun(() -> scheduler.runTaskAsynchronously(PolarPaper.getPlugin(), () -> {
-                        updateChunkData(polarWorld, polarGenerator.getWorldAccess(), world.getChunkAt(chunk.x(), chunk.z()), chunk.x(), chunk.z());
-                    }))
+            world.getChunkAtAsync(chunk.x() + offsetX, chunk.z() + offsetZ)
+                    .thenAccept((c) -> {
+                        Bukkit.getScheduler().runTaskAsynchronously(PolarPaper.getPlugin(), () -> {
+                            updateChunkData(polarWorld, polarGenerator.getWorldAccess(), c, chunk.x(), chunk.z());
+                            future.complete(null);
+                        });
+                    })
                     .exceptionally(e -> {
                         LOGGER.warning(e.toString());
                         return null;
@@ -493,12 +506,33 @@ public class Polar {
 
     public static void updateChunkData(PolarWorld polarWorld, PolarWorldAccess worldAccess, Chunk chunk, int newChunkX, int newChunkZ) {
         CraftChunk craftChunk = (CraftChunk) chunk;
-        ChunkSnapshot snapshot = craftChunk.getChunkSnapshot(true, true, false, true);
+        if (craftChunk == null) {
+            polarWorld.removeChunkAt(newChunkX, newChunkZ);
+            return;
+        }
+        ChunkSnapshot snapshot = craftChunk.getChunkSnapshot(true, true, false, false);
         int minHeight = chunk.getWorld().getMinHeight();
         int maxHeight = chunk.getWorld().getMaxHeight();
         LevelChunk chunkAccess = (LevelChunk) craftChunk.getHandle(ChunkStatus.FULL);
         HashSet<Map.Entry<BlockPos, BlockEntity>> blockEntities = new HashSet<>(chunkAccess.blockEntities.entrySet());
         Entity[] entities = Arrays.copyOf(craftChunk.getEntities(), craftChunk.getEntities().length);
+
+        int worldHeight = maxHeight - minHeight + 1; // I hate paper
+        int sectionCount = worldHeight / 16;
+        if (entities.length == 0 || entities.length == 1 && entities[0].getType() == EntityType.PLAYER) {
+            boolean allEmpty = true;
+            for (int i = 0; i < sectionCount; i++) {
+                if (!snapshot.isSectionEmpty(i)) {
+                    allEmpty = false;
+                    break;
+                }
+            }
+            if (allEmpty) {
+                polarWorld.removeChunkAt(newChunkX, newChunkZ);
+                return;
+            }
+        }
+
 
         var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
 
@@ -645,5 +679,7 @@ public class Polar {
                 )
         );
     }
+
+
 
 }

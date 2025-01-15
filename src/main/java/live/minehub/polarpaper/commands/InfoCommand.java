@@ -9,6 +9,7 @@ import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -26,13 +27,33 @@ public class InfoCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        World bukkitWorld = player.getWorld();
+        return printInfo(ctx, player.getWorld().getName());
+    }
+
+    protected static int runArg(CommandContext<CommandSourceStack> ctx) {
+        String worldName = ctx.getArgument("worldname", String.class);
+        return printInfo(ctx, worldName);
+    }
+
+    protected static int printInfo(CommandContext<CommandSourceStack> ctx, String worldName) {
+        World bukkitWorld = Bukkit.getWorld(worldName);
+        if (bukkitWorld == null) {
+            ctx.getSource().getSender().sendMessage(
+                    Component.text()
+                            .append(Component.text("'", NamedTextColor.RED))
+                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text("' does not exist", NamedTextColor.RED))
+            );
+            return Command.SINGLE_SUCCESS;
+        }
 
         PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
         if (polarWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
-                            .append(Component.text("Usage: /polar info (while in a polar world)", NamedTextColor.RED))
+                            .append(Component.text("'", NamedTextColor.RED))
+                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text("' is not a polar world", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
         }
@@ -69,7 +90,7 @@ public class InfoCommand {
                         .append(Component.text(" Saved Entities: ", NamedTextColor.AQUA))
                         .append(Component.text(savedEntities, NamedTextColor.AQUA))
                         .append(Component.newline())
-                        .append(Component.text(" Saved Chunks: ", NamedTextColor.AQUA))
+                        .append(Component.text(" Loaded Chunks: ", NamedTextColor.AQUA))
                         .append(Component.text(polarWorld.chunks().size(), NamedTextColor.AQUA))
         );
 

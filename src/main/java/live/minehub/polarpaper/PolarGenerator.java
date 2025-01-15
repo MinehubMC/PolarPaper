@@ -49,7 +49,13 @@ public class PolarGenerator extends ChunkGenerator {
     @Override
     public void generateSurface(@NotNull WorldInfo worldInfo, @NotNull Random random, int chunkX, int chunkZ, @NotNull ChunkData chunkData) {
         PolarChunk chunk = polarWorld.chunkAt(chunkX, chunkZ);
-        if (chunk == null) return;
+        if (chunk == null) {
+            if (!config.allowWorldExpansion()) return;
+
+            PolarChunk newChunk = new PolarChunk(chunkX, chunkZ);
+            polarWorld.updateChunkAt(chunkX, chunkZ, newChunk);
+            return;
+        }
 
         int i = 0;
         for (PolarSection section : chunk.sections()) {
@@ -140,6 +146,10 @@ public class PolarGenerator extends ChunkGenerator {
 
     public PolarWorldAccess getWorldAccess() {
         return worldAccess;
+    }
+
+    public Config getConfig() {
+        return config;
     }
 
     @Override

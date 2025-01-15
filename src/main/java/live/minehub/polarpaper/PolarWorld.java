@@ -121,6 +121,12 @@ public class PolarWorld {
         return chunk;
     }
 
+    public void removeChunkAt(int x, int z) {
+        chunksLock.writeLock().lock();
+        chunks.remove(CoordConversion.chunkIndex(x, z));
+        chunksLock.writeLock().unlock();
+    }
+
     public void updateChunkAt(int x, int z, @NotNull PolarChunk chunk) {
         chunksLock.writeLock().lock();
         chunks.put(CoordConversion.chunkIndex(x, z), chunk);
@@ -137,6 +143,7 @@ public class PolarWorld {
      * @return The PolarWorld or null if the world is not from polar
      */
     public static @Nullable PolarWorld fromWorld(World world) {
+        if (world == null) return null;
         ChunkGenerator generator = world.getGenerator();
         if (!(generator instanceof PolarGenerator polarGenerator)) return null;
         return polarGenerator.getPolarWorld();

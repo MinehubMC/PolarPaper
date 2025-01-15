@@ -3,6 +3,7 @@ package live.minehub.polarpaper;
 import net.kyori.adventure.nbt.CompoundBinaryTag;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Arrays;
 import java.util.List;
 
 public record PolarChunk(
@@ -14,6 +15,8 @@ public record PolarChunk(
         int[][] heightmaps,
         byte[] userData
 ) {
+
+    private static final int CHUNK_SECTION_SIZE = 16;
 
     public static final int HEIGHTMAP_NONE = 0b0;
     public static final int HEIGHTMAP_MOTION_BLOCKING = 0b1;
@@ -36,6 +39,12 @@ public record PolarChunk(
 
     public int @Nullable [] heightmap(int type) {
         return heightmaps[type];
+    }
+
+    public PolarChunk(int x, int z) {
+        // Blank chunk
+        this(x, z, new PolarSection[CHUNK_SECTION_SIZE], List.of(), List.of(), new int[PolarChunk.MAX_HEIGHTMAPS][0], new byte[0]);
+        Arrays.setAll(sections, (i) -> new PolarSection());
     }
 
     public record BlockEntity(
