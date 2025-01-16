@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.resource.paper)
 }
 
-val developmentVersion = "1.24.4.4"
+val developmentVersion = "1.24.4.5"
 
 version = getVersion()
 group = "live.minehub"
