@@ -114,11 +114,14 @@ public class ConvertCommand {
         PolarWorld newPolarWorld = new PolarWorld();
         PolarGenerator polarGenerator = new PolarGenerator(newPolarWorld, worldConfig);
 
+        int worldHeight = bukkitWorld.getMaxHeight() - bukkitWorld.getMinHeight() + 1;
+        int sectionCount = worldHeight / 16;
+
         int offsetX = centered ? 0 : playerChunk.getX();
         int offsetZ = centered ? 0 : playerChunk.getZ();
         for (int x = -chunkRadius; x <= chunkRadius; x++) {
             for (int z = -chunkRadius; z <= chunkRadius; z++) {
-                newPolarWorld.updateChunkAt(x + offsetX, z + offsetZ, new PolarChunk(x + offsetX, z + offsetZ));
+                newPolarWorld.updateChunkAt(x + offsetX, z + offsetZ, new PolarChunk(x + offsetX, z + offsetZ, sectionCount));
             }
         }
 
