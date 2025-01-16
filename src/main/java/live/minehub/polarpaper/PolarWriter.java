@@ -9,7 +9,6 @@ import org.jetbrains.annotations.NotNull;
 
 import static live.minehub.polarpaper.util.ByteArrayUtil.*;
 
-@SuppressWarnings("UnstableApiUsage")
 public class PolarWriter {
 
     private PolarWriter() {
@@ -31,8 +30,9 @@ public class PolarWriter {
 
         BinaryTagWriter nbtWriter = new BinaryTagWriter(bb);
 
-        writeVarInt(world.chunks().size(), bb);
+        writeVarInt(world.nonEmptyChunks(), bb);
         for (PolarChunk chunk : world.chunks()) {
+            if (chunk.isEmpty()) continue;
             writeChunk(bb, chunk, world.maxSection() - world.minSection() + 1, nbtWriter);
         }
 

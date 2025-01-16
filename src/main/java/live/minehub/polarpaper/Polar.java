@@ -222,6 +222,8 @@ public class Polar {
             return;
         }
 
+        LOGGER.info("Saving world " + world.getName());
+
         List<Map<String, ?>> gameruleList = new ArrayList<>();
         for (String name : world.getGameRules()) {
             GameRule<?> gamerule = GameRule.getByName(name);
@@ -528,7 +530,7 @@ public class Polar {
                 }
             }
             if (allEmpty) {
-                polarWorld.removeChunkAt(newChunkX, newChunkZ);
+                polarWorld.updateChunkAt(newChunkX, newChunkZ, new PolarChunk(newChunkX, newChunkZ, sectionCount));
                 return;
             }
         }

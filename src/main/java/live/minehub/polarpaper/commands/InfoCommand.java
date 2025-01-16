@@ -92,6 +92,9 @@ public class InfoCommand {
                         .append(Component.newline())
                         .append(Component.text(" Loaded Chunks: ", NamedTextColor.AQUA))
                         .append(Component.text(polarWorld.chunks().size(), NamedTextColor.AQUA))
+                        .append(Component.newline())
+                        .append(Component.text(" Saved Chunks: ", NamedTextColor.AQUA))
+                        .append(Component.text(polarWorld.nonEmptyChunks(), NamedTextColor.AQUA))
         );
 
         return Command.SINGLE_SUCCESS;

@@ -39,6 +39,13 @@ public record PolarChunk(
         return heightmaps[type];
     }
 
+    public boolean isEmpty() {
+        for (PolarSection section : sections) {
+            if (!section.isEmpty()) return false;
+        }
+        return true;
+    }
+
     public PolarChunk(int x, int z, int sectionCount) {
         // Blank chunk
         this(x, z, new PolarSection[sectionCount], List.of(), List.of(), new int[PolarChunk.MAX_HEIGHTMAPS][0], new byte[0]);

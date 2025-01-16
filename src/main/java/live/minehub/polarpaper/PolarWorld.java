@@ -137,6 +137,15 @@ public class PolarWorld {
         return chunks.values();
     }
 
+    public int nonEmptyChunks() {
+        int count = 0;
+        for (PolarChunk chunk : chunks()) {
+            if (chunk.isEmpty()) continue;
+            count++;
+        }
+        return count;
+    }
+
     /**
      * Get a polar world from a Bukkit world
      * @param world The bukkit world

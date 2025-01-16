@@ -3,10 +3,7 @@ package live.minehub.polarpaper.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-import live.minehub.polarpaper.Config;
-import live.minehub.polarpaper.Polar;
-import live.minehub.polarpaper.PolarGenerator;
-import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.*;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -99,33 +96,35 @@ public class UnloadCommand {
     }
 
     private static void bukkitUnload(CommandContext<CommandSourceStack> ctx, World bukkitWorld) {
-        String worldName = bukkitWorld.getName();
-        boolean successful = Bukkit.unloadWorld(bukkitWorld, false);
+        Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
+            String worldName = bukkitWorld.getName();
+            boolean successful = Bukkit.unloadWorld(bukkitWorld, false);
 
-        if (successful) {
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("Unloaded '", NamedTextColor.AQUA))
-                            .append(Component.text(worldName, NamedTextColor.AQUA))
-                            .append(Component.text("'", NamedTextColor.AQUA))
-            );
-        } else {
-            if (!bukkitWorld.getPlayers().isEmpty()) {
+            if (successful) {
                 ctx.getSource().getSender().sendMessage(
                         Component.text()
-                                .append(Component.text("There are still players in '", NamedTextColor.RED))
-                                .append(Component.text(worldName, NamedTextColor.RED))
-                                .append(Component.text("'", NamedTextColor.RED))
+                                .append(Component.text("Unloaded '", NamedTextColor.AQUA))
+                                .append(Component.text(worldName, NamedTextColor.AQUA))
+                                .append(Component.text("'", NamedTextColor.AQUA))
                 );
             } else {
-                ctx.getSource().getSender().sendMessage(
-                        Component.text()
-                                .append(Component.text("Something went wrong while unloading '", NamedTextColor.RED))
-                                .append(Component.text(worldName, NamedTextColor.RED))
-                                .append(Component.text("'", NamedTextColor.RED))
-                );
+                if (!bukkitWorld.getPlayers().isEmpty()) {
+                    ctx.getSource().getSender().sendMessage(
+                            Component.text()
+                                    .append(Component.text("There are still players in '", NamedTextColor.RED))
+                                    .append(Component.text(worldName, NamedTextColor.RED))
+                                    .append(Component.text("'", NamedTextColor.RED))
+                    );
+                } else {
+                    ctx.getSource().getSender().sendMessage(
+                            Component.text()
+                                    .append(Component.text("Something went wrong while unloading '", NamedTextColor.RED))
+                                    .append(Component.text(worldName, NamedTextColor.RED))
+                                    .append(Component.text("'", NamedTextColor.RED))
+                    );
+                }
             }
-        }
+        });
     }
 
 }
