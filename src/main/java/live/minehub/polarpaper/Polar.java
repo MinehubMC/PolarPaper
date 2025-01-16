@@ -498,7 +498,7 @@ public class Polar {
 //        internal.setSpawnSettings(true);
         // Paper - Put world into worldlist before initing the world; move up
 
-        craftServer.getServer().prepareLevels(internal.getChunkSource().chunkMap.progressListener, internal);
+//        craftServer.getServer().prepareLevels(internal.getChunkSource().chunkMap.progressListener, internal);
         // Paper - rewrite chunk system
 
 //        this.pluginManager.callEvent(new WorldLoadEvent(internal.getWorld()));
