@@ -63,12 +63,20 @@ Save a polar world
 ```java
 // Manually
 World bukkitWorld = player.getWorld();
-PolarWorld polarWorld = PolarWorld.fromWorld(player.getWorld());
+PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
+PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
 if (polarWorld == null) return;
-byte[] bytes = PolarWriter.write(polarWorld);
-// again, feel free to write the bytes wherever you like
 
-// or by using config
+// save to file
+Path savePath = Path.of("./epic/world.polar")
+Polar.saveWorld(bukkitWorld, polarWorld, polarGenerator, savePath) // update the chunks and save to file
+
+// or custom location
+Polar.updateWorld(bukkitWorld, polarWorld, polarGenerator, ChunkSelector.all(), 0, 0) // update the chunks
+byte[] bytes = PolarWriter.write(polarWorld); // save the bytes somewhere
+
+
+// or automatically using config (same as /polar save)
 Polar.saveWorldConfigSource("gamingworld", null, null);
 ```
 
