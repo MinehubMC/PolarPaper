@@ -74,16 +74,6 @@ public class PolarWriter {
             writeBlockEntity(bb, blockEntity, nbtWriter);
         }
 
-        writeVarInt(chunk.entities().size(), bb);
-        for (var entity : chunk.entities()) {
-            bb.writeDouble(entity.x());
-            bb.writeDouble(entity.y());
-            bb.writeDouble(entity.z());
-            bb.writeFloat(entity.yaw());
-            bb.writeFloat(entity.pitch());
-            writeByteArray(entity.bytes(), bb);
-        }
-
         {
             int heightmapBits = 0;
             for (int i = 0; i < PolarChunk.MAX_HEIGHTMAPS; i++) {

@@ -108,21 +108,6 @@ public class PolarReader {
             blockEntities.add(readBlockEntity(dataConverter, version, dataVersion, bb, nbtReader));
         }
 
-        List<PolarChunk.Entity> entities = new ArrayList<>();
-        if (version >= PolarWorld.VERSION_ENTITIES) {
-            int entityCount = getVarInt(bb);
-            for (int i = 0; i < entityCount; i++) {
-                entities.add(new PolarChunk.Entity(
-                        bb.getDouble(),
-                        bb.getDouble(),
-                        bb.getDouble(),
-                        bb.getFloat(),
-                        bb.getFloat(),
-                        getByteArray(bb)
-                ));
-            }
-        }
-
         var heightmaps = new int[PolarChunk.MAX_HEIGHTMAPS][];
         int heightmapMask = bb.getInt();
         for (int i = 0; i < PolarChunk.MAX_HEIGHTMAPS; i++) {
@@ -152,7 +137,6 @@ public class PolarReader {
                 chunkX, chunkZ,
                 sections,
                 blockEntities,
-                entities,
                 heightmaps,
                 userData
         );

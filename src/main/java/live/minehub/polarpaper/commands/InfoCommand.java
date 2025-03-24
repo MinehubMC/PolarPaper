@@ -4,7 +4,6 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Config;
-import live.minehub.polarpaper.PolarChunk;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
@@ -58,11 +57,6 @@ public class InfoCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        int savedEntities = 0;
-        for (PolarChunk chunk : polarWorld.chunks()) {
-            savedEntities += chunk.entities().size();
-        }
-
         Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName());
         if (config == null) config = Config.DEFAULT;
 
@@ -86,9 +80,6 @@ public class InfoCommand {
                         .append(Component.newline())
                         .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
                         .append(Component.text(config.spawn(), NamedTextColor.AQUA))
-                        .append(Component.newline())
-                        .append(Component.text(" Saved Entities: ", NamedTextColor.AQUA))
-                        .append(Component.text(savedEntities, NamedTextColor.AQUA))
                         .append(Component.newline())
                         .append(Component.text(" Loaded Chunks: ", NamedTextColor.AQUA))
                         .append(Component.text(polarWorld.chunks().size(), NamedTextColor.AQUA))
