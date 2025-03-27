@@ -634,6 +634,7 @@ public class Polar {
                         newChunkZ,
                         sections,
                         polarBlockEntities,
+                        null, // Entities
                         heightMaps,
                         userData
                 )

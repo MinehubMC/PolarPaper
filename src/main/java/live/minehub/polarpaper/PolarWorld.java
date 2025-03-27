@@ -26,6 +26,8 @@ public class PolarWorld {
     static final short VERSION_DATA_CONVERTER = 6;
     static final short VERSION_IMPROVED_LIGHT = 7;
 
+    static final short VERSION_DEPRECATED_ENTITIES = 8;
+
     public static CompressionType DEFAULT_COMPRESSION = CompressionType.ZSTD;
 
     // Polar metadata
