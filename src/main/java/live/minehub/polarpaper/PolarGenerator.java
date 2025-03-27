@@ -37,7 +37,7 @@ public class PolarGenerator extends ChunkGenerator {
     private final Config config;
 
     public PolarGenerator(PolarWorld polarWorld, Config config) {
-        this(polarWorld, PolarWorldAccess.DEFAULT, config);
+        this(polarWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, config);
     }
 
     public PolarGenerator(PolarWorld polarWorld, PolarWorldAccess worldAccess, Config config) {

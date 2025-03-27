@@ -14,6 +14,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.ChunkPopulateEvent;
+import org.bukkit.generator.ChunkGenerator;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -32,28 +33,37 @@ public class PolarListener implements Listener {
         PolarChunk chunk = polarWorld.chunkAt(event.getChunk().getX(), event.getChunk().getZ());
         if (chunk == null) return;
 
-        for (PolarChunk.Entity polarEntity : chunk.entities()) {
-            Entity entity;
-            try {
-                ByteArrayInputStream inputStream = new ByteArrayInputStream(polarEntity.bytes());
-                DataInputStream dataInput = new DataInputStream(inputStream);
-                CompoundTag compound = NbtIo.read(dataInput, NbtAccounter.unlimitedHeap());
-                int dataVersion = compound.getInt("DataVersion");
-                compound = MCDataConverter.convertTag(MCTypeRegistry.ENTITY, compound, dataVersion, Bukkit.getUnsafe().getDataVersion());
+        ChunkGenerator generator = event.getWorld().getGenerator();
+        if (!(generator instanceof PolarGenerator polarGenerator)) return;
+        PolarWorldAccess worldAccess = polarGenerator.getWorldAccess();
+        if (chunk.userData().length > 0) {
+            worldAccess.populateChunkData(event.getChunk(), chunk.userData());
+        }
 
-                Optional<net.minecraft.world.entity.Entity> entityOptional = EntityType.create(compound, ((CraftWorld) event.getWorld()).getHandle(), EntitySpawnReason.LOAD);
-                if (!entityOptional.isPresent()) {
+        if (chunk.entities() != null) {
+            for (PolarChunk.Entity polarEntity : chunk.entities()) {
+                Entity entity;
+                try {
+                    ByteArrayInputStream inputStream = new ByteArrayInputStream(polarEntity.bytes());
+                    DataInputStream dataInput = new DataInputStream(inputStream);
+                    CompoundTag compound = NbtIo.read(dataInput, NbtAccounter.unlimitedHeap());
+                    int dataVersion = compound.getInt("DataVersion");
+                    compound = MCDataConverter.convertTag(MCTypeRegistry.ENTITY, compound, dataVersion, Bukkit.getUnsafe().getDataVersion());
+
+                    Optional<net.minecraft.world.entity.Entity> entityOptional = EntityType.create(compound, ((CraftWorld) event.getWorld()).getHandle(), EntitySpawnReason.LOAD);
+                    if (!entityOptional.isPresent()) {
+                        LOGGER.warning("Failed to deserialize entity");
+                        continue;
+                    }
+
+                    entity = entityOptional.get().getBukkitEntity();
+                } catch (Exception e) {
                     LOGGER.warning("Failed to deserialize entity");
+                    LOGGER.warning(e.toString());
                     continue;
                 }
-
-                entity = entityOptional.get().getBukkitEntity();
-            } catch (Exception e) {
-                LOGGER.warning("Failed to deserialize entity");
-                LOGGER.warning(e.toString());
-                continue;
+                entity.spawnAt(new Location(event.getWorld(), polarEntity.x() + chunk.x() * 16, polarEntity.y(), polarEntity.z() + chunk.z() * 16, polarEntity.yaw(), polarEntity.pitch()));
             }
-            entity.spawnAt(new Location(event.getWorld(), polarEntity.x() + chunk.x() * 16, polarEntity.y(), polarEntity.z() + chunk.z() * 16, polarEntity.yaw(), polarEntity.pitch()));
         }
     }
 

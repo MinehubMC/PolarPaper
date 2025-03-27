@@ -11,7 +11,7 @@ public record PolarChunk(
         int z,
         PolarSection[] sections,
         List<BlockEntity> blockEntities,
-        List<Entity> entities,
+        @Nullable @Deprecated List<Entity> entities,
         int[][] heightmaps,
         byte[] userData
 ) {
@@ -60,6 +60,7 @@ public record PolarChunk(
 
     }
 
+    @Deprecated
     public record Entity(
             double x,
             double y,

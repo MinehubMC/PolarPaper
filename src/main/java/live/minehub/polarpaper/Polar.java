@@ -14,7 +14,6 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtException;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.ReportedNbtException;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -49,7 +48,6 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.craftbukkit.CraftChunk;
 import org.bukkit.craftbukkit.CraftServer;
-import org.bukkit.craftbukkit.entity.CraftEntity;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.generator.BiomeProvider;
@@ -58,8 +56,6 @@ import org.bukkit.scheduler.BukkitScheduler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -627,45 +623,8 @@ public class Polar {
         worldAccess.saveHeightmaps(snapshot, heightMaps);
 
         ByteArrayDataOutput userDataOutput = ByteStreams.newDataOutput();
-        worldAccess.saveChunkData(snapshot, userDataOutput);
+        worldAccess.saveChunkData(snapshot, blockEntities, entities, userDataOutput);
         byte[] userData = userDataOutput.toByteArray();
-
-        List<PolarChunk.Entity> polarEntities = new ArrayList<>();
-        for (@NotNull Entity entity : entities) {
-            if (entity.getType() == EntityType.PLAYER) continue;
-
-            CompoundTag compound = new CompoundTag();
-
-            boolean successful = ((CraftEntity) entity).getHandle().saveAsPassenger(compound, true, false, false);
-            String id = compound.getString("id");
-            if (id.isBlank() || !successful) {
-                LOGGER.warning("Failed to serialize entity type " + entity.getType().name() + " at " + entity.getLocation());
-                continue;
-            }
-            compound.putInt("DataVersion", Bukkit.getUnsafe().getDataVersion());
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            DataOutputStream dataOutput = new DataOutputStream(outputStream);
-            try {
-                NbtIo.write(
-                        compound,
-                        dataOutput
-                );
-                outputStream.flush();
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-            byte[] entityBytes = outputStream.toByteArray();
-
-            Location entityPos = entity.getLocation();
-            polarEntities.add(new PolarChunk.Entity(
-                    ((entityPos.x() % 16) + 16) % 16,
-                    entityPos.y(),
-                    ((entityPos.z() % 16) + 16) % 16,
-                    entityPos.getYaw(),
-                    entityPos.getPitch(),
-                    entityBytes
-            ));
-        }
 
         polarWorld.updateChunkAt(
                 newChunkX,
@@ -675,7 +634,7 @@ public class Polar {
                         newChunkZ,
                         sections,
                         polarBlockEntities,
-                        polarEntities,
+                        null, // Entities
                         heightMaps,
                         userData
                 )

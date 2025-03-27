@@ -108,8 +108,10 @@ public class PolarReader {
             blockEntities.add(readBlockEntity(dataConverter, version, dataVersion, bb, nbtReader));
         }
 
-        List<PolarChunk.Entity> entities = new ArrayList<>();
-        if (version >= PolarWorld.VERSION_ENTITIES) {
+        // If the version is set to 8 copy the contents over to the beginning of userdata
+        List<PolarChunk.Entity> entities = null;
+        if (version == PolarWorld.VERSION_DEPRECATED_ENTITIES) {
+            entities = new ArrayList<>();
             int entityCount = getVarInt(bb);
             for (int i = 0; i < entityCount; i++) {
                 entities.add(new PolarChunk.Entity(
@@ -259,7 +261,8 @@ public class PolarReader {
     private static void validateVersion(int version) {
         var invalidVersionError = String.format("Unsupported Polar version. Up to %d is supported, found %d.",
                 PolarWorld.LATEST_VERSION, version);
-        assertThat(version <= PolarWorld.LATEST_VERSION, invalidVersionError);
+        assertThat(version <= PolarWorld.LATEST_VERSION || version == PolarWorld.VERSION_DEPRECATED_ENTITIES,
+                invalidVersionError);
     }
 
     private static @NotNull ByteBuffer decompressBuffer(@NotNull ByteBuffer buffer, @NotNull PolarWorld.CompressionType compression, int compressedLength) {

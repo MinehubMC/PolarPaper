@@ -16,7 +16,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class PolarWorld {
 
     public static final int MAGIC_NUMBER = 0x506F6C72; // `Polr`
-    public static final short LATEST_VERSION = 8;
+    public static final short LATEST_VERSION = 7;
 
     static final short VERSION_UNIFIED_LIGHT = 1;
     static final short VERSION_USERDATA_OPT_BLOCK_ENT_NBT = 2;
@@ -26,7 +26,7 @@ public class PolarWorld {
     static final short VERSION_DATA_CONVERTER = 6;
     static final short VERSION_IMPROVED_LIGHT = 7;
 
-    static final short VERSION_ENTITIES = 8;
+    static final short VERSION_DEPRECATED_ENTITIES = 8;
 
     public static CompressionType DEFAULT_COMPRESSION = CompressionType.ZSTD;
 
