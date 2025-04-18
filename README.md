@@ -22,13 +22,19 @@ Polar was originally developed for [Minestom](https://github.com/Minestom/Minest
 Permission nodes are simply `polarpaper.<subcommand>`, for example: `polarpaper.info` for `/polar info`
 
 ## API
+Remember to add `polarpaper` to your depend list in plugin.yml.
+```yml
+depend:
+  - polarpaper
+```
+
 Add to Gradle:
 ```kts
 repositories {
     maven("https://repo.minehub.live/releases")
 }
 dependencies {
-    implementation("live.minehub:polarpaper:<latest version>")
+    compileOnly("live.minehub:polarpaper:<latest version>")
 }
 ```
 
