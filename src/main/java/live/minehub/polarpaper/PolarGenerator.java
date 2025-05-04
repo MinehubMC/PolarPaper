@@ -88,8 +88,7 @@ public class PolarGenerator extends ChunkGenerator {
         CompoundTag compoundTag;
         try {
             String string = TagStringIO.get().asString(polarBlockEntity.data().put("id", StringBinaryTag.stringBinaryTag(polarBlockEntity.id())));
-            TagParser parser = new TagParser(new StringReader(string));
-            compoundTag = parser.readStruct();
+            compoundTag = TagParser.parseCompoundAsArgument(new StringReader(string));
         } catch (IOException | CommandSyntaxException e) {
             LOGGER.warning("Failed to load block entity");
             LOGGER.warning(e.toString());

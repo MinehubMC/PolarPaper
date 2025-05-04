@@ -1,13 +1,14 @@
 package live.minehub.polarpaper;
 
-import ca.spottedleaf.dataconverter.minecraft.MCDataConverter;
-import ca.spottedleaf.dataconverter.minecraft.datatypes.MCTypeRegistry;
+import ca.spottedleaf.moonrise.common.PlatformHooks;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.datafix.fixes.References;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.bukkit.Bukkit;
@@ -80,8 +81,8 @@ public interface PolarWorldAccess {
                     ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
                     DataInputStream dataInput = new DataInputStream(inputStream);
                     CompoundTag compound = NbtIo.read(dataInput, NbtAccounter.unlimitedHeap());
-                    int dataVersion = compound.getInt("DataVersion");
-                    compound = MCDataConverter.convertTag(MCTypeRegistry.ENTITY, compound, dataVersion, Bukkit.getUnsafe().getDataVersion());
+                    Optional<Integer> dataVersion = compound.getInt("DataVersion");
+                    compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().fixerUpper, compound, dataVersion.get(), Bukkit.getUnsafe().getDataVersion());
 
                     Optional<net.minecraft.world.entity.Entity> entityOptional = net.minecraft.world.entity.EntityType
                             .create(compound, ((CraftWorld) chunk.getWorld()).getHandle(), EntitySpawnReason.LOAD);
@@ -111,8 +112,8 @@ public interface PolarWorldAccess {
                 CompoundTag compound = new CompoundTag();
 
                 boolean successful = ((CraftEntity) entity).getHandle().saveAsPassenger(compound, true, false, false);
-                String id = compound.getString("id");
-                if (id.isBlank() || !successful) {
+                Optional<String> id = compound.getString("id");
+                if (id.isEmpty() || id.get().isBlank() || !successful) {
                     continue;
                 }
                 compound.putInt("DataVersion", Bukkit.getUnsafe().getDataVersion());

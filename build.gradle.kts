@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.resource.paper)
 }
 
-val developmentVersion = "1.24.4.6"
+val developmentVersion = "${libs.versions.minecraft.get()}.0"
 
 version = getVersion()
 group = "live.minehub"

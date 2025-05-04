@@ -610,7 +610,7 @@ public class Polar {
 
             CompoundBinaryTag nbt;
             try {
-                nbt = TagStringIO.get().asCompound(compoundTag.getAsString());
+                nbt = TagStringIO.get().asCompound(compoundTag.toString());
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

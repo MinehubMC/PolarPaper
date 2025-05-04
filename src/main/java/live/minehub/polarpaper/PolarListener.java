@@ -1,10 +1,11 @@
 package live.minehub.polarpaper;
 
-import ca.spottedleaf.dataconverter.minecraft.MCDataConverter;
-import ca.spottedleaf.dataconverter.minecraft.datatypes.MCTypeRegistry;
+import ca.spottedleaf.moonrise.common.PlatformHooks;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.datafix.fixes.References;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import org.bukkit.Bukkit;
@@ -47,11 +48,11 @@ public class PolarListener implements Listener {
                     ByteArrayInputStream inputStream = new ByteArrayInputStream(polarEntity.bytes());
                     DataInputStream dataInput = new DataInputStream(inputStream);
                     CompoundTag compound = NbtIo.read(dataInput, NbtAccounter.unlimitedHeap());
-                    int dataVersion = compound.getInt("DataVersion");
-                    compound = MCDataConverter.convertTag(MCTypeRegistry.ENTITY, compound, dataVersion, Bukkit.getUnsafe().getDataVersion());
+                    Optional<Integer> dataVersion = compound.getInt("DataVersion");
+                    compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().fixerUpper, compound, dataVersion.get(), Bukkit.getUnsafe().getDataVersion());
 
                     Optional<net.minecraft.world.entity.Entity> entityOptional = EntityType.create(compound, ((CraftWorld) event.getWorld()).getHandle(), EntitySpawnReason.LOAD);
-                    if (!entityOptional.isPresent()) {
+                    if (entityOptional.isEmpty()) {
                         LOGGER.warning("Failed to deserialize entity");
                         continue;
                     }
