@@ -1,25 +1,13 @@
 package live.minehub.polarpaper;
 
-import ca.spottedleaf.moonrise.common.PlatformHooks;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.datafix.fixes.References;
-import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.entity.EntityType;
-import org.bukkit.Bukkit;
+import live.minehub.polarpaper.util.EntityUtil;
 import org.bukkit.Location;
-import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.entity.Entity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.ChunkPopulateEvent;
 import org.bukkit.generator.ChunkGenerator;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.util.Optional;
 import java.util.logging.Logger;
 
 public class PolarListener implements Listener {
@@ -41,23 +29,14 @@ public class PolarListener implements Listener {
             worldAccess.populateChunkData(event.getChunk(), chunk.userData());
         }
 
+
+        // Load legacy entities
         if (chunk.entities() != null) {
             for (PolarChunk.Entity polarEntity : chunk.entities()) {
                 Entity entity;
                 try {
-                    ByteArrayInputStream inputStream = new ByteArrayInputStream(polarEntity.bytes());
-                    DataInputStream dataInput = new DataInputStream(inputStream);
-                    CompoundTag compound = NbtIo.read(dataInput, NbtAccounter.unlimitedHeap());
-                    Optional<Integer> dataVersion = compound.getInt("DataVersion");
-                    compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().fixerUpper, compound, dataVersion.get(), Bukkit.getUnsafe().getDataVersion());
-
-                    Optional<net.minecraft.world.entity.Entity> entityOptional = EntityType.create(compound, ((CraftWorld) event.getWorld()).getHandle(), EntitySpawnReason.LOAD);
-                    if (entityOptional.isEmpty()) {
-                        LOGGER.warning("Failed to deserialize entity");
-                        continue;
-                    }
-
-                    entity = entityOptional.get().getBukkitEntity();
+                    entity = EntityUtil.bytesToEntity(event.getWorld(), polarEntity.bytes());
+                    if (entity == null) continue;
                 } catch (Exception e) {
                     LOGGER.warning("Failed to deserialize entity");
                     LOGGER.warning(e.toString());

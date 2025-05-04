@@ -60,7 +60,6 @@ public record PolarChunk(
 
     }
 
-    @Deprecated
     public record Entity(
             double x,
             double y,

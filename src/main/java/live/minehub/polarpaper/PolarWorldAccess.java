@@ -1,41 +1,23 @@
 package live.minehub.polarpaper;
 
-import ca.spottedleaf.moonrise.common.PlatformHooks;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
+import live.minehub.polarpaper.util.EntityUtil;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.datafix.fixes.References;
-import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.ChunkSnapshot;
 import org.bukkit.Location;
-import org.bukkit.craftbukkit.CraftWorld;
-import org.bukkit.craftbukkit.entity.CraftEntity;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.generator.ChunkGenerator;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
-import static live.minehub.polarpaper.util.ByteArrayUtil.getByteArray;
-import static live.minehub.polarpaper.util.ByteArrayUtil.getVarInt;
 import static live.minehub.polarpaper.util.ByteArrayUtil.writeByteArray;
 import static live.minehub.polarpaper.util.ByteArrayUtil.writeVarInt;
 
@@ -61,36 +43,20 @@ public interface PolarWorldAccess {
 
         @Override
         public void populateChunkData(@NotNull final Chunk chunk, final byte @Nullable [] userData) {
-            if (userData == null) return;
-            final var bb = ByteBuffer.wrap(userData);
+            List<PolarChunk.Entity> entities = EntityUtil.getEntities(userData);
 
-            // Skip the version
-            bb.get();
-
-            int entityCount = getVarInt(bb);
-            for (int i = 0; i < entityCount; i++) {
-                final var x = bb.getDouble();
-                final var y = bb.getDouble();
-                final var z = bb.getDouble();
-                final var yaw = bb.getFloat();
-                final var pitch = bb.getFloat();
-                final var bytes = getByteArray(bb);
+            for (PolarChunk.Entity polarEntity : entities) {
+                final var x = polarEntity.x();
+                final var y = polarEntity.y();
+                final var z = polarEntity.z();
+                final var yaw = polarEntity.yaw();
+                final var pitch = polarEntity.pitch();
+                final var bytes = polarEntity.bytes();
 
                 Entity entity;
                 try {
-                    ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
-                    DataInputStream dataInput = new DataInputStream(inputStream);
-                    CompoundTag compound = NbtIo.read(dataInput, NbtAccounter.unlimitedHeap());
-                    Optional<Integer> dataVersion = compound.getInt("DataVersion");
-                    compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().fixerUpper, compound, dataVersion.get(), Bukkit.getUnsafe().getDataVersion());
-
-                    Optional<net.minecraft.world.entity.Entity> entityOptional = net.minecraft.world.entity.EntityType
-                            .create(compound, ((CraftWorld) chunk.getWorld()).getHandle(), EntitySpawnReason.LOAD);
-                    if (!entityOptional.isPresent()) {
-                        continue;
-                    }
-
-                    entity = entityOptional.get().getBukkitEntity();
+                    entity = EntityUtil.bytesToEntity(chunk.getWorld(), bytes);
+                    if (entity == null) continue;
                 } catch (Exception e) {
                     continue;
                 }
@@ -107,29 +73,8 @@ public interface PolarWorldAccess {
             ByteArrayDataOutput entityData = ByteStreams.newDataOutput();
             int entityCount = 0;
             for (@NotNull Entity entity : entities) {
-                if (entity.getType() == EntityType.PLAYER) continue;
-
-                CompoundTag compound = new CompoundTag();
-
-                boolean successful = ((CraftEntity) entity).getHandle().saveAsPassenger(compound, true, false, false);
-                Optional<String> id = compound.getString("id");
-                if (id.isEmpty() || id.get().isBlank() || !successful) {
-                    continue;
-                }
-                compound.putInt("DataVersion", Bukkit.getUnsafe().getDataVersion());
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                DataOutputStream dataOutput = new DataOutputStream(outputStream);
-                try {
-                    NbtIo.write(
-                            compound,
-                            dataOutput
-                    );
-                    outputStream.flush();
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
-
-                byte[] entityBytes = outputStream.toByteArray();
+                byte[] entityBytes = EntityUtil.entityToBytes(entity);
+                if (entityBytes == null) continue;
                 Location entityPos = entity.getLocation();
 
                 final var x = ((entityPos.x() % 16) + 16) % 16;
