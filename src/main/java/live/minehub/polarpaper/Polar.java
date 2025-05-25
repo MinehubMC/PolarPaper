@@ -549,7 +549,8 @@ public class Polar {
 
             // Blocks
             int[] blockData = new int[4096];
-            List<String> blockPalette = new ArrayList<>();
+            List<BlockData> blockPalette = new ArrayList<>();
+            List<String> blockPaletteStrings = new ArrayList<>();
 
             for (int x = 0; x < 16; x++) {
                 for (int y = 0; y < 16; y++) {
@@ -559,11 +560,11 @@ public class Polar {
                         int blockIndex = x + y * 16 * 16 + z * 16;
 
                         BlockData data = snapshot.getBlockData(x, sectionLocalY, z);
-                        String blockString = data.getAsString();
-                        int paletteId = blockPalette.indexOf(blockString);
+                        int paletteId = blockPalette.indexOf(data);
                         if (paletteId == -1) {
                             paletteId = blockPalette.size();
-                            blockPalette.add(blockString);
+                            blockPalette.add(data);
+                            blockPaletteStrings.add(data.getAsString(true));
                         }
                         blockData[blockIndex] = paletteId;
                     }
@@ -593,7 +594,7 @@ public class Polar {
             }
 
             sections[i] = new PolarSection(
-                    blockPalette.toArray(new String[0]), blockData,
+                    blockPaletteStrings.toArray(new String[0]), blockData,
                     biomePalette.toArray(new String[0]), biomeData,
                     PolarSection.LightContent.MISSING, null, // TODO: Provide block light
                     PolarSection.LightContent.MISSING, null
