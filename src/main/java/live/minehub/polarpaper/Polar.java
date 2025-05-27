@@ -612,7 +612,9 @@ public class Polar {
             CompoundBinaryTag nbt;
             try {
                 nbt = TagStringIO.get().asCompound(compoundTag.toString());
-            } catch (IOException e) {
+            } catch (Exception e) {
+                LOGGER.warning("Failed to save block entity data for " + blockPos);
+                LOGGER.warning("Compound tag: " + compoundTag);
                 throw new RuntimeException(e);
             }
 
