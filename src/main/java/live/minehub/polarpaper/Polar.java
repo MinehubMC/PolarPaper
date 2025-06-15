@@ -136,7 +136,7 @@ public class Polar {
     }
 
     private static <T> void setGameRule(World world, GameRule<?> rule, Object value) {
-        world.setGameRule((GameRule<T>) rule, (T)value);
+        world.setGameRule((GameRule<T>) rule, (T) value);
     }
 
     /**
@@ -199,13 +199,13 @@ public class Polar {
     /**
      * Save a polar world using the source defined in the config
      *
-     * @param world The bukkit world
-     * @param polarWorld The polar world
+     * @param world         The bukkit world
+     * @param polarWorld    The polar world
      * @param chunkSelector Used to filter which chunks should save
-     * @param offsetX Offset in chunks added to the new chunk
-     * @param offsetZ Offset in chunks added to the new chunk
-     * @param onSuccess Runnable executed when the world is successfully loaded.
-     * @param onFailure Runnable executed when the world fails to be loaded.
+     * @param offsetX       Offset in chunks added to the new chunk
+     * @param offsetZ       Offset in chunks added to the new chunk
+     * @param onSuccess     Runnable executed when the world is successfully loaded.
+     * @param onFailure     Runnable executed when the world fails to be loaded.
      */
     public static void saveWorldConfigSource(World world, PolarWorld polarWorld, PolarGenerator polarGenerator, Path path, ChunkSelector chunkSelector, int offsetX, int offsetZ, @Nullable Runnable onSuccess, @Nullable Runnable onFailure) {
         String worldName = world.getName();
@@ -269,10 +269,11 @@ public class Polar {
             }
         }
     }
+
     /**
      * Save a polar world using the source defined in the config
      *
-     * @param world The bukkit world
+     * @param world     The bukkit world
      * @param onSuccess Runnable executed when the world is successfully loaded.
      * @param onFailure Runnable executed when the world fails to be loaded.
      */
@@ -285,11 +286,11 @@ public class Polar {
     /**
      * Save a polar world to a file
      *
-     * @param world The bukkit World
-     * @param path  The path to save the polar to (.polar extension recommended)
+     * @param world         The bukkit World
+     * @param path          The path to save the polar to (.polar extension recommended)
      * @param chunkSelector Used to filter which chunks should save
-     * @param offsetX Offset in chunks added to the new chunk
-     * @param offsetZ Offset in chunks added to the new chunk
+     * @param offsetX       Offset in chunks added to the new chunk
+     * @param offsetZ       Offset in chunks added to the new chunk
      * @return Whether it was successful
      */
     public static CompletableFuture<Boolean> saveWorld(World world, PolarWorld polarWorld, PolarGenerator polarGenerator, Path path, ChunkSelector chunkSelector, int offsetX, int offsetZ) {
@@ -301,6 +302,7 @@ public class Polar {
             return false;
         });
     }
+
     /**
      * Save a polar world to a file
      *
@@ -485,7 +487,7 @@ public class Polar {
             worlddata.getGameRules().getRule(GameRules.RULE_SPAWN_CHUNK_RADIUS).set(0, null);
         }
         PolarServerLevel internal = new PolarServerLevel(craftServer.getServer(), craftServer.getServer().executor, worldSession, worlddata, worldKey, worlddimension, craftServer.getServer().progressListenerFactory.create(worlddata.getGameRules().getInt(GameRules.RULE_SPAWN_CHUNK_RADIUS)),
-                worlddata.isDebugWorld(), j, creator.environment() == World.Environment.NORMAL ? list : ImmutableList.of(), true, craftServer.getServer().overworld().getRandomSequences(), creator.environment(), generator, biomeProvider);
+                                                         worlddata.isDebugWorld(), j, creator.environment() == World.Environment.NORMAL ? list : ImmutableList.of(), true, craftServer.getServer().overworld().getRandomSequences(), creator.environment(), generator, biomeProvider);
 
 
         craftServer.getServer().addLevel(internal); // Paper - Put world into worldlist before initing the world; move up
@@ -508,7 +510,7 @@ public class Polar {
             polarWorld.removeChunkAt(newChunkX, newChunkZ);
             return;
         }
-        ChunkSnapshot snapshot = craftChunk.getChunkSnapshot(true, true, false, false);
+        ChunkSnapshot snapshot = craftChunk.getChunkSnapshot(true, true, false, true);
         int minHeight = chunk.getWorld().getMinHeight();
         int maxHeight = chunk.getWorld().getMaxHeight();
         LevelChunk chunkAccess = (LevelChunk) craftChunk.getHandle(ChunkStatus.FULL);
@@ -537,7 +539,10 @@ public class Polar {
         updateChunkData(polarWorld, worldAccess, snapshot, newChunkX, newChunkZ, minHeight, maxHeight, blockEntities, entities, registryAccess);
     }
 
-    public static void updateChunkData(PolarWorld polarWorld, PolarWorldAccess worldAccess, ChunkSnapshot snapshot, int newChunkX, int newChunkZ, int minHeight, int maxHeight, Set<Map.Entry<BlockPos, BlockEntity>> blockEntities, Entity[] entities, RegistryAccess.Frozen registryAccess) {
+    public static void updateChunkData(PolarWorld polarWorld, PolarWorldAccess worldAccess, ChunkSnapshot snapshot,
+                                       int newChunkX, int newChunkZ, int minHeight, int maxHeight,
+                                       Set<Map.Entry<BlockPos, BlockEntity>> blockEntities, Entity[] entities,
+                                       RegistryAccess.Frozen registryAccess) {
         List<PolarChunk.BlockEntity> polarBlockEntities = new ArrayList<>();
 
         int worldHeight = maxHeight - minHeight + 1; // I hate paper
@@ -593,11 +598,32 @@ public class Polar {
                 }
             }
 
+            // Lighting Data
+            byte[] blockLight = new byte[2048];
+            byte[] skyLight = new byte[2048];
+
+            for (int y = 0; y < 16; y++) {
+                int chunkY = sectionY + y;
+
+                for (int z = 0; z < 16; z++) {
+                    for (int x = 0; x < 16; x ++) {
+                        // Conforms to Minestom's section lighting layout, which is used by Hollow Cube's Polar
+                        // https://github.com/Minestom/Minestom/blob/master/src/main/java/net/minestom/server/instance/light/LightCompute.java#L98-L102
+                        int pos = x | (z << 4) | (y << 8);
+                        int shift = (pos & 1) << 2;
+                        int idx = pos >>> 1;
+
+                        blockLight[idx] |= (byte) (snapshot.getBlockEmittedLight(x, chunkY, z) << shift);
+                        skyLight[idx] |= (byte) (snapshot.getBlockSkyLight(x, chunkY, z) << shift);
+                    }
+                }
+            }
+
             sections[i] = new PolarSection(
                     blockPaletteStrings.toArray(new String[0]), blockData,
                     biomePalette.toArray(new String[0]), biomeData,
-                    PolarSection.LightContent.MISSING, null, // TODO: Provide block light
-                    PolarSection.LightContent.MISSING, null
+                    PolarSection.LightContent.calculateLightContent(blockLight), blockLight,
+                    PolarSection.LightContent.calculateLightContent(skyLight), skyLight
             );
         }
 
@@ -605,7 +631,9 @@ public class Polar {
             BlockPos blockPos = entry.getKey();
             BlockEntity blockEntity = entry.getValue();
 
-            if (blockPos == null || blockEntity == null) continue;
+            if (blockPos == null || blockEntity == null) {
+                continue;
+            }
 
             CompoundTag compoundTag = blockEntity.saveWithFullMetadata(registryAccess);
 
@@ -643,7 +671,6 @@ public class Polar {
                 )
         );
     }
-
 
 
 }
