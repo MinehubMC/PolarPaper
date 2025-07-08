@@ -4,6 +4,8 @@ import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Arrays;
+
 /**
  * Representation of the latest version of the section format.
  * <p>
@@ -19,6 +21,21 @@ public class PolarSection {
         MISSING, EMPTY, FULL, PRESENT;
 
         public static final LightContent[] VALUES = values();
+
+        @SuppressWarnings("MismatchedReadAndWriteOfArray")
+        private static final byte[] CONTENT_EMPTY = new byte[2048];
+        private static final byte[] CONTENT_FULLY_LIT = new byte[2048];
+
+        static LightContent calculateLightContent(byte[] content) {
+            if (content == null) return MISSING;
+            if (content.length == 0 || Arrays.equals(content, CONTENT_EMPTY)) return EMPTY;
+            if (Arrays.equals(content, CONTENT_FULLY_LIT)) return FULL;
+            return PRESENT;
+        }
+
+        static {
+            Arrays.fill(CONTENT_FULLY_LIT, (byte) -1);
+        }
     }
 
     private final boolean empty;
