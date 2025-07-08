@@ -15,7 +15,7 @@ public final class PolarPaperLoader implements PluginLoader {
         MavenLibraryResolver resolver = new MavenLibraryResolver();
         resolver.addDependency(new Dependency(new DefaultArtifact("com.github.luben:zstd-jni:1.5.7-3"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("net.kyori:adventure-nbt:4.18.0"), null));
-        resolver.addRepository(new RemoteRepository.Builder("central", "default", "https://repo.maven.apache.org/maven2/").build());
+        resolver.addRepository(new RemoteRepository.Builder("central", "default", MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR).build());
 
         builder.addLibrary(resolver);
     }
