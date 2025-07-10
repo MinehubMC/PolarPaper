@@ -3,10 +3,7 @@ package live.minehub.polarpaper.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-import live.minehub.polarpaper.Polar;
-import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
-import live.minehub.polarpaper.PolarWriter;
+import live.minehub.polarpaper.*;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -16,7 +13,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-@SuppressWarnings("UnstableApiUsage")
 public class CreateBlankCommand {
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
@@ -50,17 +46,16 @@ public class CreateBlankCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        Polar.loadWorldConfigSource(worldName, () -> ctx.getSource().getSender().sendMessage(
-                        Component.text()
-                                .append(Component.text("Created blank world '", NamedTextColor.AQUA))
-                                .append(Component.text(worldName, NamedTextColor.AQUA))
-                                .append(Component.text("'", NamedTextColor.AQUA))
-                ),
-                () -> ctx.getSource().getSender().sendMessage(
-                        Component.text()
-                                .append(Component.text("Failed to load world '", NamedTextColor.RED))
-                                .append(Component.text(worldName, NamedTextColor.RED))
-                ));
+        Config.writeToConfig(PolarPaper.getPlugin().getConfig(), worldName, Config.DEFAULT_BLANK);
+
+        Polar.loadWorld(new PolarWorld(), worldName, Config.DEFAULT_BLANK);
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Created blank world '", NamedTextColor.AQUA))
+                        .append(Component.text(worldName, NamedTextColor.AQUA))
+                        .append(Component.text("'", NamedTextColor.AQUA))
+        );
+
 
         return Command.SINGLE_SUCCESS;
     }

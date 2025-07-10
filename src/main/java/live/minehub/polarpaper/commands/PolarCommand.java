@@ -12,7 +12,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
-@SuppressWarnings("UnstableApiUsage")
 public class PolarCommand {
 
     public static void register(Commands registrar) {
@@ -151,6 +150,10 @@ public class PolarCommand {
                                 .executes(ctx -> SetSpawnCommand.run(ctx, false))
                                 .then(Commands.literal("rounded")
                                         .executes(ctx -> SetSpawnCommand.run(ctx, true)))
+                        )
+                        .then(Commands.literal("reloadconfig")
+                                .requires(source -> source.getSender().hasPermission("polarpaper.reloadconfig"))
+                                .executes(ReloadConfigCommand::run)
                         )
                         .then(Commands.literal("list")
                                 .requires(source -> source.getSender().hasPermission("polarpaper.list"))

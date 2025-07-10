@@ -34,7 +34,7 @@ public class PolarGenerator extends ChunkGenerator {
 
     private final PolarWorld polarWorld;
     private final PolarWorldAccess worldAccess;
-    private final Config config;
+    private Config config;
 
     public PolarGenerator(PolarWorld polarWorld, Config config) {
         this(polarWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, config);
@@ -87,7 +87,7 @@ public class PolarGenerator extends ChunkGenerator {
 
         CompoundTag compoundTag;
         try {
-            String string = TagStringIO.get().asString(polarBlockEntity.data().put("id", StringBinaryTag.stringBinaryTag(polarBlockEntity.id())));
+            String string = TagStringIO.tagStringIO().asString(polarBlockEntity.data().put("id", StringBinaryTag.stringBinaryTag(polarBlockEntity.id())));
             compoundTag = TagParser.parseCompoundAsArgument(new StringReader(string));
         } catch (IOException | CommandSyntaxException e) {
             LOGGER.warning("Failed to load block entity");
@@ -154,9 +154,13 @@ public class PolarGenerator extends ChunkGenerator {
         return config;
     }
 
+    public void setConfig(Config config) {
+        this.config = config;
+    }
+
     @Override
     public @Nullable Location getFixedSpawnLocation(@NotNull World world, @NotNull Random random) {
-        Location loc = config.getSpawnPos();
+        Location loc = config.spawn();
         loc.setWorld(world);
         return loc;
     }

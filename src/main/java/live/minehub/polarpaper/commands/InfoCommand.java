@@ -13,7 +13,6 @@ import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@SuppressWarnings("UnstableApiUsage")
 public class InfoCommand {
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
@@ -79,7 +78,7 @@ public class InfoCommand {
                         .append(Component.text(config.source(), NamedTextColor.AQUA))
                         .append(Component.newline())
                         .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
-                        .append(Component.text(config.spawn(), NamedTextColor.AQUA))
+                        .append(Component.text(config.spawnString(), NamedTextColor.AQUA))
                         .append(Component.newline())
                         .append(Component.text(" Loaded Chunks: ", NamedTextColor.AQUA))
                         .append(Component.text(polarWorld.chunks().size(), NamedTextColor.AQUA))

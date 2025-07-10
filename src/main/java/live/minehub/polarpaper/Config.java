@@ -5,6 +5,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldType;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -12,47 +13,56 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public record Config(
-        String source,
+        @NotNull String source,
         boolean autoSave,
+        boolean saveOnStop,
         boolean loadOnStartup,
-        String spawn,
-        Difficulty difficulty,
+        @NotNull Location spawn,
+        @NotNull Difficulty difficulty,
         boolean allowMonsters,
         boolean allowAnimals,
         boolean allowWorldExpansion,
         boolean pvp,
-        WorldType worldType,
-        World.Environment environment,
-        List<Map<String, ?>> gamerules
+        @NotNull WorldType worldType,
+        @NotNull World.Environment environment,
+        @NotNull List<Map<String, ?>> gamerules
 ) {
-
-    public Config(
-            String source,
-            boolean autoSave,
-            boolean loadOnStartup,
-            Location spawn,
-            Difficulty difficulty,
-            boolean allowMonsters,
-            boolean allowAnimals,
-            boolean allowWorldExpansion,
-            boolean pvp,
-            WorldType worldType,
-            World.Environment environment,
-            List<Map<String, ?>> gamerules
-    ) {
-        this(source, autoSave, loadOnStartup, formatSpawn(spawn, false), difficulty, allowMonsters, allowAnimals, allowWorldExpansion, pvp, worldType, environment, gamerules);
-    }
 
     private static final Logger LOGGER = Logger.getLogger(Config.class.getName());
 
     public static final Config DEFAULT = new Config(
             "file",
             false,
+            false,
             true,
-            "0, 64, 0",
+            new Location(null, 0, 64, 0),
+            Difficulty.NORMAL,
+            true,
+            true,
+            false,
+            true,
+            WorldType.NORMAL,
+            World.Environment.NORMAL,
+            List.of(
+                    Map.of("doMobSpawning", false),
+                    Map.of("doFireTick", false),
+                    Map.of("randomTickSpeed", 0),
+                    Map.of("mobGriefing", false),
+                    Map.of("doVinesSpread", false)
+            )
+    );
+
+    // Blank worlds should expand by default
+    public static final Config DEFAULT_BLANK = new Config(
+            "file",
+            false,
+            false,
+            true,
+            new Location(null, 0, 64, 0),
             Difficulty.NORMAL,
             true,
             true,
@@ -69,60 +79,12 @@ public record Config(
             )
     );
 
-    public Location getSpawnPos() {
-        String[] split = spawn.split(",");
-        try {
-            if (split.length == 3) { // x y z
-                String x = split[0];
-                String y = split[1];
-                String z = split[2];
-                return new Location(null, Double.parseDouble(x), Double.parseDouble(y), Double.parseDouble(z));
-            } else if (split.length == 5) { // x y z yaw pitch
-                String x = split[0];
-                String y = split[1];
-                String z = split[2];
-                String yaw = split[3];
-                String pitch = split[4];
-                return new Location(null, Double.parseDouble(x), Double.parseDouble(y), Double.parseDouble(z), Float.parseFloat(yaw), Float.parseFloat(pitch));
-            } else {
-                LOGGER.warning("Failed to parse spawn pos: " + spawn);
-                return new Location(null, 0, 64, 0);
-            }
-        } catch (Exception e) {
-            LOGGER.warning("Failed to parse spawn pos: " + spawn);
-            return new Location(null, 0, 64, 0);
-        }
+    public @NotNull String spawnString() {
+        return locationToString(spawn());
     }
 
-    public @Nullable Config setSpawnPos(Location location) {
-        return setSpawnPos(formatSpawn(location, false));
-    }
-
-    public @Nullable Config setSpawnPosRounded(Location location) {
-        return setSpawnPos(formatSpawn(location, true));
-    }
-
-    public @Nullable Config setSpawnPos(String string) {
-        String[] split = string.split(",");
-        if (split.length != 3 && split.length != 5) {
-            LOGGER.warning("Failed to parse spawn pos: " + spawn);
-            return null;
-        }
-
-        try {
-            Double.parseDouble(split[0]);
-            Double.parseDouble(split[1]);
-            Double.parseDouble(split[2]);
-            if (split.length == 5) {
-                Float.parseFloat(split[3]);
-                Float.parseFloat(split[4]);
-            }
-
-            return new Config(this.source, this.autoSave, this.loadOnStartup, string, this.difficulty, this.allowMonsters, this.allowAnimals, this.allowWorldExpansion, this.pvp, this.worldType, this.environment, this.gamerules);
-        } catch (Exception e) {
-            LOGGER.warning("Failed to parse spawn pos: " + spawn);
-            return null;
-        }
+    public @NotNull Config withSpawnPos(Location location) {
+        return new Config(this.source, this.autoSave, this.saveOnStop, this.loadOnStartup, location, this.difficulty, this.allowMonsters, this.allowAnimals, this.allowWorldExpansion, this.pvp, this.worldType, this.environment, this.gamerules);
     }
 
     public static @Nullable Config readFromConfig(FileConfiguration config, String worldName) {
@@ -131,8 +93,9 @@ public record Config(
         try {
             String source = config.getString(prefix + "source", DEFAULT.source);
             boolean autoSave = config.getBoolean(prefix + "autosave", DEFAULT.autoSave);
+            boolean saveOnStop = config.getBoolean(prefix + "saveOnStop", DEFAULT.saveOnStop);
             boolean loadOnStartup = config.getBoolean(prefix + "loadOnStartup", DEFAULT.loadOnStartup);
-            String spawn = config.getString(prefix + "spawn", DEFAULT.spawn);
+            String spawn = config.getString(prefix + "spawn", locationToString(DEFAULT.spawn));
             Difficulty difficulty = Difficulty.valueOf(config.getString(prefix + "difficulty", DEFAULT.difficulty.name()));
             boolean allowMonsters = config.getBoolean(prefix + "allowMonsters", DEFAULT.allowMonsters);
             boolean allowAnimals = config.getBoolean(prefix + "allowAnimals", DEFAULT.allowAnimals);
@@ -152,8 +115,9 @@ public record Config(
             return new Config(
                     source,
                     autoSave,
+                    saveOnStop,
                     loadOnStartup,
-                    spawn,
+                    stringToLocation(spawn),
                     difficulty,
                     allowMonsters,
                     allowAnimals,
@@ -164,6 +128,8 @@ public record Config(
                     gamerulesList
             );
         } catch (IllegalArgumentException e) {
+            LOGGER.warning("Failed to read config");
+            LOGGER.log(Level.INFO, e.getMessage(), e);
             return null;
         }
     }
@@ -173,8 +139,9 @@ public record Config(
 
         fileConfig.set(prefix + "source", config.source);
         fileConfig.set(prefix + "autosave", config.autoSave);
+        fileConfig.set(prefix + "saveOnStop", config.saveOnStop);
         fileConfig.set(prefix + "loadOnStartup", config.loadOnStartup);
-        fileConfig.set(prefix + "spawn", config.spawn);
+        fileConfig.set(prefix + "spawn", locationToString(config.spawn));
         fileConfig.set(prefix + "difficulty", config.difficulty.name());
         fileConfig.set(prefix + "allowMonsters", config.allowMonsters);
         fileConfig.set(prefix + "allowAnimals", config.allowAnimals);
@@ -197,13 +164,38 @@ public record Config(
         }
     }
 
-    public static String formatSpawn(Location spawn, boolean rounded) {
+    private static String locationToString(Location spawn) {
         return String.format("%s, %s, %s, %s, %s",
-                rounded ? spawn.blockX() : spawn.x(),
-                rounded ? spawn.blockY() : spawn.y(),
-                rounded ? spawn.blockZ() : spawn.z(),
-                rounded ? Math.round(spawn.getYaw()) : spawn.getYaw(),
-                rounded ? Math.round(spawn.getPitch()) : spawn.getPitch());
+                spawn.x(),
+                spawn.y(),
+                spawn.z(),
+                spawn.getYaw(),
+                spawn.getPitch());
+    }
+
+    private static Location stringToLocation(String string) {
+        String[] split = string.split(",");
+        try {
+            if (split.length == 3) { // x y z
+                String x = split[0];
+                String y = split[1];
+                String z = split[2];
+                return new Location(null, Double.parseDouble(x), Double.parseDouble(y), Double.parseDouble(z));
+            } else if (split.length == 5) { // x y z yaw pitch
+                String x = split[0];
+                String y = split[1];
+                String z = split[2];
+                String yaw = split[3];
+                String pitch = split[4];
+                return new Location(null, Double.parseDouble(x), Double.parseDouble(y), Double.parseDouble(z), Float.parseFloat(yaw), Float.parseFloat(pitch));
+            } else {
+                LOGGER.warning("Failed to parse spawn pos: " + string);
+                return DEFAULT.spawn;
+            }
+        } catch (Exception e) {
+            LOGGER.warning("Failed to parse spawn pos: " + string);
+            return DEFAULT.spawn;
+        }
     }
 
 }

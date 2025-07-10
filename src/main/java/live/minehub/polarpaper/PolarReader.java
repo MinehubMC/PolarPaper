@@ -108,23 +108,6 @@ public class PolarReader {
             blockEntities.add(readBlockEntity(dataConverter, version, dataVersion, bb, nbtReader));
         }
 
-        // If the version is set to 8 copy the contents over to the beginning of userdata
-        List<PolarChunk.Entity> entities = null;
-        if (version == PolarWorld.VERSION_DEPRECATED_ENTITIES) {
-            entities = new ArrayList<>();
-            int entityCount = getVarInt(bb);
-            for (int i = 0; i < entityCount; i++) {
-                entities.add(new PolarChunk.Entity(
-                        bb.getDouble(),
-                        bb.getDouble(),
-                        bb.getDouble(),
-                        bb.getFloat(),
-                        bb.getFloat(),
-                        getByteArray(bb)
-                ));
-            }
-        }
-
         var heightmaps = new int[PolarChunk.MAX_HEIGHTMAPS][];
         int heightmapMask = bb.getInt();
         for (int i = 0; i < PolarChunk.MAX_HEIGHTMAPS; i++) {
@@ -154,7 +137,6 @@ public class PolarReader {
                 chunkX, chunkZ,
                 sections,
                 blockEntities,
-                entities,
                 heightmaps,
                 userData
         );
@@ -249,7 +231,7 @@ public class PolarReader {
             id = converted.getKey();
             if (id.isEmpty()) id = null;
             nbt = converted.getValue();
-            if (nbt.size() == 0) nbt = null;
+            if (nbt.isEmpty()) nbt = null;
         }
 
         return new PolarChunk.BlockEntity(
@@ -261,7 +243,7 @@ public class PolarReader {
     private static void validateVersion(int version) {
         var invalidVersionError = String.format("Unsupported Polar version. Up to %d is supported, found %d.",
                 PolarWorld.LATEST_VERSION, version);
-        assertThat(version <= PolarWorld.LATEST_VERSION || version == PolarWorld.VERSION_DEPRECATED_ENTITIES,
+        assertThat(version <= PolarWorld.LATEST_VERSION,
                 invalidVersionError);
     }
 

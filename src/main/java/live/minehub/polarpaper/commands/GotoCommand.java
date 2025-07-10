@@ -14,7 +14,6 @@ import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@SuppressWarnings("UnstableApiUsage")
 public class GotoCommand {
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
@@ -40,7 +39,7 @@ public class GotoCommand {
         PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
         if (polarWorld != null) {
             Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName());
-            spawnPos = config.getSpawnPos();
+            spawnPos = config.spawn();
         } else {
             spawnPos = bukkitWorld.getSpawnLocation();
         }

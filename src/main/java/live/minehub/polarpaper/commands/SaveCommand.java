@@ -12,9 +12,6 @@ import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.nio.file.Path;
-
-@SuppressWarnings("UnstableApiUsage")
 public class SaveCommand {
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
@@ -55,8 +52,7 @@ public class SaveCommand {
         }
 
         PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
-        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
-        if (polarWorld == null || polarGenerator == null) {
+        if (polarWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
@@ -75,10 +71,9 @@ public class SaveCommand {
 
         long before = System.nanoTime();
 
-        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
-        Path worldsFolder = pluginFolder.resolve("worlds");
-
-        Polar.saveWorldConfigSource(bukkitWorld, polarWorld, polarGenerator, worldsFolder.resolve(bukkitWorld.getName() + ".polar"), chunkSelector, 0, 0, () -> {
+        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
+            Polar.saveWorldConfigSource(bukkitWorld, polarWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, chunkSelector, 0, 0).thenAccept(successful -> {
+                if (successful) {
                     int ms = (int) ((System.nanoTime() - before) / 1_000_000);
                     ctx.getSource().getSender().sendMessage(
                             Component.text()
@@ -88,8 +83,7 @@ public class SaveCommand {
                                     .append(Component.text(ms, NamedTextColor.AQUA))
                                     .append(Component.text("ms", NamedTextColor.AQUA))
                     );
-                },
-                () -> {
+                } else {
                     ctx.getSource().getSender().sendMessage(
                             Component.text()
                                     .append(Component.text("Something went wrong while trying to save '", NamedTextColor.RED))
@@ -97,7 +91,8 @@ public class SaveCommand {
                                     .append(Component.text("'", NamedTextColor.RED))
                     );
                 }
-        );
+            });
+        });
 
         return Command.SINGLE_SUCCESS;
     }

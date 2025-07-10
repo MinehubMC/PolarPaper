@@ -8,11 +8,11 @@ import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-@SuppressWarnings("UnstableApiUsage")
 public class SetSpawnCommand {
 
     protected static int run(CommandContext<CommandSourceStack> ctx, boolean rounded) {
@@ -39,8 +39,14 @@ public class SetSpawnCommand {
         Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName());
         if (config == null) config = Config.DEFAULT;
 
-        Config newConfig = rounded ? config.setSpawnPosRounded(player.getLocation()) : config.setSpawnPos(player.getLocation());
-        if (newConfig == null) newConfig = Config.DEFAULT;
+        Location spawnPos = player.getLocation().clone();
+        if (rounded) {
+            spawnPos = player.getLocation().toBlockLocation();
+            spawnPos.setYaw(Math.round(spawnPos.getYaw()));
+            spawnPos.setPitch(Math.round(spawnPos.getPitch()));
+        }
+
+        Config newConfig = config.withSpawnPos(spawnPos);
 
         Config.writeToConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName(), newConfig);
 
@@ -49,7 +55,7 @@ public class SetSpawnCommand {
                         .append(Component.text("Set spawn for ", NamedTextColor.AQUA))
                         .append(Component.text(bukkitWorld.getName(), NamedTextColor.AQUA))
                         .append(Component.text(" to ", NamedTextColor.AQUA))
-                        .append(Component.text(newConfig.spawn(), NamedTextColor.AQUA))
+                        .append(Component.text(newConfig.spawnString(), NamedTextColor.AQUA))
         );
 
         return Command.SINGLE_SUCCESS;

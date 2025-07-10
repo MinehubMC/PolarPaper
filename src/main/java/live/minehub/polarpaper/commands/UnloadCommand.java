@@ -9,7 +9,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
-@SuppressWarnings("UnstableApiUsage")
 public class UnloadCommand {
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
@@ -72,16 +71,21 @@ public class UnloadCommand {
                             .append(Component.text("'...", NamedTextColor.AQUA))
             );
 
-            Polar.saveWorldConfigSource(bukkitWorld, polarWorld, generator, () -> {
-                bukkitUnload(ctx, bukkitWorld);
-            }, () -> {
-                ctx.getSource().getSender().sendMessage(
-                        Component.text()
-                                .append(Component.text("Something went wrong while trying to save '", NamedTextColor.RED))
-                                .append(Component.text(worldName, NamedTextColor.RED))
-                                .append(Component.text("', world will not be unloaded", NamedTextColor.RED))
-                );
+            Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
+                Polar.saveWorldConfigSource(bukkitWorld).thenAccept(successful -> {
+                    if (successful) {
+                        bukkitUnload(ctx, bukkitWorld);
+                    } else {
+                        ctx.getSource().getSender().sendMessage(
+                                Component.text()
+                                        .append(Component.text("Something went wrong while trying to save '", NamedTextColor.RED))
+                                        .append(Component.text(worldName, NamedTextColor.RED))
+                                        .append(Component.text("', world will not be unloaded", NamedTextColor.RED))
+                        );
+                    }
+                });
             });
+
         } else {
             if (saveOverrided) {
                 ctx.getSource().getSender().sendMessage(Component.text("Save force disabled, world will not be saved before unload", NamedTextColor.AQUA));

@@ -7,8 +7,8 @@
 Polar is a world format very similar to Slime, with the same advantages:
  - Small file sizes
  - Single file world
- - Immutable (Worlds do not save until explicitly requested)
- - Store worlds wherever (Whether as a file or in a database)
+ - Immutable (worlds do not save until explicitly requested)
+ - Store worlds wherever (whether as a file or in a database)
 
 Polar is also a single plugin without requiring classloaders or a Paper fork
 
@@ -22,7 +22,7 @@ Polar was originally developed for [Minestom](https://github.com/Minestom/Minest
 Permission nodes are simply `polarpaper.<subcommand>`, for example: `polarpaper.info` for `/polar info`
 
 ## API
-Remember to add `polarpaper` to your depend list in plugin.yml.
+Remember to add `polarpaper` to your depend list in plugin.yml if using as a plugin/compileOnly
 ```yml
 depend:
   - polarpaper
@@ -38,12 +38,6 @@ dependencies {
 }
 ```
 
-Get the `PolarWorld` that a player is in
-```java
-PolarWorld polarWorld = PolarWorld.fromWorld(player.getWorld());
-// (returns null if the world is not from PolarPaper)
-```
-
 Load a polar world
 ```java
 // Manually
@@ -52,8 +46,8 @@ String worldName = path.getFileName().toString().split("\\.polar")[0];
 byte[] bytes;
 try {
     // This example shows reading a world from a file, however
-    // as long as you can read and write a byte array, you can read it
-    // from wherever you want - including databases like mysql and redis!
+    // as long as you can read and write an array of bytes, you can read it
+    // from wherever you want - including mysql and redis!
     bytes = Files.readAllBytes(path);
 } catch (IOException e) {
     throw new RuntimeException(e);
@@ -62,33 +56,39 @@ PolarWorld polarWorld = PolarReader.read(bytes);
 Polar.loadWorld(polarWorld, worldName);
 
 // or by using config
-Polar.loadWorldConfigSource("gamingworld", null, null);
+Polar.loadWorldConfigSource("gamingworld");
 ```
 
 Save a polar world
 ```java
-// Manually
+// Using config (same as /polar save)
 World bukkitWorld = player.getWorld();
-PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
-PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
-if (polarWorld == null) return;
+Polar.saveWorldConfigSource(bukkitWorld);
 
-// save to file
-Path savePath = Path.of("./epic/world.polar")
-Polar.saveWorld(bukkitWorld, polarWorld, polarGenerator, savePath) // update the chunks and save to file
+// Custom source
+World bukkitWorld = player.getWorld();
+Path savePath = Path.of("./epic/world.polar");
+// feel free to use your own PolarSource class
+PolarSource source = new FilePolarSource(savePath);
+Polar.saveWorld(bukkitWorld, source);
+```
 
-// or custom location
-Polar.updateWorld(bukkitWorld, polarWorld, polarGenerator, ChunkSelector.all(), 0, 0) // update the chunks
-byte[] bytes = PolarWriter.write(polarWorld); // save the bytes somewhere
+Get the `PolarWorld` that a player is in
+```java
+PolarWorld polarWorld = PolarWorld.fromWorld(player.getWorld());
+// (returns null if the world is not from PolarPaper)
+```
 
-
-// or automatically using config (same as /polar save)
-Polar.saveWorldConfigSource("gamingworld", null, null);
+Register events
+```java
+// If you're not running the PolarPaper plugin and instead using it exclusively
+// as a dependency (e.g. implementation instead of compileOnly), you do not need to
+// add it to the depend list in your plugin.yml. However, in order to allow entities
+// to be read and spawned automatically, you must manually register the plugin listeners:
+PolarPaper.registerEvents();
 ```
 
 ### Versioning
-To be used starting from this point, does not include older releases.
-
 `<mc version>.<our version>`
 
 for example `1.21.4.1`
