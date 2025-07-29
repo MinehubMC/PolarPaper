@@ -126,24 +126,28 @@ public class Polar {
                 .biomeProvider(polarBiomeProvider)
                 .keepSpawnLoaded(TriState.FALSE);
 
-        World newWorld = Polar.loadWorld(worldCreator, config.spawn());
-        if (newWorld == null) {
-            LOGGER.warning("An error occurred loading polar world '" + worldName + "', skipping.");
-            return;
-        }
-
-        newWorld.setDifficulty(config.difficulty());
-        newWorld.setPVP(config.pvp());
-        newWorld.setSpawnFlags(config.allowMonsters(), config.allowAnimals());
-        newWorld.setAutoSave(config.autoSave());
-
-        for (Map<String, ?> gamerule : config.gamerules()) {
-            for (Map.Entry<String, ?> entry : gamerule.entrySet()) {
-                GameRule<?> rule = GameRule.getByName(entry.getKey());
-                if (rule == null) return;
-                setGameRule(newWorld, rule, entry.getValue());
+        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), task -> {
+            World newWorld = Polar.loadWorld(worldCreator, config.spawn());
+            if (newWorld == null) {
+                LOGGER.warning("An error occurred loading polar world '" + worldName + "', skipping.");
+                return;
             }
-        }
+
+            Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
+                newWorld.setDifficulty(config.difficulty());
+                newWorld.setPVP(config.pvp());
+                newWorld.setSpawnFlags(config.allowMonsters(), config.allowAnimals());
+                newWorld.setAutoSave(config.autoSave());
+
+                for (Map<String, ?> gamerule : config.gamerules()) {
+                    for (Map.Entry<String, ?> entry : gamerule.entrySet()) {
+                        GameRule<?> rule = GameRule.getByName(entry.getKey());
+                        if (rule == null) return;
+                        setGameRule(newWorld, rule, entry.getValue());
+                    }
+                }
+            });
+        });
     }
 
     private static <T> void setGameRule(World world, GameRule<?> rule, Object value) {
@@ -499,9 +503,10 @@ public class Polar {
         PolarServerLevel internal = new PolarServerLevel(craftServer.getServer(), craftServer.getServer().executor, worldSession, worlddata, worldKey, worlddimension, craftServer.getServer().progressListenerFactory.create(worlddata.getGameRules().getInt(GameRules.RULE_SPAWN_CHUNK_RADIUS)),
                 worlddata.isDebugWorld(), j, creator.environment() == World.Environment.NORMAL ? list : ImmutableList.of(), true, craftServer.getServer().overworld().getRandomSequences(), creator.environment(), generator, biomeProvider);
 
+        worlddata.setSpawn(new BlockPos((int) spawnLocation.x(), (int) spawnLocation.y(), (int) spawnLocation.z()), 0.0f);
 
         craftServer.getServer().addLevel(internal); // Paper - Put world into worldlist before initing the world; move up
-        craftServer.getServer().initWorld(internal, worlddata, worlddata, worlddata.worldGenOptions());
+//        craftServer.getServer().initWorld(internal, worlddata, worlddata, worlddata.worldGenOptions());
 
 //        internal.setSpawnSettings(true);
         // Paper - Put world into worldlist before initing the world; move up
@@ -509,7 +514,9 @@ public class Polar {
 //        craftServer.getServer().prepareLevels(internal.getChunkSource().chunkMap.progressListener, internal);
         // Paper - rewrite chunk system
 
-        Bukkit.getPluginManager().callEvent(new WorldLoadEvent(internal.getWorld()));
+        Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
+            Bukkit.getPluginManager().callEvent(new WorldLoadEvent(internal.getWorld()));
+        });
 
         return internal.getWorld();
     }
