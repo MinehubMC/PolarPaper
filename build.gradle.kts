@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.paperweight.userdev)
     alias(libs.plugins.run)
     alias(libs.plugins.resource.paper)
+    alias(libs.plugins.hangar.publish)
 }
 
 val developmentVersion = "${libs.versions.minecraft.get()}.1"
@@ -29,6 +30,12 @@ tasks {
 
     runServer {
         minecraftVersion(libs.versions.minecraft.get())
+    }
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21)) // Minestom has a minimum Java version of 21
     }
 }
 
@@ -76,4 +83,24 @@ paperPluginYaml {
 
     main = "live.minehub.polarpaper.PolarPaper"
     loader = "live.minehub.polarpaper.PolarPaperLoader"
+}
+
+hangarPublish {
+    publications.register("plugin") {
+        version = project.version as String // use project version as publication version
+        id = "hangar-project"
+        channel = "Development"
+
+        // your api key.
+        // defaults to the `io.papermc.hangar-publish-plugin.[publicationName].api-key` or `io.papermc.hangar-publish-plugin.default-api-key` Gradle properties
+        apiKey = System.getenv("HANGAR_API_KEY")
+
+        // register platforms
+        platforms {
+            paper {
+                jar = tasks.jar.flatMap { it.archiveFile }
+                platformVersions = listOf(libs.versions.minecraft.get())
+            }
+        }
+    }
 }
