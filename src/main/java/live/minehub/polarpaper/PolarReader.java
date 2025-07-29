@@ -201,8 +201,6 @@ public class PolarReader {
         int posIndex = bb.readInt();
         String id = getStringOptional(bb);
 
-        LOGGER.info(id);
-
         ByteBufInputStream bbis = new ByteBufInputStream(bb);
 
         CompoundTag nbt = new CompoundTag();
