@@ -16,9 +16,10 @@ jobs:
       - name: Build
         shell: "bash"
         run: gradle -Pversion=${{ github.event.release.tag_name || github.ref_name }} -Dmaven.repo.local=${{github.workspace}}/localM2Repository build
-      - name: Publish
-        shell: "bash"
-        run: gradle -Pversion=${{ github.event.release.tag_name || github.ref_name }} -Dmaven.repo.local=${{github.workspace}}/localM2Repository publish
-        env:
-          REPO_ACTOR: ${{ secrets.REPO_ACTOR }}
-          REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Development Build"
+          files: |
