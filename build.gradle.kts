@@ -88,7 +88,7 @@ paperPluginYaml {
 hangarPublish {
     publications.register("plugin") {
         version = project.version as String // use project version as publication version
-        id = "hangar-project"
+        id = "PolarPaper"
         channel = "Development"
 
         // your api key.
