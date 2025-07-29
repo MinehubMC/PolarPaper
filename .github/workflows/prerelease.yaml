@@ -4,6 +4,9 @@ on:
     branches:
       - "main"
 
+env:
+  HANGAR_API_KEY: ${{ secrets.HANGAR_API_KEY }}
+
 jobs:
   publish:
     runs-on: ubuntu-latest
