@@ -1,13 +1,8 @@
 package live.minehub.polarpaper;
 
-import com.mojang.brigadier.StringReader;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import live.minehub.polarpaper.util.CoordConversion;
-import net.kyori.adventure.nbt.StringBinaryTag;
-import net.kyori.adventure.nbt.TagStringIO;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.TagParser;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.bukkit.Bukkit;
@@ -22,7 +17,6 @@ import org.bukkit.generator.WorldInfo;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
 import java.util.Random;
 import java.util.logging.Logger;
 
@@ -80,20 +74,15 @@ public class PolarGenerator extends ChunkGenerator {
     }
 
     private void loadBlockEntity(@NotNull PolarChunk.BlockEntity polarBlockEntity, @NotNull ChunkData chunkData, int chunkX, int chunkZ) {
+        CompoundTag compoundTag = polarBlockEntity.data();
+        if (compoundTag == null) return;
+
         int x = CoordConversion.chunkBlockIndexGetX(polarBlockEntity.index());
         int y = CoordConversion.chunkBlockIndexGetY(polarBlockEntity.index());
         int z = CoordConversion.chunkBlockIndexGetZ(polarBlockEntity.index());
         BlockData blockData = chunkData.getBlockData(x, y, z);
 
-        CompoundTag compoundTag;
-        try {
-            String string = TagStringIO.tagStringIO().asString(polarBlockEntity.data().put("id", StringBinaryTag.stringBinaryTag(polarBlockEntity.id())));
-            compoundTag = TagParser.parseCompoundAsArgument(new StringReader(string));
-        } catch (IOException | CommandSyntaxException e) {
-            LOGGER.warning("Failed to load block entity");
-            LOGGER.warning(e.toString());
-            return;
-        }
+        if (polarBlockEntity.id() != null) compoundTag.putString("id", polarBlockEntity.id());
 
         BlockState blockState = ((CraftBlockState) blockData.createBlockState()).getHandle();
         BlockPos blockPos = new BlockPos(chunkX * 16 + x, y, chunkZ * 16 + z);

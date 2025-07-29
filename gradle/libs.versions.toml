@@ -1,14 +1,12 @@
 [versions]
 zstd = "1.5.7-3"
-adventure = "4.18.0"
 paperweight = "2.0.0-beta.18"
 run = "2.3.1"
 resource = "1.2.0"
-minecraft = "1.21.7"
+minecraft = "1.21.8"
 
 [libraries]
 zstd = { module = "com.github.luben:zstd-jni", version.ref = "zstd" }
-adventure-nbt = { module = "net.kyori:adventure-nbt", version.ref = "adventure" }
 
 [plugins]
 paperweight-userdev = { id = "io.papermc.paperweight.userdev", version.ref = "paperweight" }

@@ -1,6 +1,6 @@
 package live.minehub.polarpaper;
 
-import net.kyori.adventure.nbt.CompoundBinaryTag;
+import net.minecraft.nbt.CompoundTag;
 import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
 
@@ -41,8 +41,8 @@ public interface PolarDataConverter {
 
     }
 
-    default @NotNull Map.Entry<String, CompoundBinaryTag> convertBlockEntityData(
-            @NotNull String id, @NotNull CompoundBinaryTag data,
+    default @NotNull Map.Entry<String, CompoundTag> convertBlockEntityData(
+            @NotNull String id, @NotNull CompoundTag data,
             int fromVersion, int toVersion
     ) {
         return Map.entry(id, data);

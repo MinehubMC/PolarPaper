@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.resource.paper)
 }
 
-val developmentVersion = "${libs.versions.minecraft.get()}.1"
+val developmentVersion = "${libs.versions.minecraft.get()}.0"
 
 version = getVersion()
 group = "live.minehub"
@@ -20,7 +20,6 @@ dependencies {
     paperweight.paperDevBundle("${libs.versions.minecraft.get()}-R0.1-SNAPSHOT")
 
     compileOnly(libs.zstd)
-    compileOnly(libs.adventure.nbt)
 }
 
 tasks {

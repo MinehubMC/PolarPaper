@@ -1,6 +1,6 @@
 package live.minehub.polarpaper;
 
-import net.kyori.adventure.nbt.CompoundBinaryTag;
+import net.minecraft.nbt.CompoundTag;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
@@ -54,7 +54,7 @@ public record PolarChunk(
     public record BlockEntity(
             int index,
             @Nullable String id,
-            @Nullable CompoundBinaryTag data
+            @Nullable CompoundTag data
     ) {
 
     }

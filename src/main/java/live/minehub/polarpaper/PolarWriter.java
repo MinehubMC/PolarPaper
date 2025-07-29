@@ -3,7 +3,6 @@ package live.minehub.polarpaper;
 import com.github.luben.zstd.Zstd;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
-import live.minehub.polarpaper.nbt.BinaryTagWriter;
 import live.minehub.polarpaper.util.PaletteUtil;
 import org.jetbrains.annotations.NotNull;
 
@@ -28,12 +27,10 @@ public class PolarWriter {
         writeVarInt(world.userData().length, bb);
         bb.write(world.userData());
 
-        BinaryTagWriter nbtWriter = new BinaryTagWriter(bb);
-
         writeVarInt(world.nonEmptyChunks(), bb);
         for (PolarChunk chunk : world.chunks()) {
             if (chunk.isEmpty()) continue;
-            writeChunk(bb, chunk, world.maxSection() - world.minSection() + 1, nbtWriter);
+            writeChunk(bb, chunk, world.maxSection() - world.minSection() + 1);
         }
 
         byte[] contentBytes = bb.toByteArray();
@@ -59,7 +56,7 @@ public class PolarWriter {
         return finalBB.toByteArray();
     }
 
-    private static void writeChunk(@NotNull ByteArrayDataOutput bb, @NotNull PolarChunk chunk, int sectionCount, BinaryTagWriter nbtWriter) {
+    private static void writeChunk(@NotNull ByteArrayDataOutput bb, @NotNull PolarChunk chunk, int sectionCount) {
         writeVarInt(chunk.x(), bb);
         writeVarInt(chunk.z(), bb);
 
@@ -71,7 +68,7 @@ public class PolarWriter {
 
         writeVarInt(chunk.blockEntities().size(), bb);
         for (var blockEntity : chunk.blockEntities()) {
-            writeBlockEntity(bb, blockEntity, nbtWriter);
+            writeBlockEntity(bb, blockEntity);
         }
 
         {

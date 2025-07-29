@@ -7,8 +7,6 @@ import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.Lifecycle;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.CoordConversion;
-import net.kyori.adventure.nbt.CompoundBinaryTag;
-import net.kyori.adventure.nbt.TagStringIO;
 import net.kyori.adventure.util.TriState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
@@ -43,7 +41,13 @@ import net.minecraft.world.level.storage.LevelDataAndDimensions;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.PrimaryLevelData;
 import net.minecraft.world.level.validation.ContentValidationException;
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
+import org.bukkit.ChunkSnapshot;
+import org.bukkit.GameRule;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.WorldCreator;
 import org.bukkit.block.Biome;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -51,13 +55,21 @@ import org.bukkit.craftbukkit.CraftChunk;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -484,7 +496,7 @@ public class Polar {
 //        craftServer.getServer().prepareLevels(internal.getChunkSource().chunkMap.progressListener, internal);
         // Paper - rewrite chunk system
 
-//        this.pluginManager.callEvent(new WorldLoadEvent(internal.getWorld()));
+        Bukkit.getPluginManager().callEvent(new WorldLoadEvent(internal.getWorld()));
 
         return internal.getWorld();
     }
@@ -608,17 +620,15 @@ public class Polar {
 
             CompoundTag compoundTag = blockEntity.saveWithFullMetadata(registryAccess);
 
-            CompoundBinaryTag nbt;
-            try {
-                nbt = TagStringIO.tagStringIO().asCompound(compoundTag.toString());
-            } catch (Exception e) {
-                LOGGER.warning("Failed to save block entity data for " + blockPos);
+            Optional<String> id = compoundTag.getString("id");
+            if (id.isEmpty()) {
+                LOGGER.warning("No ID in block entity data at: " + blockPos);
                 LOGGER.warning("Compound tag: " + compoundTag);
-                throw new RuntimeException(e);
+                continue;
             }
 
             int index = CoordConversion.chunkBlockIndex(blockPos.getX(), blockPos.getY(), blockPos.getZ());
-            polarBlockEntities.add(new PolarChunk.BlockEntity(index, nbt.getString("id"), nbt));
+            polarBlockEntities.add(new PolarChunk.BlockEntity(index, id.get(), compoundTag));
         }
 
         int[][] heightMaps = new int[PolarChunk.MAX_HEIGHTMAPS][0];

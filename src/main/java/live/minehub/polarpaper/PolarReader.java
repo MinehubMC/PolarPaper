@@ -1,17 +1,19 @@
 package live.minehub.polarpaper;
 
 import com.github.luben.zstd.Zstd;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.PolarSection.LightContent;
-import live.minehub.polarpaper.nbt.BinaryTagReader;
 import live.minehub.polarpaper.util.PaletteUtil;
 import net.kyori.adventure.key.Key;
-import net.kyori.adventure.nbt.CompoundBinaryTag;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,45 +57,32 @@ public class PolarReader {
 
         int compressedDataLength = getVarInt(bb);
 
-        // Replace the buffer with a "decompressed" version. This is a no-op if compression is NONE.
-        bb = decompressBuffer(bb, compression, compressedDataLength);
+        // Replace the buffer with a "decompressed" version.
+        ByteBuf uncompressed = decompressBuffer(bb, compression, compressedDataLength);
 
-        byte minSection = bb.get();
-        byte maxSection = bb.get();
+        byte minSection = uncompressed.readByte();
+        byte maxSection = uncompressed.readByte();
         assertThat(minSection < maxSection, "Invalid section range");
 
         // User (world) data
         byte[] userData = new byte[0];
         if (version > PolarWorld.VERSION_WORLD_USERDATA) {
-            int userDataLength = getVarInt(bb);
+            int userDataLength = getVarInt(uncompressed);
             byte[] bytes = new byte[userDataLength];
-            bb.get(bytes);
+            uncompressed.readBytes(bytes);
             userData = bytes;
         }
 
-        ByteBuffer finalBb = bb;
-        BinaryTagReader nbtReader = new BinaryTagReader(new DataInputStream(new InputStream() {
-            @Override
-            public int read() {
-                return finalBb.get() & 0xFF;
-            }
-
-            @Override
-            public int available() {
-                return finalBb.remaining();
-            }
-        }));
-
-        int chunkCount = getVarInt(bb);
+        int chunkCount = getVarInt(uncompressed);
         List<PolarChunk> chunks = new ArrayList<>(chunkCount);
         for (int i = 0; i < chunkCount; i++) {
-            chunks.add(readChunk(dataConverter, version, dataVersion, bb, maxSection - minSection + 1, nbtReader));
+            chunks.add(readChunk(dataConverter, version, dataVersion, uncompressed, maxSection - minSection + 1));
         }
 
         return new PolarWorld(version, dataVersion, compression, minSection, maxSection, userData, chunks);
     }
 
-    private static @NotNull PolarChunk readChunk(@NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuffer bb, int sectionCount, BinaryTagReader nbtReader) {
+    private static @NotNull PolarChunk readChunk(@NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb, int sectionCount) {
         var chunkX = getVarInt(bb);
         var chunkZ = getVarInt(bb);
 
@@ -105,11 +94,11 @@ public class PolarReader {
         int blockEntityCount = getVarInt(bb);
         List<PolarChunk.BlockEntity> blockEntities = new ArrayList<>(blockEntityCount);
         for (int i = 0; i < blockEntityCount; i++) {
-            blockEntities.add(readBlockEntity(dataConverter, version, dataVersion, bb, nbtReader));
+            blockEntities.add(readBlockEntity(dataConverter, version, dataVersion, bb));
         }
 
         var heightmaps = new int[PolarChunk.MAX_HEIGHTMAPS][];
-        int heightmapMask = bb.getInt();
+        int heightmapMask = bb.readInt();
         for (int i = 0; i < PolarChunk.MAX_HEIGHTMAPS; i++) {
             if ((heightmapMask & (1 << i)) == 0)
                 continue;
@@ -129,7 +118,7 @@ public class PolarReader {
         if (version > PolarWorld.VERSION_USERDATA_OPT_BLOCK_ENT_NBT) {
             int userDataLength = getVarInt(bb);
             byte[] bytes = new byte[userDataLength];
-            bb.get(bytes);
+            bb.readBytes(bytes);
             userData = bytes;
         }
 
@@ -142,9 +131,9 @@ public class PolarReader {
         );
     }
 
-    private static @NotNull PolarSection readSection(@NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuffer bb) {
+    private static @NotNull PolarSection readSection(@NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb) {
         // If section is empty exit immediately
-        if (bb.get() == 1) return new PolarSection();
+        if (bb.readByte() == 1) return new PolarSection();
 
         String[] blockPalette = getStringList(bb, MAX_BLOCK_PALETTE_SIZE);
         if (dataVersion < dataConverter.dataVersion()) {
@@ -184,16 +173,16 @@ public class PolarReader {
         byte[] blockLight = null, skyLight = null;
         if (version > PolarWorld.VERSION_UNIFIED_LIGHT) {
             blockLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
-                    ? LightContent.VALUES[bb.get()]
-                    : ((bb.get() == 1) ? LightContent.PRESENT : LightContent.MISSING);
+                    ? LightContent.VALUES[bb.readByte()]
+                    : ((bb.readByte() == 1) ? LightContent.PRESENT : LightContent.MISSING);
             if (blockLightContent == LightContent.PRESENT)
                 blockLight = getLightData(bb);
             skyLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
-                    ? LightContent.VALUES[bb.get()]
-                    : (bb.get() == 1 ? LightContent.PRESENT : LightContent.MISSING);
+                    ? LightContent.VALUES[bb.readByte()]
+                    : (bb.readByte() == 1 ? LightContent.PRESENT : LightContent.MISSING);
             if (skyLightContent == LightContent.PRESENT)
                 skyLight = getLightData(bb);
-        } else if (bb.get() == 1) {
+        } else if (bb.readByte() == 1) {
             blockLightContent = LightContent.PRESENT;
             blockLight = getLightData(bb);
             skyLightContent = LightContent.PRESENT;
@@ -208,18 +197,22 @@ public class PolarReader {
         );
     }
 
-    private static @NotNull PolarChunk.BlockEntity readBlockEntity(@NotNull PolarDataConverter dataConverter, int version, int dataVersion, @NotNull ByteBuffer bb, BinaryTagReader nbtReader) {
-        int posIndex = bb.getInt();
+    private static @NotNull PolarChunk.BlockEntity readBlockEntity(@NotNull PolarDataConverter dataConverter, int version, int dataVersion, @NotNull ByteBuf bb) {
+        int posIndex = bb.readInt();
         String id = getStringOptional(bb);
 
-        CompoundBinaryTag nbt = CompoundBinaryTag.empty();
-        if (version <= PolarWorld.VERSION_USERDATA_OPT_BLOCK_ENT_NBT || bb.get() == 1) {
+        LOGGER.info(id);
+
+        ByteBufInputStream bbis = new ByteBufInputStream(bb);
+
+        CompoundTag nbt = new CompoundTag();
+        if (version <= PolarWorld.VERSION_USERDATA_OPT_BLOCK_ENT_NBT || bb.readByte() == 1) {
             if (version <= PolarWorld.VERSION_MINESTOM_NBT_READ_BREAK || FORCE_LEGACY_NBT) {
                 // TODO: do
 //                nbt = (CompoundBinaryTag) legacyReadNBT(buffer);
             } else {
                 try {
-                    nbt = (CompoundBinaryTag) nbtReader.readNameless();
+                    nbt = (CompoundTag) NbtIo.readAnyTag(bbis, NbtAccounter.unlimitedHeap());
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -247,10 +240,11 @@ public class PolarReader {
                 invalidVersionError);
     }
 
-    private static @NotNull ByteBuffer decompressBuffer(@NotNull ByteBuffer buffer, @NotNull PolarWorld.CompressionType compression, int compressedLength) {
+    private static @NotNull ByteBuf decompressBuffer(@NotNull ByteBuffer buffer, @NotNull PolarWorld.CompressionType compression, int compressedLength) {
         return switch (compression) {
-            case NONE -> buffer;
+            case NONE -> Unpooled.wrappedBuffer(buffer);
             case ZSTD -> {
+
                 int limit = buffer.limit();
                 int length = limit - buffer.position();
                 assertThat(length >= 0, "Invalid remaining: " + length);
@@ -259,7 +253,7 @@ public class PolarReader {
                 buffer.get(bytes);
 
                 var decompressed = Zstd.decompress(bytes, compressedLength);
-                yield ByteBuffer.wrap(decompressed);
+                yield Unpooled.wrappedBuffer(decompressed);
             }
         };
     }

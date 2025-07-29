@@ -71,5 +71,4 @@ public final class PolarPaper extends JavaPlugin {
         PolarPaper.getPlugin().getServer().getPluginManager().registerEvents(new PolarListener(), PolarPaper.getPlugin());
     }
 
-
 }

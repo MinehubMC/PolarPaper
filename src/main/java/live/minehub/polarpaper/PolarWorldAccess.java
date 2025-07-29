@@ -9,6 +9,7 @@ import org.bukkit.Chunk;
 import org.bukkit.ChunkSnapshot;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Painting;
 import org.bukkit.generator.ChunkGenerator;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
@@ -45,12 +46,12 @@ public interface PolarWorldAccess {
             List<PolarChunk.Entity> entities = EntityUtil.getEntities(userData);
 
             for (PolarChunk.Entity polarEntity : entities) {
-                final var x = polarEntity.x();
-                final var y = polarEntity.y();
-                final var z = polarEntity.z();
-                final var yaw = polarEntity.yaw();
-                final var pitch = polarEntity.pitch();
-                final var bytes = polarEntity.bytes();
+                var x = polarEntity.x();
+                var y = polarEntity.y();
+                var z = polarEntity.z();
+                var yaw = polarEntity.yaw();
+                var pitch = polarEntity.pitch();
+                var bytes = polarEntity.bytes();
 
                 Entity entity;
                 try {
@@ -59,6 +60,13 @@ public interface PolarWorldAccess {
                 } catch (Exception e) {
                     continue;
                 }
+
+                if (entity instanceof Painting painting) {
+                    if (painting.getArt().getBlockHeight() % 2 == 0) { // strange spigot bug
+                        y--;
+                    }
+                }
+
                 entity.spawnAt(new Location(chunk.getWorld(), x + chunk.getX() * 16, y, z + chunk.getZ() * 16, yaw, pitch));
             }
         }
