@@ -1,8 +1,8 @@
 name: Release PolarPaper
 on:
-  workflow_dispatch:
-  release:
-    types: [published]
+  push:
+    branches:
+      - "main"
 
 jobs:
   publish:
@@ -19,7 +19,9 @@ jobs:
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
+          automatic_release_tag: "dev"
           prerelease: true
           title: "Development Build"
           files: |
+            LICENSE
+            build/libs/*.jar
