@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Build
         shell: "bash"
-        run: gradle -Pversion=${{ github.event.release.tag_name || github.ref_name }} -Dmaven.repo.local=${{github.workspace}}/localM2Repository build publishPluginPublicationToHangar
+        run: gradle -Pversion=${{ github.event.release.tag_name || github.ref_name }} -Dmaven.repo.local=${{github.workspace}}/localM2Repository build
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"

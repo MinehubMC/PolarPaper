@@ -8,9 +8,13 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.logging.Level;
+import java.util.stream.Stream;
 
 public final class PolarPaper extends JavaPlugin {
 
@@ -60,6 +64,18 @@ public final class PolarPaper extends JavaPlugin {
         } catch (IOException e) {
             getLogger().warning("Failed to load world on startup");
             getLogger().warning(e.toString());
+        }
+    }
+
+    @Override
+    public void onDisable() {
+        Path pluginFolder = Path.of(getDataFolder().getAbsolutePath());
+        Path tempFolder = pluginFolder.resolve("temp");
+        try (Stream<Path> paths = Files.walk(tempFolder)) {
+            paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+        } catch (IOException e) {
+            getLogger().warning("Failed to delete temp directory");
+            getLogger().log(Level.INFO, e.getMessage(), e);
         }
     }
 
