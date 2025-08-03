@@ -93,15 +93,16 @@ public class Polar {
      *
      * @param world     The polar world
      * @param worldName The name for the polar world
+     * @return a future that completes when the world is fully loaded. Instantly completes if a world by that name is already created
      */
-    public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName) {
+    public static CompletableFuture<Void> loadWorld(@NotNull PolarWorld world, @NotNull String worldName) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         if (config == null) {
             LOGGER.warning("Polar world '" + worldName + "' has an invalid config");
-            return;
+            return CompletableFuture.completedFuture(null);
         }
-        loadWorld(world, worldName, config);
+        return loadWorld(world, worldName, config);
     }
 
     /**
@@ -110,11 +111,12 @@ public class Polar {
      * @param world     The polar world
      * @param worldName The name for the polar world
      * @param config    Custom config for the polar world
+     * @return a future that completes when the world is fully loaded. Instantly completes if a world by that name is already created
      */
-    public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config) {
+    public static CompletableFuture<Void> loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config) {
         if (Bukkit.getWorld(worldName) != null) {
             LOGGER.warning("A world with the name '" + worldName + "' already exists, skipping.");
-            return;
+            return CompletableFuture.completedFuture(null);
         }
 
         PolarGenerator polar = new PolarGenerator(world, config);
@@ -126,6 +128,8 @@ public class Polar {
                 .generator(polar)
                 .biomeProvider(polarBiomeProvider)
                 .keepSpawnLoaded(TriState.FALSE);
+
+        CompletableFuture<Void> future = new CompletableFuture<>();
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), task -> {
             World newWorld = Polar.loadWorld(worldCreator, config.spawn());
@@ -143,12 +147,16 @@ public class Polar {
                 for (Map<String, ?> gamerule : config.gamerules()) {
                     for (Map.Entry<String, ?> entry : gamerule.entrySet()) {
                         GameRule<?> rule = GameRule.getByName(entry.getKey());
-                        if (rule == null) return;
+                        if (rule == null) continue;
                         setGameRule(newWorld, rule, entry.getValue());
                     }
                 }
+
+                future.complete(null);
             });
         });
+
+        return future;
     }
 
     private static <T> void setGameRule(World world, GameRule<?> rule, Object value) {
@@ -224,8 +232,7 @@ public class Polar {
                 PolarWorld polarWorld = PolarReader.read(bytes);
 
                 Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
-                    loadWorld(polarWorld, worldName, config);
-                    future.complete(true);
+                    loadWorld(polarWorld, worldName, config).thenRun(() -> future.complete(true));
                 });
             } catch (Exception e) {
                 LOGGER.warning("Failed to read polar world from file");
