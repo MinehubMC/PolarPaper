@@ -2,15 +2,14 @@ package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
-import live.minehub.polarpaper.PolarWorld;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
-@SuppressWarnings("UnstableApiUsage")
 public class ListCommand {
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
@@ -19,6 +18,7 @@ public class ListCommand {
         builder.append(Component.text("List of worlds:", NamedTextColor.AQUA));
 
         for (World world : Bukkit.getServer().getWorlds()) {
+            if (world == null) continue;
             PolarWorld pw = PolarWorld.fromWorld(world);
             if (pw == null) continue;
 

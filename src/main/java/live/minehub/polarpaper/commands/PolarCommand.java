@@ -42,6 +42,7 @@ public class PolarCommand {
                                 .then(Commands.argument("worldname", StringArgumentType.greedyString())
                                         .suggests((ctx, builder) -> {
                                             for (World world : Bukkit.getWorlds()) {
+                                                if (world == null) continue;
 //                                                PolarWorld polarWorld = PolarWorld.fromWorld(world);
 //                                                if (polarWorld == null) continue;
 

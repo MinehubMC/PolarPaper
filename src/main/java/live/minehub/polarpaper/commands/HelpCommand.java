@@ -6,7 +6,6 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
-@SuppressWarnings("UnstableApiUsage")
 public class HelpCommand {
 
     private static final Component MESSAGE = Component.text()

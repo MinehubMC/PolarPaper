@@ -31,7 +31,6 @@ import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.ChunkAccess;
-import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.levelgen.PatrolSpawner;
@@ -66,7 +65,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -89,24 +87,19 @@ public class Polar {
     }
 
     /**
-     * Creates a polar world with config read from config.yml
+     * Creates a polar world asynchronously with config read from config.yml with {@link PolarWorldAccess#POLAR_PAPER_FEATURES}
      *
      * @param world     The polar world
      * @param worldName The name for the polar world
      * @return a future that completes when the world is fully loaded. Instantly completes if a world by that name is already created
      */
+    @SuppressWarnings("unused")
     public static CompletableFuture<Void> loadWorld(@NotNull PolarWorld world, @NotNull String worldName) {
-        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
-        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
-        if (config == null) {
-            LOGGER.warning("Polar world '" + worldName + "' has an invalid config");
-            return CompletableFuture.completedFuture(null);
-        }
-        return loadWorld(world, worldName, config);
+        return loadWorld(world, worldName, PolarWorldAccess.POLAR_PAPER_FEATURES);
     }
 
     /**
-     * Creates a polar world
+     * Creates a polar world asynchronously with {@link PolarWorldAccess#POLAR_PAPER_FEATURES}
      *
      * @param world     The polar world
      * @param worldName The name for the polar world
@@ -114,12 +107,44 @@ public class Polar {
      * @return a future that completes when the world is fully loaded. Instantly completes if a world by that name is already created
      */
     public static CompletableFuture<Void> loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config) {
+        return loadWorld(world, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
+    }
+
+    /**
+     * Creates a polar world asynchronously with config read from config.yml
+     *
+     * @param world     The polar world
+     * @param worldName The name for the polar world
+     * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
+     * @return a future that completes when the world is fully loaded. Instantly completes if a world by that name is already created
+     */
+    public static CompletableFuture<Void> loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
+        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
+        if (config == null) {
+            LOGGER.warning("Polar world '" + worldName + "' has an invalid config");
+            return CompletableFuture.completedFuture(null);
+        }
+        return loadWorld(world, worldName, config, worldAccess);
+    }
+
+    /**
+     * Creates a polar world asynchronously
+     * Should be ran synchronously or in the normal Bukkit scheduler
+     *
+     * @param world     The polar world
+     * @param worldName The name for the polar world
+     * @param config    Custom config for the polar world
+     * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
+     * @return a future that completes when the world is fully loaded. Instantly completes if a world by that name is already created
+     */
+    public static CompletableFuture<Void> loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
         if (Bukkit.getWorld(worldName) != null) {
             LOGGER.warning("A world with the name '" + worldName + "' already exists, skipping.");
             return CompletableFuture.completedFuture(null);
         }
 
-        PolarGenerator polar = new PolarGenerator(world, config);
+        PolarGenerator polar = new PolarGenerator(world, worldAccess, config);
         PolarBiomeProvider polarBiomeProvider = new PolarBiomeProvider(world);
 
         WorldCreator worldCreator = WorldCreator.name(worldName)
@@ -159,6 +184,7 @@ public class Polar {
         return future;
     }
 
+    @SuppressWarnings("unchecked")
     private static <T> void setGameRule(World world, GameRule<?> rule, Object value) {
         world.setGameRule((GameRule<T>) rule, (T)value);
     }
@@ -204,12 +230,23 @@ public class Polar {
     }
 
     /**
-     * Load a polar world using the source defined in the config
+     * Load a polar world using the source defined in the config and with {@link PolarWorldAccess#POLAR_PAPER_FEATURES}
      *
      * @param worldName The name of the world to load
      * @return Whether loading the world was successful
      */
-    public static CompletableFuture<Boolean> loadWorldConfigSource(String worldName) {
+    public static CompletableFuture<Boolean> loadWorldConfigSource(@NotNull String worldName) {
+        return loadWorldConfigSource(worldName, PolarWorldAccess.POLAR_PAPER_FEATURES);
+    }
+
+    /**
+     * Load a polar world using the source defined in the config
+     *
+     * @param worldName The name of the world to load
+     * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
+     * @return Whether loading the world was successful
+     */
+    public static CompletableFuture<Boolean> loadWorldConfigSource(@NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         if (config == null) {
@@ -232,7 +269,7 @@ public class Polar {
                 PolarWorld polarWorld = PolarReader.read(bytes);
 
                 Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
-                    loadWorld(polarWorld, worldName, config).thenRun(() -> future.complete(true));
+                    loadWorld(polarWorld, worldName, config, worldAccess).thenRun(() -> future.complete(true));
                 });
             } catch (Exception e) {
                 LOGGER.warning("Failed to read polar world from file");
@@ -305,6 +342,7 @@ public class Polar {
      * @param polarSource The source to use to save the polar world (e.g. FilePolarSource)
      * @return Whether it was successful
      */
+    @SuppressWarnings("unused")
     public static CompletableFuture<Boolean> saveWorld(World world, PolarSource polarSource) {
         PolarWorld polarWorld = PolarWorld.fromWorld(world);
         if (polarWorld == null) return CompletableFuture.completedFuture(false);
@@ -391,10 +429,12 @@ public class Polar {
         }
     }
 
+    @SuppressWarnings("unused")
     public static @Nullable World loadWorld(WorldCreator creator) {
         return loadWorld(creator, new Location(null, 0, 64, 0));
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     public static @Nullable World loadWorld(WorldCreator creator, Location spawnLocation) {
         CraftServer craftServer = (CraftServer) Bukkit.getServer();
 
@@ -515,7 +555,7 @@ public class Polar {
 
         worlddata.setSpawn(new BlockPos((int) spawnLocation.x(), (int) spawnLocation.y(), (int) spawnLocation.z()), 0.0f);
 
-        craftServer.getServer().addLevel(internal); // Paper - Put world into worldlist before initing the world; move up
+
 //        craftServer.getServer().initWorld(internal, worlddata, worlddata, worlddata.worldGenOptions());
 
 //        internal.setSpawnSettings(true);
@@ -525,6 +565,8 @@ public class Polar {
         // Paper - rewrite chunk system
 
         Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
+            craftServer.getServer().addLevel(internal); // Paper - Put world into worldlist before initing the world; move up
+
             Bukkit.getPluginManager().callEvent(new WorldLoadEvent(internal.getWorld()));
         });
 
@@ -540,8 +582,7 @@ public class Polar {
         ChunkSnapshot snapshot = craftChunk.getChunkSnapshot(true, true, false, false);
         int minHeight = chunk.getWorld().getMinHeight();
         int maxHeight = chunk.getWorld().getMaxHeight();
-        LevelChunk chunkAccess = (LevelChunk) craftChunk.getHandle(ChunkStatus.FULL);
-        HashSet<Map.Entry<BlockPos, BlockEntity>> blockEntities = new HashSet<>(chunkAccess.blockEntities.entrySet());
+        Set<Map.Entry<BlockPos, BlockEntity>> blockEntities = craftChunk.getHandle(ChunkStatus.FULL).blockEntities.entrySet();
         Entity[] entities = Arrays.copyOf(craftChunk.getEntities(), craftChunk.getEntities().length);
 
         int worldHeight = maxHeight - minHeight + 1; // I hate paper
@@ -569,16 +610,13 @@ public class Polar {
             }
         }
 
-
-        var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
-
         return CompletableFuture.runAsync(() -> {
-            PolarChunk polarChunk = createPolarChunk(worldAccess, snapshot, newChunkX, newChunkZ, minHeight, maxHeight, blockEntities, entities, registryAccess);
+            PolarChunk polarChunk = createPolarChunk(worldAccess, snapshot, newChunkX, newChunkZ, minHeight, maxHeight, blockEntities, entities);
             polarWorld.updateChunkAt(newChunkX, newChunkZ, polarChunk);
         });
     }
 
-    public static PolarChunk createPolarChunk(PolarWorldAccess worldAccess, ChunkSnapshot snapshot, int newChunkX, int newChunkZ, int minHeight, int maxHeight, Set<Map.Entry<BlockPos, BlockEntity>> blockEntities, Entity[] entities, RegistryAccess.Frozen registryAccess) {
+    public static PolarChunk createPolarChunk(PolarWorldAccess worldAccess, ChunkSnapshot snapshot, int newChunkX, int newChunkZ, int minHeight, int maxHeight, Set<Map.Entry<BlockPos, BlockEntity>> blockEntities, Entity[] entities) {
         List<PolarChunk.BlockEntity> polarBlockEntities = new ArrayList<>();
 
         int worldHeight = maxHeight - minHeight + 1; // I hate paper
@@ -642,6 +680,7 @@ public class Polar {
             );
         }
 
+        var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
         for (Map.Entry<BlockPos, BlockEntity> entry : blockEntities) {
             BlockPos blockPos = entry.getKey();
             BlockEntity blockEntity = entry.getValue();
