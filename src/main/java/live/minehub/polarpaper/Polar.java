@@ -30,7 +30,6 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.levelgen.PatrolSpawner;
@@ -392,13 +391,7 @@ public class Polar {
 
             var future = world.getChunkAtAsync(chunk.x() + offsetX, chunk.z() + offsetZ)
                     .thenAcceptAsync(c -> {
-                        ChunkAccess craftChunk = ((CraftChunk) c).getHandle(ChunkStatus.FULL);
-                        boolean unsaved = craftChunk.isUnsaved();
-                        if (!unsaved) return; // chunk didn't need updating
-
                         updateChunkData(polarWorld, polarWorldAccess, c, chunk.x(), chunk.z()).join();
-
-                        craftChunk.tryMarkSaved();
                     })
                     .exceptionally(e -> {
                         LOGGER.warning(e.toString());
@@ -419,13 +412,8 @@ public class Polar {
             }
 
             Chunk c = world.getChunkAt(chunk.x() + offsetX, chunk.z() + offsetZ);
-            ChunkAccess craftChunk = ((CraftChunk) c).getHandle(ChunkStatus.FULL);
-            boolean unsaved = craftChunk.isUnsaved();
-            if (!unsaved) return; // chunk didn't need updating
 
             updateChunkData(polarWorld, polarWorldAccess, c, chunk.x(), chunk.z()).join();
-
-            craftChunk.tryMarkSaved();
         }
     }
 
