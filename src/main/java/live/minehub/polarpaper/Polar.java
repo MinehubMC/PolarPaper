@@ -266,6 +266,11 @@ public class Polar {
             try {
                 byte[] bytes = source.readBytes();
                 PolarWorld polarWorld = PolarReader.read(bytes);
+                if (polarWorld.version() == PolarWorld.VERSION_DEPRECATED_ENTITIES) {
+                    LOGGER.info("Re-saving world to update legacy entities");
+                    byte[] worldBytes = PolarWriter.write(polarWorld);
+                    source.saveBytes(worldBytes);
+                }
 
                 Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
                     loadWorld(polarWorld, worldName, config, worldAccess).thenRun(() -> future.complete(true));

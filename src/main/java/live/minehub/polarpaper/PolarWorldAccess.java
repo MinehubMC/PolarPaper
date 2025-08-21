@@ -1,7 +1,6 @@
 package live.minehub.polarpaper;
 
 import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
 import live.minehub.polarpaper.util.EntityUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -15,12 +14,10 @@ import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static live.minehub.polarpaper.util.ByteArrayUtil.writeByteArray;
-import static live.minehub.polarpaper.util.ByteArrayUtil.writeVarInt;
 
 /**
  * Provides access to user world data for the polar loader to get and set user
@@ -75,10 +72,8 @@ public interface PolarWorldAccess {
         public void saveChunkData(@NotNull ChunkSnapshot chunk,
                                   @NotNull Set<Map.Entry<BlockPos, BlockEntity>> blockEntities,
                                   @NotNull Entity[] entities, @NotNull ByteArrayDataOutput userData) {
-            userData.writeByte(CURRENT_FEATURES_VERSION);
+            List<PolarChunk.Entity> polarEntities = new ArrayList<>();
 
-            ByteArrayDataOutput entityData = ByteStreams.newDataOutput();
-            int entityCount = 0;
             for (@NotNull Entity entity : entities) {
                 byte[] entityBytes = EntityUtil.entityToBytes(entity);
                 if (entityBytes == null) continue;
@@ -87,18 +82,20 @@ public interface PolarWorldAccess {
                 final var x = ((entityPos.x() % 16) + 16) % 16;
                 final var z = ((entityPos.z() % 16) + 16) % 16;
 
-                entityData.writeDouble(x);
-                entityData.writeDouble(entityPos.y());
-                entityData.writeDouble(z);
-                entityData.writeFloat(entityPos.getYaw());
-                entityData.writeFloat(entityPos.getPitch());
-                writeByteArray(entityBytes, entityData);
-
-                entityCount++;
+                polarEntities.add(new PolarChunk.Entity(
+                        x,
+                        entityPos.y(),
+                        z,
+                        entityPos.getYaw(),
+                        entityPos.getPitch(),
+                        entityBytes
+                ));
             }
-            writeVarInt(entityCount, userData);
-            userData.write(entityData.toByteArray());
+
+            userData.writeByte(CURRENT_FEATURES_VERSION);
+            EntityUtil.writeEntities(polarEntities, userData);
         }
+
     };
 
     // TODO: these

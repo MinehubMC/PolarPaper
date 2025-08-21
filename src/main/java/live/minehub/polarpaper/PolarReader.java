@@ -1,10 +1,13 @@
 package live.minehub.polarpaper;
 
 import com.github.luben.zstd.Zstd;
+import com.google.common.io.ByteArrayDataOutput;
+import com.google.common.io.ByteStreams;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.PolarSection.LightContent;
+import live.minehub.polarpaper.util.EntityUtil;
 import live.minehub.polarpaper.util.PaletteUtil;
 import net.kyori.adventure.key.Key;
 import net.minecraft.nbt.CompoundTag;
@@ -97,6 +100,23 @@ public class PolarReader {
             blockEntities.add(readBlockEntity(dataConverter, version, dataVersion, bb));
         }
 
+        // If the version is set to 8 copy the contents over to the beginning of userdata
+        List<PolarChunk.Entity> entities = null;
+        if (version == PolarWorld.VERSION_DEPRECATED_ENTITIES) {
+            entities = new ArrayList<>();
+            int entityCount = getVarInt(bb);
+            for (int i = 0; i < entityCount; i++) {
+                entities.add(new PolarChunk.Entity(
+                        bb.readDouble(),
+                        bb.readDouble(),
+                        bb.readDouble(),
+                        bb.readFloat(),
+                        bb.readFloat(),
+                        getByteArray(bb)
+                ));
+            }
+        }
+
         var heightmaps = new int[PolarChunk.MAX_HEIGHTMAPS][];
         int heightmapMask = bb.readInt();
         for (int i = 0; i < PolarChunk.MAX_HEIGHTMAPS; i++) {
@@ -120,6 +140,14 @@ public class PolarReader {
             byte[] bytes = new byte[userDataLength];
             bb.readBytes(bytes);
             userData = bytes;
+        }
+
+        if (entities != null) {
+            ByteArrayDataOutput newData = ByteStreams.newDataOutput();
+            newData.writeByte((byte) 1);
+            EntityUtil.writeEntities(entities, newData);
+
+            userData = newData.toByteArray();
         }
 
         return new PolarChunk(
@@ -234,7 +262,7 @@ public class PolarReader {
     private static void validateVersion(int version) {
         var invalidVersionError = String.format("Unsupported Polar version. Up to %d is supported, found %d.",
                 PolarWorld.LATEST_VERSION, version);
-        assertThat(version <= PolarWorld.LATEST_VERSION,
+        assertThat(version <= PolarWorld.LATEST_VERSION || version == PolarWorld.VERSION_DEPRECATED_ENTITIES,
                 invalidVersionError);
     }
 

@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.util;
 
 import ca.spottedleaf.moonrise.common.PlatformHooks;
+import com.google.common.io.ByteArrayDataOutput;
 import com.mojang.logging.LogUtils;
 import live.minehub.polarpaper.PolarChunk;
 import net.minecraft.nbt.CompoundTag;
@@ -19,16 +20,20 @@ import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.entity.CraftEntity;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static live.minehub.polarpaper.util.ByteArrayUtil.getByteArray;
-import static live.minehub.polarpaper.util.ByteArrayUtil.getVarInt;
+import static live.minehub.polarpaper.util.ByteArrayUtil.*;
 
 public class EntityUtil {
 
@@ -57,6 +62,18 @@ public class EntityUtil {
         }
 
         return polarEntities;
+    }
+
+    public static void writeEntities(List<PolarChunk.Entity> entities, @NotNull ByteArrayDataOutput data) {
+        writeVarInt(entities.size(), data);
+        for (@NotNull PolarChunk.Entity entity : entities) {
+            data.writeDouble(entity.x());
+            data.writeDouble(entity.y());
+            data.writeDouble(entity.z());
+            data.writeFloat(entity.yaw());
+            data.writeFloat(entity.pitch());
+            writeByteArray(entity.bytes(), data);
+        }
     }
 
     public static @Nullable Entity bytesToEntity(World world, byte[] bytes) throws IOException {
