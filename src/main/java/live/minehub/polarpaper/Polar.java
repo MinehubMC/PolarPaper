@@ -3,7 +3,6 @@ package live.minehub.polarpaper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
-import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.Lifecycle;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.CoordConversion;
@@ -12,11 +11,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtException;
-import net.minecraft.nbt.ReportedNbtException;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.WorldLoader;
 import net.minecraft.server.dedicated.DedicatedServerProperties;
 import net.minecraft.util.GsonHelper;
@@ -36,7 +32,6 @@ import net.minecraft.world.level.levelgen.PatrolSpawner;
 import net.minecraft.world.level.levelgen.PhantomSpawner;
 import net.minecraft.world.level.levelgen.WorldDimensions;
 import net.minecraft.world.level.levelgen.WorldOptions;
-import net.minecraft.world.level.storage.LevelDataAndDimensions;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.PrimaryLevelData;
 import net.minecraft.world.level.validation.ContentValidationException;
@@ -86,45 +81,42 @@ public class Polar {
     }
 
     /**
-     * Creates a polar world asynchronously with config read from config.yml with {@link PolarWorldAccess#POLAR_PAPER_FEATURES}
+     * Creates a polar world with config read from config.yml with {@link PolarWorldAccess#POLAR_PAPER_FEATURES}
      *
      * @param world     The polar world
      * @param worldName The name for the polar world
-     * @return a future that completes when the world is fully loaded. Instantly completes if a world by that name is already created
      */
     @SuppressWarnings("unused")
-    public static CompletableFuture<Void> loadWorld(@NotNull PolarWorld world, @NotNull String worldName) {
-        return loadWorld(world, worldName, PolarWorldAccess.POLAR_PAPER_FEATURES);
+    public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName) {
+        loadWorld(world, worldName, PolarWorldAccess.POLAR_PAPER_FEATURES);
     }
 
     /**
-     * Creates a polar world asynchronously with {@link PolarWorldAccess#POLAR_PAPER_FEATURES}
+     * Creates a polar world with {@link PolarWorldAccess#POLAR_PAPER_FEATURES}
      *
      * @param world     The polar world
      * @param worldName The name for the polar world
      * @param config    Custom config for the polar world
-     * @return a future that completes when the world is fully loaded. Instantly completes if a world by that name is already created
      */
-    public static CompletableFuture<Void> loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config) {
-        return loadWorld(world, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
+    public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config) {
+        loadWorld(world, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
     }
 
     /**
-     * Creates a polar world asynchronously with config read from config.yml
+     * Creates a polar world with config read from config.yml
      *
      * @param world     The polar world
      * @param worldName The name for the polar world
      * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
-     * @return a future that completes when the world is fully loaded. Instantly completes if a world by that name is already created
      */
-    public static CompletableFuture<Void> loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+    public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         if (config == null) {
             LOGGER.warning("Polar world '" + worldName + "' has an invalid config");
-            return CompletableFuture.completedFuture(null);
+            return;
         }
-        return loadWorld(world, worldName, config, worldAccess);
+        loadWorld(world, worldName, config, worldAccess);
     }
 
     /**
@@ -137,10 +129,10 @@ public class Polar {
      * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @return a future that completes when the world is fully loaded. Instantly completes if a world by that name is already created
      */
-    public static CompletableFuture<Void> loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
+    public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
         if (Bukkit.getWorld(worldName) != null) {
             LOGGER.warning("A world with the name '" + worldName + "' already exists, skipping.");
-            return CompletableFuture.completedFuture(null);
+            return;
         }
 
         PolarGenerator polar = new PolarGenerator(world, worldAccess, config);
@@ -153,34 +145,24 @@ public class Polar {
                 .biomeProvider(polarBiomeProvider)
                 .keepSpawnLoaded(TriState.FALSE);
 
-        CompletableFuture<Void> future = new CompletableFuture<>();
+        World newWorld = loadWorld(worldCreator, config.spawn());
+        if (newWorld == null) {
+            LOGGER.warning("An error occurred loading polar world '" + worldName + "', skipping.");
+            return;
+        }
 
-        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), task -> {
-            World newWorld = Polar.loadWorld(worldCreator, config.spawn());
-            if (newWorld == null) {
-                LOGGER.warning("An error occurred loading polar world '" + worldName + "', skipping.");
-                return;
+        newWorld.setDifficulty(config.difficulty());
+        newWorld.setPVP(config.pvp());
+        newWorld.setSpawnFlags(config.allowMonsters(), config.allowAnimals());
+        newWorld.setAutoSave(config.autoSave());
+
+        for (Map<String, ?> gamerule : config.gamerules()) {
+            for (Map.Entry<String, ?> entry : gamerule.entrySet()) {
+                GameRule<?> rule = GameRule.getByName(entry.getKey());
+                if (rule == null) continue;
+                setGameRule(newWorld, rule, entry.getValue());
             }
-
-            Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
-                newWorld.setDifficulty(config.difficulty());
-                newWorld.setPVP(config.pvp());
-                newWorld.setSpawnFlags(config.allowMonsters(), config.allowAnimals());
-                newWorld.setAutoSave(config.autoSave());
-
-                for (Map<String, ?> gamerule : config.gamerules()) {
-                    for (Map.Entry<String, ?> entry : gamerule.entrySet()) {
-                        GameRule<?> rule = GameRule.getByName(entry.getKey());
-                        if (rule == null) continue;
-                        setGameRule(newWorld, rule, entry.getValue());
-                    }
-                }
-
-                future.complete(null);
-            });
-        });
-
-        return future;
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -273,7 +255,8 @@ public class Polar {
                 }
 
                 Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
-                    loadWorld(polarWorld, worldName, config, worldAccess).thenRun(() -> future.complete(true));
+                    loadWorld(polarWorld, worldName, config, worldAccess);
+                    future.complete(true);
                 });
             } catch (Exception e) {
                 LOGGER.warning("Failed to read polar world from file");
@@ -451,47 +434,10 @@ public class Polar {
         try {
             Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
             Path tempFolder = pluginFolder.resolve("temp");
+
             worldSession = LevelStorageSource.createDefault(tempFolder).validateAndCreateAccess(name, actualDimension);
         } catch (IOException | ContentValidationException ex) {
             throw new RuntimeException(ex);
-        }
-
-        Dynamic<?> dynamic;
-        if (worldSession.hasWorldData()) {
-            net.minecraft.world.level.storage.LevelSummary worldinfo;
-
-            try {
-                dynamic = worldSession.getDataTag();
-                worldinfo = worldSession.getSummary(dynamic);
-            } catch (NbtException | ReportedNbtException | IOException ioexception) {
-                LevelStorageSource.LevelDirectory convertable_b = worldSession.getLevelDirectory();
-
-                MinecraftServer.LOGGER.warn("Failed to load world data from {}", convertable_b.dataFile(), ioexception);
-                MinecraftServer.LOGGER.info("Attempting to use fallback");
-
-                try {
-                    dynamic = worldSession.getDataTagFallback();
-                    worldinfo = worldSession.getSummary(dynamic);
-                } catch (NbtException | ReportedNbtException | IOException ioexception1) {
-                    MinecraftServer.LOGGER.error("Failed to load world data from {}", convertable_b.oldDataFile(), ioexception1);
-                    MinecraftServer.LOGGER.error("Failed to load world data from {} and {}. World files may be corrupted. Shutting down.", convertable_b.dataFile(), convertable_b.oldDataFile());
-                    return null;
-                }
-
-                worldSession.restoreLevelDataFromOld();
-            }
-
-            if (worldinfo.requiresManualConversion()) {
-                MinecraftServer.LOGGER.info("This world must be opened in an older version (like 1.6.4) to be safely converted");
-                return null;
-            }
-
-            if (!worldinfo.isCompatible()) {
-                MinecraftServer.LOGGER.info("This world was created by an incompatible version.");
-                return null;
-            }
-        } else {
-            dynamic = null;
         }
 
         boolean hardcore = creator.hardcore();
@@ -500,27 +446,22 @@ public class Polar {
         WorldLoader.DataLoadContext worldloader_a = craftServer.getServer().worldLoader;
         RegistryAccess.Frozen iregistrycustom_dimension = worldloader_a.datapackDimensions();
         net.minecraft.core.Registry<LevelStem> iregistry = iregistrycustom_dimension.lookupOrThrow(Registries.LEVEL_STEM);
-        if (dynamic != null) {
-            LevelDataAndDimensions leveldataanddimensions = LevelStorageSource.getLevelDataAndDimensions(dynamic, worldloader_a.dataConfiguration(), iregistry, worldloader_a.datapackWorldgen());
 
-            worlddata = (PrimaryLevelData) leveldataanddimensions.worldData();
-            iregistrycustom_dimension = leveldataanddimensions.dimensions().dimensionsRegistryAccess();
-        } else {
-            LevelSettings worldsettings;
-            WorldOptions worldoptions = new WorldOptions(creator.seed(), creator.generateStructures(), false);
-            WorldDimensions worlddimensions;
+        LevelSettings worldsettings;
+        WorldOptions worldoptions = new WorldOptions(creator.seed(), creator.generateStructures(), false);
+        WorldDimensions worlddimensions;
 
-            DedicatedServerProperties.WorldDimensionData properties = new DedicatedServerProperties.WorldDimensionData(GsonHelper.parse((creator.generatorSettings().isEmpty()) ? "{}" : creator.generatorSettings()), creator.type().name().toLowerCase(Locale.ROOT));
+        DedicatedServerProperties.WorldDimensionData properties = new DedicatedServerProperties.WorldDimensionData(GsonHelper.parse((creator.generatorSettings().isEmpty()) ? "{}" : creator.generatorSettings()), creator.type().name().toLowerCase(Locale.ROOT));
 
-            worldsettings = new LevelSettings(name, GameType.byId(craftServer.getDefaultGameMode().getValue()), hardcore, Difficulty.EASY, false, new GameRules(worldloader_a.dataConfiguration().enabledFeatures()), worldloader_a.dataConfiguration());
-            worlddimensions = properties.create(worldloader_a.datapackWorldgen());
+        worldsettings = new LevelSettings(name, GameType.byId(craftServer.getDefaultGameMode().getValue()), hardcore, Difficulty.EASY, false, new GameRules(worldloader_a.dataConfiguration().enabledFeatures()), worldloader_a.dataConfiguration());
+        worlddimensions = properties.create(worldloader_a.datapackWorldgen());
 
-            WorldDimensions.Complete worlddimensions_b = worlddimensions.bake(iregistry);
-            Lifecycle lifecycle = worlddimensions_b.lifecycle().add(worldloader_a.datapackWorldgen().allRegistriesLifecycle());
+        WorldDimensions.Complete worlddimensions_b = worlddimensions.bake(iregistry);
+        Lifecycle lifecycle = worlddimensions_b.lifecycle().add(worldloader_a.datapackWorldgen().allRegistriesLifecycle());
 
-            worlddata = new PrimaryLevelData(worldsettings, worldoptions, worlddimensions_b.specialWorldProperty(), lifecycle);
-            iregistrycustom_dimension = worlddimensions_b.dimensionsRegistryAccess();
-        }
+        worlddata = new PrimaryLevelData(worldsettings, worldoptions, worlddimensions_b.specialWorldProperty(), lifecycle);
+        iregistrycustom_dimension = worlddimensions_b.dimensionsRegistryAccess();
+
         iregistry = iregistrycustom_dimension.lookupOrThrow(Registries.LEVEL_STEM);
         worlddata.customDimensions = iregistry;
         worlddata.checkName(name);
@@ -548,8 +489,8 @@ public class Polar {
 
         worlddata.setSpawn(new BlockPos((int) spawnLocation.x(), (int) spawnLocation.y(), (int) spawnLocation.z()), 0.0f);
 
-
-//        craftServer.getServer().initWorld(internal, worlddata, worlddata, worlddata.worldGenOptions());
+        craftServer.getServer().addLevel(internal); // Paper - Put world into worldlist before initing the world; move up
+        craftServer.getServer().initWorld(internal, worlddata, worlddata, worlddata.worldGenOptions());
 
 //        internal.setSpawnSettings(true);
         // Paper - Put world into worldlist before initing the world; move up
@@ -557,11 +498,7 @@ public class Polar {
 //        craftServer.getServer().prepareLevels(internal.getChunkSource().chunkMap.progressListener, internal);
         // Paper - rewrite chunk system
 
-        Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
-            craftServer.getServer().addLevel(internal); // Paper - Put world into worldlist before initing the world; move up
-
-            Bukkit.getPluginManager().callEvent(new WorldLoadEvent(internal.getWorld()));
-        });
+        Bukkit.getPluginManager().callEvent(new WorldLoadEvent(internal.getWorld()));
 
         return internal.getWorld();
     }

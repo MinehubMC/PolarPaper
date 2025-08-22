@@ -52,14 +52,13 @@ public class CreateBlankCommand {
 
         Config.writeToConfig(PolarPaper.getPlugin().getConfig(), worldName, Config.DEFAULT_BLANK);
 
-        Polar.loadWorld(new PolarWorld(), worldName, Config.DEFAULT_BLANK).thenRun(() -> {
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("Created blank world '", NamedTextColor.AQUA))
-                            .append(Component.text(worldName, NamedTextColor.AQUA))
-                            .append(Component.text("'", NamedTextColor.AQUA))
-            );
-        });
+        Polar.loadWorld(new PolarWorld(), worldName, Config.DEFAULT_BLANK);
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Created blank world '", NamedTextColor.AQUA))
+                        .append(Component.text(worldName, NamedTextColor.AQUA))
+                        .append(Component.text("'", NamedTextColor.AQUA))
+        );
 
 
         return Command.SINGLE_SUCCESS;
