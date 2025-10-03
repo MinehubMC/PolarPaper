@@ -3,7 +3,6 @@ package live.minehub.polarpaper;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.progress.ChunkProgressListener;
 import net.minecraft.util.ProgressListener;
 import net.minecraft.world.RandomSequences;
 import net.minecraft.world.level.CustomSpawner;
@@ -20,8 +19,8 @@ import java.util.List;
 import java.util.concurrent.Executor;
 
 public class PolarServerLevel extends ServerLevel {
-    public PolarServerLevel(MinecraftServer minecraftserver, Executor executor, LevelStorageSource.LevelStorageAccess convertable_conversionsession, PrimaryLevelData iworlddataserver, ResourceKey<Level> resourcekey, LevelStem worlddimension, ChunkProgressListener worldloadlistener, boolean flag, long i, List<CustomSpawner> list, boolean flag1, @Nullable RandomSequences randomsequences, World.Environment env, ChunkGenerator gen, BiomeProvider biomeProvider) {
-        super(minecraftserver, executor, convertable_conversionsession, iworlddataserver, resourcekey, worlddimension, worldloadlistener, flag, i, list, flag1, randomsequences, env, gen, biomeProvider);
+    public PolarServerLevel(MinecraftServer server, Executor dispatcher, LevelStorageSource.LevelStorageAccess storageSource, PrimaryLevelData levelData, ResourceKey<Level> dimension, LevelStem levelStem, boolean isDebug, long biomeZoomSeed, List<CustomSpawner> customSpawners, boolean tickTime, @Nullable RandomSequences randomSequences, World.Environment env, ChunkGenerator gen, BiomeProvider biomeProvider) {
+        super(server, dispatcher, storageSource, levelData, dimension, levelStem, isDebug, biomeZoomSeed, customSpawners, tickTime, randomSequences, env, gen, biomeProvider);
     }
 
     @Override

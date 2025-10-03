@@ -1,15 +1,17 @@
 package live.minehub.polarpaper;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
+import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.Lifecycle;
+import io.papermc.paper.world.PaperWorldLoader;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.CoordConversion;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.util.TriState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
@@ -18,11 +20,10 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.WorldLoader;
 import net.minecraft.server.dedicated.DedicatedServerProperties;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.GsonHelper;
+import net.minecraft.util.datafix.DataFixers;
 import net.minecraft.world.Difficulty;
-import net.minecraft.world.entity.ai.village.VillageSiege;
-import net.minecraft.world.entity.npc.CatSpawner;
-import net.minecraft.world.entity.npc.WanderingTraderSpawner;
 import net.minecraft.world.level.CustomSpawner;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
@@ -31,10 +32,9 @@ import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.dimension.LevelStem;
-import net.minecraft.world.level.levelgen.PatrolSpawner;
-import net.minecraft.world.level.levelgen.PhantomSpawner;
 import net.minecraft.world.level.levelgen.WorldDimensions;
 import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.storage.LevelDataAndDimensions;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.PrimaryLevelData;
 import net.minecraft.world.level.validation.ContentValidationException;
@@ -44,16 +44,18 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.craftbukkit.CraftChunk;
 import org.bukkit.craftbukkit.CraftServer;
+import org.bukkit.craftbukkit.generator.CraftWorldInfo;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
-import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
+import org.bukkit.generator.WorldInfo;
 import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
@@ -131,35 +133,18 @@ public class Polar {
                 .type(config.worldType())
                 .environment(config.environment())
                 .generator(polar)
-                .biomeProvider(polarBiomeProvider)
-                .keepSpawnLoaded(TriState.FALSE);
+                .biomeProvider(polarBiomeProvider);
 
-        World newWorld = loadWorld(worldCreator, config.spawn());
+        World newWorld = loadWorld(worldCreator, config.difficulty(), config.gamerules(), config.allowMonsters(), config.allowAnimals());
         if (newWorld == null) {
             PolarPaper.logger().warning("An error occurred loading polar world '" + worldName + "', skipping.");
             return;
         }
 
-        updateWorldConfig(newWorld, config);
+        startAutoSaveTask(newWorld, config);
     }
 
-    public static void updateWorldConfig(World newWorld, Config config) {
-        PolarGenerator generator = PolarGenerator.fromWorld(newWorld);
-        if (generator != null) generator.setConfig(config);
-
-        newWorld.setDifficulty(config.difficulty());
-        newWorld.setPVP(config.pvp());
-        newWorld.setSpawnFlags(config.allowMonsters(), config.allowAnimals());
-        newWorld.setAutoSave(config.autoSaveIntervalTicks() != -1);
-
-        for (Map<String, ?> gamerule : config.gamerules()) {
-            for (Map.Entry<String, ?> entry : gamerule.entrySet()) {
-                GameRule<?> rule = GameRule.getByName(entry.getKey());
-                if (rule == null) continue;
-                setGameRule(newWorld, rule, entry.getValue());
-            }
-        }
-
+    public static void startAutoSaveTask(World newWorld, Config config) {
         if (config.autoSaveIntervalTicks() == -1) return;
 
         BukkitTask prevTask = AUTOSAVE_TASK_MAP.get(newWorld.getName());
@@ -189,7 +174,7 @@ public class Polar {
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> void setGameRule(World world, GameRule<?> rule, Object value) {
+    public static <T> void setGameRule(World world, GameRule<?> rule, Object value) {
         world.setGameRule((GameRule<T>) rule, (T)value);
     }
 
@@ -199,7 +184,7 @@ public class Polar {
         if (config == null) return Config.DEFAULT;
 
         // Add gamerules from world into config
-        List<Map<String, ?>> gameruleList = new ArrayList<>();
+        List<Config.GameRule> gameruleList = new ArrayList<>();
         for (String name : world.getGameRules()) {
             GameRule<?> gamerule = GameRule.getByName(name);
             if (gamerule == null) continue;
@@ -208,7 +193,7 @@ public class Polar {
             if (gameRuleValue == null) continue;
             Object gameRuleDefault = world.getGameRuleDefault(gamerule);
             if (gameRuleValue != gameRuleDefault) {
-                gameruleList.add(Map.of(name, gameRuleValue));
+                gameruleList.add(new Config.GameRule(name, gameRuleValue));
             }
         }
 
@@ -219,11 +204,10 @@ public class Polar {
                 config.saveOnStop(),
                 config.loadOnStartup(),
                 config.spawn(),
-                world.getDifficulty(),
+                Difficulty.valueOf(world.getDifficulty().name()),
                 world.getAllowMonsters(),
                 world.getAllowAnimals(),
                 config.allowWorldExpansion(),
-                world.getPVP(),
                 config.worldType(),
                 config.environment(),
                 gameruleList
@@ -441,13 +425,8 @@ public class Polar {
         }
     }
 
-    @SuppressWarnings("unused")
-    public static @Nullable World loadWorld(WorldCreator creator) {
-        return loadWorld(creator, new Location(null, 0, 64, 0));
-    }
-
     @SuppressWarnings("UnstableApiUsage")
-    public static @Nullable World loadWorld(WorldCreator creator, Location spawnLocation) {
+    public static @Nullable World loadWorld(WorldCreator creator, Difficulty difficulty, List<Config.GameRule> gamerules, boolean allowMonsters, boolean allowAnimals) {
         CraftServer craftServer = (CraftServer) Bukkit.getServer();
 
         // Check if already existing
@@ -455,9 +434,37 @@ public class Polar {
             return null;
         }
 
+        Preconditions.checkState(craftServer.getServer().getAllLevels().iterator().hasNext(), "Cannot create additional worlds on STARTUP");
+        //Preconditions.checkState(!this.console.isIteratingOverLevels, "Cannot create a world while worlds are being ticked"); // Paper - Cat - Temp disable. We'll see how this goes.
+        Preconditions.checkArgument(creator != null, "WorldCreator cannot be null");
+
         String name = creator.name();
-        ChunkGenerator generator = creator.generator();
+        ChunkGenerator chunkGenerator = creator.generator();
         BiomeProvider biomeProvider = creator.biomeProvider();
+        File folder = new File(craftServer.getWorldContainer(), name);
+        World world = craftServer.getWorld(name);
+
+        // Paper start
+        World worldByKey = craftServer.getWorld(creator.key());
+        if (world != null || worldByKey != null) {
+            if (world == worldByKey) {
+                return world;
+            }
+            throw new IllegalArgumentException("Cannot create a world with key " + creator.key() + " and name " + name + " one (or both) already match a world that exists");
+        }
+        // Paper end
+
+        if (folder.exists()) {
+            Preconditions.checkArgument(folder.isDirectory(), "File (%s) exists and isn't a folder", name);
+        }
+
+        if (chunkGenerator == null) {
+            chunkGenerator = craftServer.getGenerator(name);
+        }
+
+        if (biomeProvider == null) {
+            biomeProvider = craftServer.getBiomeProvider(name);
+        }
 
         ResourceKey<LevelStem> actualDimension = switch (creator.environment()) {
             case NORMAL -> LevelStem.OVERWORLD;
@@ -466,77 +473,117 @@ public class Polar {
             default -> throw new IllegalArgumentException("Illegal dimension (" + creator.environment() + ")");
         };
 
-        LevelStorageSource.LevelStorageAccess worldSession;
+        LevelStorageSource.LevelStorageAccess levelStorageAccess;
         try {
             Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
             Path tempFolder = pluginFolder.resolve("temp");
 
-            worldSession = LevelStorageSource.createDefault(tempFolder).validateAndCreateAccess(name, actualDimension);
+            levelStorageAccess = LevelStorageSource.createDefault(tempFolder).validateAndCreateAccess(name, actualDimension);
         } catch (IOException | ContentValidationException ex) {
             throw new RuntimeException(ex);
         }
 
         boolean hardcore = creator.hardcore();
 
-        PrimaryLevelData worlddata;
-        WorldLoader.DataLoadContext worldloader_a = craftServer.getServer().worldLoader;
-        RegistryAccess.Frozen iregistrycustom_dimension = worldloader_a.datapackDimensions();
-        net.minecraft.core.Registry<LevelStem> iregistry = iregistrycustom_dimension.lookupOrThrow(Registries.LEVEL_STEM);
+        PrimaryLevelData primaryLevelData;
+        WorldLoader.DataLoadContext context = craftServer.getServer().worldLoaderContext;
+        RegistryAccess.Frozen registryAccess = context.datapackDimensions();
+        net.minecraft.core.Registry<LevelStem> contextLevelStemRegistry = registryAccess.lookupOrThrow(Registries.LEVEL_STEM);
+        Dynamic<?> dataTag = PaperWorldLoader.getLevelData(levelStorageAccess).dataTag();
+        if (dataTag != null) {
+            LevelDataAndDimensions levelDataAndDimensions = LevelStorageSource.getLevelDataAndDimensions(
+                    dataTag, context.dataConfiguration(), contextLevelStemRegistry, context.datapackWorldgen()
+            );
+            primaryLevelData = (PrimaryLevelData) levelDataAndDimensions.worldData();
+            registryAccess = levelDataAndDimensions.dimensions().dimensionsRegistryAccess();
+        } else {
+            LevelSettings levelSettings;
+            WorldOptions worldOptions = new WorldOptions(creator.seed(), creator.generateStructures(), creator.bonusChest());
+            WorldDimensions worldDimensions;
 
-        LevelSettings worldsettings;
-        WorldOptions worldoptions = new WorldOptions(creator.seed(), creator.generateStructures(), false);
-        WorldDimensions worlddimensions;
+            DedicatedServerProperties.WorldDimensionData properties = new DedicatedServerProperties.WorldDimensionData(GsonHelper.parse((creator.generatorSettings().isEmpty()) ? "{}" : creator.generatorSettings()), creator.type().name().toLowerCase(Locale.ROOT));
+            levelSettings = new LevelSettings(
+                    name,
+                    GameType.byId(craftServer.getDefaultGameMode().getValue()),
+                    hardcore, difficulty,
+                    false,
+                    new GameRules(context.dataConfiguration().enabledFeatures()),
+                    context.dataConfiguration()
+            );
+            worldDimensions = properties.create(context.datapackWorldgen());
 
-        DedicatedServerProperties.WorldDimensionData properties = new DedicatedServerProperties.WorldDimensionData(GsonHelper.parse((creator.generatorSettings().isEmpty()) ? "{}" : creator.generatorSettings()), creator.type().name().toLowerCase(Locale.ROOT));
+            WorldDimensions.Complete complete = worldDimensions.bake(contextLevelStemRegistry);
+            Lifecycle lifecycle = complete.lifecycle().add(context.datapackWorldgen().allRegistriesLifecycle());
 
-        worldsettings = new LevelSettings(name, GameType.byId(craftServer.getDefaultGameMode().getValue()), hardcore, Difficulty.EASY, false, new GameRules(worldloader_a.dataConfiguration().enabledFeatures()), worldloader_a.dataConfiguration());
-        worlddimensions = properties.create(worldloader_a.datapackWorldgen());
+            primaryLevelData = new PrimaryLevelData(levelSettings, worldOptions, complete.specialWorldProperty(), lifecycle);
+            registryAccess = complete.dimensionsRegistryAccess();
+        }
 
-        WorldDimensions.Complete worlddimensions_b = worlddimensions.bake(iregistry);
-        Lifecycle lifecycle = worlddimensions_b.lifecycle().add(worldloader_a.datapackWorldgen().allRegistriesLifecycle());
+        contextLevelStemRegistry = registryAccess.lookupOrThrow(Registries.LEVEL_STEM);
+        primaryLevelData.customDimensions = contextLevelStemRegistry;
+        primaryLevelData.checkName(name);
+        primaryLevelData.setModdedInfo(craftServer.getServer().getServerModName(), craftServer.getServer().getModdedStatus().shouldReportAsModified());
 
-        worlddata = new PrimaryLevelData(worldsettings, worldoptions, worlddimensions_b.specialWorldProperty(), lifecycle);
-        iregistrycustom_dimension = worlddimensions_b.dimensionsRegistryAccess();
+        if (craftServer.getServer().options.has("forceUpgrade")) {
+            net.minecraft.server.Main.forceUpgrade(levelStorageAccess, primaryLevelData, DataFixers.getDataFixer(), craftServer.getServer().options.has("eraseCache"), () -> true, registryAccess, craftServer.getServer().options.has("recreateRegionFiles"));
+        }
 
-        iregistry = iregistrycustom_dimension.lookupOrThrow(Registries.LEVEL_STEM);
-        worlddata.customDimensions = iregistry;
-        worlddata.checkName(name);
+        long i = BiomeManager.obfuscateSeed(primaryLevelData.worldGenOptions().seed());
+        List<CustomSpawner> list = ImmutableList.of(
+//                new PhantomSpawner(), new PatrolSpawner(), new CatSpawner(), new VillageSiege(), new WanderingTraderSpawner(primaryLevelData)
+        );
+        LevelStem customStem = contextLevelStemRegistry.getValue(actualDimension);
 
-        long j = BiomeManager.obfuscateSeed(worlddata.worldGenOptions().seed()); // Paper - use world seed
-        List<CustomSpawner> list = ImmutableList.of(new PhantomSpawner(), new PatrolSpawner(), new CatSpawner(), new VillageSiege(), new WanderingTraderSpawner(worlddata));
-        LevelStem worlddimension = iregistry.getValue(actualDimension);
+        WorldInfo worldInfo = new CraftWorldInfo(primaryLevelData, levelStorageAccess, creator.environment(), customStem.type().value(), customStem.generator(), craftServer.getHandle().getServer().registryAccess()); // Paper - Expose vanilla BiomeProvider from WorldInfo
+        if (biomeProvider == null && chunkGenerator != null) {
+            biomeProvider = chunkGenerator.getDefaultBiomeProvider(worldInfo);
+        }
 
-        ResourceKey<net.minecraft.world.level.Level> worldKey;
+        ResourceKey<net.minecraft.world.level.Level> dimensionKey;
         String levelName = craftServer.getServer().getProperties().levelName;
         if (name.equals(levelName + "_nether")) {
-            worldKey = net.minecraft.world.level.Level.NETHER;
+            dimensionKey = net.minecraft.world.level.Level.NETHER;
         } else if (name.equals(levelName + "_the_end")) {
-            worldKey = net.minecraft.world.level.Level.END;
+            dimensionKey = net.minecraft.world.level.Level.END;
         } else {
-            worldKey = ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath(creator.key().namespace(), creator.key().value()));
+            dimensionKey = ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath(creator.key().namespace(), creator.key().value()));
         }
 
-        // If set to not keep spawn in memory (changed from default) then adjust rule accordingly
-        if (creator.keepSpawnLoaded() == net.kyori.adventure.util.TriState.FALSE) { // Paper
-            worlddata.getGameRules().getRule(GameRules.RULE_SPAWN_CHUNK_RADIUS).set(0, null);
+        ServerLevel serverLevel = new PolarServerLevel(
+                craftServer.getServer(),
+                craftServer.getServer().executor,
+                levelStorageAccess,
+                primaryLevelData,
+                dimensionKey,
+                customStem,
+                primaryLevelData.isDebugWorld(),
+                i,
+                creator.environment() == World.Environment.NORMAL ? list : ImmutableList.of(),
+                true,
+                craftServer.getServer().overworld().getRandomSequences(),
+                creator.environment(),
+                chunkGenerator, biomeProvider
+        );
+
+        for (Config.GameRule rule : gamerules) {
+            GameRules.Value<?> handle = serverLevel.getGameRules().getRule(serverLevel.getWorld().getGameRulesNMS().get(rule.name()));
+            handle.deserialize(String.valueOf(rule.value()));
+            handle.onChanged(serverLevel);
         }
-        PolarServerLevel internal = new PolarServerLevel(craftServer.getServer(), craftServer.getServer().executor, worldSession, worlddata, worldKey, worlddimension, craftServer.getServer().progressListenerFactory.create(worlddata.getGameRules().getInt(GameRules.RULE_SPAWN_CHUNK_RADIUS)),
-                worlddata.isDebugWorld(), j, creator.environment() == World.Environment.NORMAL ? list : ImmutableList.of(), true, craftServer.getServer().overworld().getRandomSequences(), creator.environment(), generator, biomeProvider);
 
-        worlddata.setSpawn(new BlockPos((int) spawnLocation.x(), (int) spawnLocation.y(), (int) spawnLocation.z()), 0.0f);
+//        if (!(craftServer.getWorlds().containsKey(name.toLowerCase(Locale.ROOT)))) {
+//            return null;
+//        }
 
-        craftServer.getServer().addLevel(internal); // Paper - Put world into worldlist before initing the world; move up
-        craftServer.getServer().initWorld(internal, worlddata, worlddata, worlddata.worldGenOptions());
+        craftServer.getServer().addLevel(serverLevel); // Paper - Put world into worldlist before initing the world; move up
+        craftServer.getServer().initWorld(serverLevel, primaryLevelData, primaryLevelData.worldGenOptions());
 
-//        internal.setSpawnSettings(true);
+        serverLevel.getChunkSource().setSpawnSettings(allowMonsters, allowAnimals);
         // Paper - Put world into worldlist before initing the world; move up
 
-//        craftServer.getServer().prepareLevels(internal.getChunkSource().chunkMap.progressListener, internal);
-        // Paper - rewrite chunk system
+        craftServer.getServer().prepareLevel(serverLevel);
 
-        Bukkit.getPluginManager().callEvent(new WorldLoadEvent(internal.getWorld()));
-
-        return internal.getWorld();
+        return serverLevel.getWorld();
     }
 
     public static CompletableFuture<Void> updateChunkData(PolarWorld polarWorld, PolarWorldAccess worldAccess, Chunk chunk, int newChunkX, int newChunkZ) {

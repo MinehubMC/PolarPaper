@@ -7,6 +7,7 @@ import live.minehub.polarpaper.*;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.GameRule;
 import org.bukkit.World;
 
 public class ReloadConfigCommand {
@@ -25,7 +26,19 @@ public class ReloadConfigCommand {
             Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName());
             if (config == null) continue;
 
-            Polar.updateWorldConfig(bukkitWorld, config);
+            generator.setConfig(config);
+
+            bukkitWorld.setDifficulty(org.bukkit.Difficulty.valueOf(config.difficulty().name()));
+            bukkitWorld.setSpawnFlags(config.allowMonsters(), config.allowAnimals());
+            bukkitWorld.setAutoSave(false);
+
+            for (Config.GameRule gamerule : config.gamerules()) {
+                GameRule<?> rule = GameRule.getByName(gamerule.name());
+                if (rule == null) continue;
+                Polar.setGameRule(bukkitWorld, rule, gamerule.value());
+            }
+
+            Polar.startAutoSaveTask(bukkitWorld, config);
 
             ctx.getSource().getSender().sendMessage(
                     Component.text()

@@ -1,6 +1,6 @@
 package live.minehub.polarpaper;
 
-import org.bukkit.Difficulty;
+import net.minecraft.world.Difficulty;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldType;
@@ -26,10 +26,9 @@ public record Config(
         boolean allowMonsters,
         boolean allowAnimals,
         boolean allowWorldExpansion,
-        boolean pvp,
         @NotNull WorldType worldType,
         @NotNull World.Environment environment,
-        @NotNull List<Map<String, ?>> gamerules
+        @NotNull List<GameRule> gamerules
 ) {
 
     private static final Logger LOGGER = Logger.getLogger(Config.class.getName());
@@ -44,15 +43,15 @@ public record Config(
             true,
             true,
             true,
-            true,
             WorldType.NORMAL,
             World.Environment.NORMAL,
             List.of(
-                    Map.of("doMobSpawning", false),
-                    Map.of("doFireTick", false),
-                    Map.of("randomTickSpeed", 0),
-                    Map.of("mobGriefing", false),
-                    Map.of("doVinesSpread", false)
+                    new GameRule("doMobSpawning", false),
+                    new GameRule("doFireTick", false),
+                    new GameRule("randomTickSpeed", 0),
+                    new GameRule("mobGriefing", false),
+                    new GameRule("doVinesSpread", false),
+                    new GameRule("pvp", true)
             )
     );
 
@@ -61,7 +60,7 @@ public record Config(
     }
 
     public @NotNull Config withSpawnPos(Location location) {
-        return new Config(this.source, this.autoSaveIntervalTicks, this.saveOnStop, this.loadOnStartup, location, this.difficulty, this.allowMonsters, this.allowAnimals, this.allowWorldExpansion, this.pvp, this.worldType, this.environment, this.gamerules);
+        return new Config(this.source, this.autoSaveIntervalTicks, this.saveOnStop, this.loadOnStartup, location, this.difficulty, this.allowMonsters, this.allowAnimals, this.allowWorldExpansion, this.worldType, this.environment, this.gamerules);
     }
 
     public static @Nullable Config readFromConfig(FileConfiguration config, String worldName) {
@@ -77,16 +76,15 @@ public record Config(
             boolean allowMonsters = config.getBoolean(prefix + "allowMonsters", DEFAULT.allowMonsters);
             boolean allowAnimals = config.getBoolean(prefix + "allowAnimals", DEFAULT.allowAnimals);
             boolean allowWorldExpansion = config.getBoolean(prefix + "allowWorldExpansion", DEFAULT.allowWorldExpansion);
-            boolean pvp = config.getBoolean(prefix + "pvp", DEFAULT.pvp);
             WorldType worldType = WorldType.valueOf(config.getString(prefix + "worldType", DEFAULT.worldType.name()));
             World.Environment environment = World.Environment.valueOf(config.getString(prefix + "environment", DEFAULT.environment.name()));
 
 
             List<Map<?, ?>> gamerules = config.getMapList(prefix + "gamerules");
-            List<Map<String, ?>> gamerulesList = new ArrayList<>();
+            List<GameRule> gamerulesList = new ArrayList<>();
             for (Map<?, ?> gamerule : gamerules) {
                 for (Map.Entry<?, ?> entry : gamerule.entrySet()) {
-                    gamerulesList.add(Map.of((String)entry.getKey(), entry.getValue()));
+                    gamerulesList.add(new GameRule((String)entry.getKey(), entry.getValue()));
                 }
             }
             if (gamerules.isEmpty()) gamerulesList.addAll(DEFAULT.gamerules);
@@ -102,7 +100,6 @@ public record Config(
                     allowMonsters,
                     allowAnimals,
                     allowWorldExpansion,
-                    pvp,
                     worldType,
                     environment,
                     gamerulesList
@@ -128,12 +125,11 @@ public record Config(
         fileConfig.set(prefix + "allowAnimals", config.allowAnimals);
         fileConfig.set(prefix + "allowWorldExpansion", config.allowWorldExpansion);
         fileConfig.setInlineComments(prefix + "allowWorldExpansion", List.of("Whether the world can grow and load more chunks"));
-        fileConfig.set(prefix + "pvp", config.pvp);
         fileConfig.set(prefix + "worldType", config.worldType.name());
         fileConfig.setInlineComments(prefix + "worldType", List.of("One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES"));
         fileConfig.set(prefix + "environment", config.environment.name());
         fileConfig.setInlineComments(prefix + "environment", List.of("One of: NORMAL, NETHER, THE_END, CUSTOM"));
-        fileConfig.set(prefix + "gamerules", config.gamerules);
+        fileConfig.set(prefix + "gamerules", config.gamerulesMap());
 
         Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
         Path configFile = pluginFolder.resolve("config.yml");
@@ -177,6 +173,22 @@ public record Config(
             PolarPaper.logger().warning("Failed to parse spawn pos: " + string);
             return DEFAULT.spawn;
         }
+    }
+
+    public @NotNull List<Map<String, ?>> gamerulesMap() {
+        List<Map<String, ?>> gamerules = new ArrayList<>();
+        for (GameRule gamerule : gamerules()) {
+            gamerules.add(gamerule.map());
+        }
+        return gamerules;
+    }
+
+    public record GameRule(String name, Object value) {
+
+        public Map<String, ?> map() {
+            return Map.of(name, value);
+        }
+
     }
 
 }
