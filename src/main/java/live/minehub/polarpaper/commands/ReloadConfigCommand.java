@@ -15,6 +15,8 @@ import java.util.Map;
 public class ReloadConfigCommand {
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
+        PolarPaper.getPlugin().reloadConfig();
+
         for (World bukkitWorld : Bukkit.getWorlds()) {
             if (!Polar.isInConfig(bukkitWorld.getName())) continue;
 
@@ -22,8 +24,6 @@ public class ReloadConfigCommand {
             if (world == null) continue;
             PolarGenerator generator = PolarGenerator.fromWorld(bukkitWorld);
             if (generator == null) continue;
-
-            PolarPaper.getPlugin().reloadConfig();
 
             Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName());
             if (config == null) continue;

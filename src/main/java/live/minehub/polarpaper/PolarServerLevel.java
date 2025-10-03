@@ -1,6 +1,5 @@
 package live.minehub.polarpaper;
 
-import live.minehub.polarpaper.source.FilePolarSource;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -18,7 +17,6 @@ import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
 import org.jetbrains.annotations.Nullable;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -29,18 +27,19 @@ public class PolarServerLevel extends ServerLevel {
 
     @Override
     public void save(@Nullable ProgressListener progressListener, boolean flush, boolean savingDisabled) {
-
+        System.out.println("Save called: flush: " + flush + " savingDisabled:" + savingDisabled);
     }
 
     @Override
     public void save(@Nullable ProgressListener progressListener, boolean flush, boolean savingDisabled, boolean close) {
+        System.out.println("Save called: flush: " + flush + " savingDisabled:" + savingDisabled + " close: " + close);
         if (savingDisabled) return;
         save(close);
     }
 
     @Override
     public void saveIncrementally(boolean doFull) {
-
+//        System.out.println("Save incrementally: " + doFull);
     }
 
     @Override
@@ -69,18 +68,6 @@ public class PolarServerLevel extends ServerLevel {
                     PolarPaper.getPlugin().getLogger().warning(String.format("Something went wrong while trying to save '%s'", world.getName()));
                 }
             });
-        } else {
-            if (!generator.getConfig().saveOnStop()) {
-                PolarPaper.getPlugin().getLogger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getName()));
-                return;
-            }
-
-            Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
-            Path worldsFolder = pluginFolder.resolve("worlds");
-            Path path = worldsFolder.resolve(world.getName() + ".polar");
-            Polar.saveWorldSync(world, polarWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, new FilePolarSource(path), ChunkSelector.all(), 0, 0);
-            int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-            PolarPaper.getPlugin().getLogger().info(String.format("Saved '%s' in %sms", world.getName(), ms));
         }
     }
 }

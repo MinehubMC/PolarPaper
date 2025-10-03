@@ -10,6 +10,12 @@ public class CoordConversion {
     public static long chunkIndex(int chunkX, int chunkZ) {
         return (((long) chunkX) << 32) | (chunkZ & 0xffffffffL);
     }
+    public static int chunkX(long chunkIndex) {
+        return (int)(chunkIndex >> 32);
+    }
+    public static int chunkZ(long chunkIndex) {
+        return (int)chunkIndex;
+    }
 
     public static int chunkBlockIndex(int x, int y, int z) {
         x = globalToSectionRelative(x);

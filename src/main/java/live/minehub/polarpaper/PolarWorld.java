@@ -2,6 +2,7 @@ package live.minehub.polarpaper;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongArraySet;
 import live.minehub.polarpaper.util.CoordConversion;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -41,6 +42,7 @@ public class PolarWorld {
 
     // Chunk data
     private final Long2ObjectMap<PolarChunk> chunks = new Long2ObjectOpenHashMap<>();
+    private final LongArraySet expandChunks = new LongArraySet();
     private final ReentrantReadWriteLock chunksLock = new ReentrantReadWriteLock();
 
     public PolarWorld() {
@@ -132,8 +134,18 @@ public class PolarWorld {
         chunksLock.writeLock().unlock();
     }
 
+    public void addExpandChunk(int x, int z) {
+        chunksLock.writeLock().lock();
+        expandChunks.add(CoordConversion.chunkIndex(x, z));
+        chunksLock.writeLock().unlock();
+    }
+
     public @NotNull Collection<PolarChunk> chunks() {
         return chunks.values();
+    }
+
+    public LongArraySet expandChunks() {
+        return expandChunks;
     }
 
     public int nonEmptyChunks() {

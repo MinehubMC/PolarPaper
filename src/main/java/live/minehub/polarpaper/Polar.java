@@ -35,13 +35,7 @@ import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.PrimaryLevelData;
 import net.minecraft.world.level.validation.ContentValidationException;
-import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
-import org.bukkit.ChunkSnapshot;
-import org.bukkit.GameRule;
-import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.WorldCreator;
+import org.bukkit.*;
 import org.bukkit.block.Biome;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -57,13 +51,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -127,7 +115,6 @@ public class Polar {
      * @param worldName The name for the polar world
      * @param config    Custom config for the polar world
      * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
-     * @return a future that completes when the world is fully loaded. Instantly completes if a world by that name is already created
      */
     public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
         if (Bukkit.getWorld(worldName) != null) {
@@ -369,17 +356,25 @@ public class Polar {
      * @see Polar#saveWorld(World, PolarSource)
      */
     public static CompletableFuture<Void> updateWorld(World world, PolarWorld polarWorld, PolarWorldAccess polarWorldAccess, ChunkSelector chunkSelector, int offsetX, int offsetZ) {
-        List<PolarChunk> chunks = new ArrayList<>(polarWorld.chunks());
-        List<CompletableFuture<Void>> futures = new ArrayList<>(chunks.size());
-        for (PolarChunk chunk : chunks) {
-            if (!chunkSelector.test(chunk.x(), chunk.z())) {
-                polarWorld.removeChunkAt(chunk.x(), chunk.z());
+        List<Long> chunkIndices = new ArrayList<>(polarWorld.expandChunks());
+
+        for (PolarChunk chunk : polarWorld.chunks()) {
+            chunkIndices.add(CoordConversion.chunkIndex(chunk.x(), chunk.z()));
+        }
+
+        List<CompletableFuture<Void>> futures = new ArrayList<>(chunkIndices.size());
+        for (Long chunkIndex : chunkIndices) {
+            int chunkX = CoordConversion.chunkX(chunkIndex);
+            int chunkZ = CoordConversion.chunkZ(chunkIndex);
+
+            if (!chunkSelector.test(chunkX, chunkZ)) {
+                polarWorld.removeChunkAt(chunkX, chunkZ);
                 continue;
             }
 
-            var future = world.getChunkAtAsync(chunk.x() + offsetX, chunk.z() + offsetZ)
+            var future = world.getChunkAtAsync(chunkX + offsetX, chunkZ + offsetZ)
                     .thenAcceptAsync(c -> {
-                        updateChunkData(polarWorld, polarWorldAccess, c, chunk.x(), chunk.z()).join();
+                        updateChunkData(polarWorld, polarWorldAccess, c, chunkX, chunkZ).join();
                     })
                     .exceptionally(e -> {
                         LOGGER.warning(e.toString());
@@ -392,16 +387,22 @@ public class Polar {
     }
 
     public static void updateWorldSync(World world, PolarWorld polarWorld, PolarWorldAccess polarWorldAccess, ChunkSelector chunkSelector, int offsetX, int offsetZ) {
-        List<PolarChunk> chunks = new ArrayList<>(polarWorld.chunks());
-        for (PolarChunk chunk : chunks) {
-            if (!chunkSelector.test(chunk.x(), chunk.z())) {
-                polarWorld.removeChunkAt(chunk.x(), chunk.z());
+        List<Long> chunkIndices = new ArrayList<>(polarWorld.expandChunks());
+
+        for (PolarChunk chunk : polarWorld.chunks()) {
+            chunkIndices.add(CoordConversion.chunkIndex(chunk.x(), chunk.z()));
+        }
+        for (Long chunkIndex : chunkIndices) {
+            int chunkX = CoordConversion.chunkX(chunkIndex);
+            int chunkZ = CoordConversion.chunkZ(chunkIndex);
+            if (!chunkSelector.test(chunkX, chunkZ)) {
+                polarWorld.removeChunkAt(chunkX, chunkZ);
                 continue;
             }
 
-            Chunk c = world.getChunkAt(chunk.x() + offsetX, chunk.z() + offsetZ);
+            Chunk c = world.getChunkAt(chunkX + offsetX, chunkZ + offsetZ);
 
-            updateChunkData(polarWorld, polarWorldAccess, c, chunk.x(), chunk.z()).join();
+            updateChunkData(polarWorld, polarWorldAccess, c, chunkX, chunkZ).join();
         }
     }
 
@@ -535,7 +536,8 @@ public class Polar {
                 }
             }
             if (allEmpty) {
-                polarWorld.updateChunkAt(newChunkX, newChunkZ, new PolarChunk(newChunkX, newChunkZ, sectionCount));
+                polarWorld.removeChunkAt(newChunkX, newChunkZ);
+                polarWorld.addExpandChunk(newChunkX, newChunkZ);
                 return CompletableFuture.completedFuture(null);
             }
         }

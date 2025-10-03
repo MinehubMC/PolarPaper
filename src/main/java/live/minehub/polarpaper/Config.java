@@ -43,29 +43,6 @@ public record Config(
             Difficulty.NORMAL,
             true,
             true,
-            false,
-            true,
-            WorldType.NORMAL,
-            World.Environment.NORMAL,
-            List.of(
-                    Map.of("doMobSpawning", false),
-                    Map.of("doFireTick", false),
-                    Map.of("randomTickSpeed", 0),
-                    Map.of("mobGriefing", false),
-                    Map.of("doVinesSpread", false)
-            )
-    );
-
-    // Blank worlds should expand by default
-    public static final Config DEFAULT_BLANK = new Config(
-            "file",
-            false,
-            false,
-            true,
-            new Location(null, 0, 64, 0),
-            Difficulty.NORMAL,
-            true,
-            true,
             true,
             true,
             WorldType.NORMAL,
@@ -104,6 +81,7 @@ public record Config(
             WorldType worldType = WorldType.valueOf(config.getString(prefix + "worldType", DEFAULT.worldType.name()));
             World.Environment environment = World.Environment.valueOf(config.getString(prefix + "environment", DEFAULT.environment.name()));
 
+
             List<Map<?, ?>> gamerules = config.getMapList(prefix + "gamerules");
             List<Map<String, ?>> gamerulesList = new ArrayList<>();
             for (Map<?, ?> gamerule : gamerules) {
@@ -111,6 +89,8 @@ public record Config(
                     gamerulesList.add(Map.of((String)entry.getKey(), entry.getValue()));
                 }
             }
+            if (gamerules.isEmpty()) gamerulesList.addAll(DEFAULT.gamerules);
+
 
             return new Config(
                     source,

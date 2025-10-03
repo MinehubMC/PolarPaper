@@ -45,12 +45,7 @@ public class PolarGenerator extends ChunkGenerator {
         PolarChunk chunk = polarWorld.chunkAt(chunkX, chunkZ);
         if (chunk == null) {
             if (!config.allowWorldExpansion()) return;
-
-            int worldHeight = worldInfo.getMaxHeight() - worldInfo.getMinHeight() + 1;
-            int sectionCount = worldHeight / 16;
-
-            PolarChunk newChunk = new PolarChunk(chunkX, chunkZ, sectionCount);
-            polarWorld.updateChunkAt(chunkX, chunkZ, newChunk);
+            polarWorld.addExpandChunk(chunkX, chunkZ);
             return;
         }
 

@@ -83,7 +83,10 @@ public class InfoCommand {
                         .append(Component.text(" Loaded Chunks: ", NamedTextColor.AQUA))
                         .append(Component.text(polarWorld.chunks().size(), NamedTextColor.AQUA))
                         .append(Component.newline())
-                        .append(Component.text(" Saved Chunks: ", NamedTextColor.AQUA))
+                        .append(Component.text(" Expand Chunks: ", NamedTextColor.AQUA))
+                        .append(Component.text(polarWorld.expandChunks().size(), NamedTextColor.AQUA))
+                        .append(Component.newline())
+                        .append(Component.text(" Non-empty Chunks: ", NamedTextColor.AQUA))
                         .append(Component.text(polarWorld.nonEmptyChunks(), NamedTextColor.AQUA))
         );
 

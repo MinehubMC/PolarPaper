@@ -4,6 +4,8 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import live.minehub.polarpaper.commands.PolarCommand;
+import live.minehub.polarpaper.source.FilePolarSource;
+import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
@@ -69,6 +71,7 @@ public final class PolarPaper extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        getLogger().info("Clearing temp directory");
         Path pluginFolder = Path.of(getDataFolder().getAbsolutePath());
         Path tempFolder = pluginFolder.resolve("temp");
         try (Stream<Path> paths = Files.walk(tempFolder)) {
@@ -76,6 +79,26 @@ public final class PolarPaper extends JavaPlugin {
         } catch (IOException e) {
             getLogger().warning("Failed to delete temp directory");
             getLogger().log(Level.INFO, e.getMessage(), e);
+        }
+
+        for (World world : getServer().getWorlds()) {
+            PolarWorld polarWorld = PolarWorld.fromWorld(world);
+            PolarGenerator generator = PolarGenerator.fromWorld(world);
+            if (polarWorld == null || generator == null) continue;
+
+            if (!generator.getConfig().saveOnStop()) {
+                PolarPaper.getPlugin().getLogger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getName()));
+                return;
+            }
+
+            getLogger().info("Saving '" + world.getName() + "'...");
+
+            long before = System.nanoTime();
+            Path worldsFolder = pluginFolder.resolve("worlds");
+            Path path = worldsFolder.resolve(world.getName() + ".polar");
+            Polar.saveWorldSync(world, polarWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, new FilePolarSource(path), ChunkSelector.all(), 0, 0);
+            int ms = (int) ((System.nanoTime() - before) / 1_000_000);
+            PolarPaper.getPlugin().getLogger().info(String.format("Saved '%s' in %sms", world.getName(), ms));
         }
     }
 
