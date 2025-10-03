@@ -20,13 +20,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 
 import static live.minehub.polarpaper.util.ByteArrayUtil.*;
 
 public class PolarReader {
-
-    private static final Logger LOGGER = Logger.getLogger(PolarReader.class.getName());
 
     private static final boolean FORCE_LEGACY_NBT = Boolean.getBoolean("polar.debug.force-legacy-nbt");
     private static final int MAX_BLOCK_PALETTE_SIZE = 16 * 16 * 16;
@@ -49,14 +46,14 @@ public class PolarReader {
                 ? getVarInt(bb)
                 : dataConverter.defaultDataVersion();
 
-        LOGGER.info("Polar version: " + version + " (" + dataVersion + ")");
+        PolarPaper.logger().info("Polar version: " + version + " (" + dataVersion + ")");
 
 
         byte compressionByte = bb.get();
         PolarWorld.CompressionType compression = PolarWorld.CompressionType.fromId(compressionByte);
         assertThat(compression != null, "Invalid compression type");
 
-        LOGGER.info("Polar compression: " + compression.name());
+        PolarPaper.logger().info("Polar compression: " + compression.name());
 
         int compressedDataLength = getVarInt(bb);
 

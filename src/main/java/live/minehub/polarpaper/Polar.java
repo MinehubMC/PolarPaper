@@ -6,7 +6,9 @@ import com.google.common.io.ByteStreams;
 import com.mojang.serialization.Lifecycle;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.CoordConversion;
+import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.util.TriState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
@@ -56,12 +58,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class Polar {
 
-    private static final Logger LOGGER = Logger.getLogger(Polar.class.getName());
     private static final Map<String, BukkitTask> AUTOSAVE_TASK_MAP = new HashMap<>();
 
     private Polar() {
@@ -105,7 +104,7 @@ public class Polar {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         if (config == null) {
-            LOGGER.warning("Polar world '" + worldName + "' has an invalid config");
+            PolarPaper.logger().warning("Polar world '" + worldName + "' has an invalid config");
             return;
         }
         loadWorld(world, worldName, config, worldAccess);
@@ -121,7 +120,7 @@ public class Polar {
      */
     public static void loadWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
         if (Bukkit.getWorld(worldName) != null) {
-            LOGGER.warning("A world with the name '" + worldName + "' already exists, skipping.");
+            PolarPaper.logger().warning("A world with the name '" + worldName + "' already exists, skipping.");
             return;
         }
 
@@ -137,7 +136,7 @@ public class Polar {
 
         World newWorld = loadWorld(worldCreator, config.spawn());
         if (newWorld == null) {
-            LOGGER.warning("An error occurred loading polar world '" + worldName + "', skipping.");
+            PolarPaper.logger().warning("An error occurred loading polar world '" + worldName + "', skipping.");
             return;
         }
 
@@ -162,18 +161,30 @@ public class Polar {
         }
 
         if (config.autoSaveIntervalTicks() == -1) return;
+
+        BukkitTask prevTask = AUTOSAVE_TASK_MAP.get(newWorld.getName());
+        if (prevTask != null) prevTask.cancel();
+
         BukkitTask autosaveTask = Bukkit.getScheduler().runTaskTimer(PolarPaper.getPlugin(), () -> {
             long before = System.nanoTime();
-            PolarPaper.getPlugin().getLogger().info(String.format("Autosaving '%s'...", newWorld.getName()));
+            String savingMsg = String.format("Autosaving '%s'...", newWorld.getName());
+            PolarPaper.logger().info(savingMsg);
             for (Player plr : Bukkit.getOnlinePlayers()) {
                 if (!plr.hasPermission("polar.notifications")) continue;
-                plr.sendMessage(Component.text("Autosaving '" + newWorld.getName() + "'..."));
+                plr.sendMessage(Component.text(savingMsg, NamedTextColor.AQUA));
             }
+
             saveWorldConfigSource(newWorld).thenRun(() -> {
                 int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-                PolarPaper.getPlugin().getLogger().info(String.format("Saved '%s' in %sms", newWorld.getName(), ms));
+                String savedMsg = String.format("Saved '%s' in %sms", newWorld.getName(), ms);
+                PolarPaper.logger().info(savedMsg);
+                for (Player plr : Bukkit.getOnlinePlayers()) {
+                    if (!plr.hasPermission("polar.notifications")) continue;
+                    plr.sendMessage(Component.text(savedMsg, NamedTextColor.AQUA));
+                }
             });
         }, config.autoSaveIntervalTicks(), config.autoSaveIntervalTicks());
+
         AUTOSAVE_TASK_MAP.put(newWorld.getName(), autosaveTask);
     }
 
@@ -243,14 +254,14 @@ public class Polar {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         if (config == null) {
-            LOGGER.warning("Polar world '" + worldName + "' has an invalid config, skipping.");
+            PolarPaper.logger().warning("Polar world '" + worldName + "' has an invalid config, skipping.");
             return CompletableFuture.completedFuture(false);
         }
 
         PolarSource source = PolarSource.fromConfig(worldName, config);
 
         if (source == null) {
-            LOGGER.warning("Source " + config.source() + " not recognised");
+            PolarPaper.logger().warning("Source " + config.source() + " not recognised");
             return CompletableFuture.completedFuture(false);
         }
 
@@ -261,7 +272,7 @@ public class Polar {
                 byte[] bytes = source.readBytes();
                 PolarWorld polarWorld = PolarReader.read(bytes);
                 if (polarWorld.version() == PolarWorld.VERSION_DEPRECATED_ENTITIES) {
-                    LOGGER.info("Re-saving world to update legacy entities");
+                    PolarPaper.logger().info("Re-saving world to update legacy entities");
                     byte[] worldBytes = PolarWriter.write(polarWorld);
                     source.saveBytes(worldBytes);
                 }
@@ -271,8 +282,7 @@ public class Polar {
                     future.complete(true);
                 });
             } catch (Exception e) {
-                LOGGER.warning("Failed to read polar world from file");
-                LOGGER.log(Level.INFO, e.getMessage(), e);
+                ExceptionUtil.log(e);
                 future.complete(false);
             }
         });
@@ -304,7 +314,7 @@ public class Polar {
         PolarSource source = PolarSource.fromConfig(world.getName(), newConfig);
 
         if (source == null) {
-            LOGGER.warning("Source " + newConfig.source() + " not recognised");
+            PolarPaper.logger().warning("Source " + newConfig.source() + " not recognised");
             return CompletableFuture.completedFuture(false);
         }
 
@@ -329,7 +339,7 @@ public class Polar {
             polarSource.saveBytes(worldBytes);
             return true;
         }).exceptionally(e -> {
-            LOGGER.log(Level.INFO, e.getMessage(), e);
+            ExceptionUtil.log(e);
             return false;
         });
     }
@@ -402,7 +412,7 @@ public class Polar {
                         updateChunkData(polarWorld, polarWorldAccess, c, chunkX, chunkZ).join();
                     })
                     .exceptionally(e -> {
-                        LOGGER.warning(e.toString());
+                        PolarPaper.logger().warning(e.toString());
                         return null;
                     });
 
@@ -648,8 +658,8 @@ public class Polar {
 
             Optional<String> id = compoundTag.getString("id");
             if (id.isEmpty()) {
-                LOGGER.warning("No ID in block entity data at: " + blockPos);
-                LOGGER.warning("Compound tag: " + compoundTag);
+                PolarPaper.logger().warning("No ID in block entity data at: " + blockPos);
+                PolarPaper.logger().warning("Compound tag: " + compoundTag);
                 continue;
             }
 

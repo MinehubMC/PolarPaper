@@ -1,8 +1,8 @@
 package live.minehub.polarpaper;
 
-import live.minehub.polarpaper.util.CoordConversion;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
+import live.minehub.polarpaper.util.CoordConversion;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Registry;
 import org.bukkit.block.Biome;
@@ -11,11 +11,8 @@ import org.bukkit.generator.WorldInfo;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
-import java.util.logging.Logger;
 
 public class PolarBiomeProvider extends BiomeProvider {
-
-    private static final Logger LOGGER = Logger.getLogger(PolarBiomeProvider.class.getName());
 
     private static final int CHUNK_SECTION_SIZE = 16;
 
@@ -65,7 +62,7 @@ public class PolarBiomeProvider extends BiomeProvider {
         try {
             return registry.get(Key.key(s));
         } catch (IllegalArgumentException e) {
-            LOGGER.warning("Failed to parse biome " + s);
+            PolarPaper.logger().warning("Failed to parse biome " + s);
             return Biome.PLAINS;
         }
     }

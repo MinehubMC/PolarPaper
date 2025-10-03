@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 public final class PolarPaper extends JavaPlugin {
@@ -87,7 +88,7 @@ public final class PolarPaper extends JavaPlugin {
             if (polarWorld == null || generator == null) continue;
 
             if (!generator.getConfig().saveOnStop()) {
-                PolarPaper.getPlugin().getLogger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getName()));
+                PolarPaper.logger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getName()));
                 return;
             }
 
@@ -98,12 +99,15 @@ public final class PolarPaper extends JavaPlugin {
             Path path = worldsFolder.resolve(world.getName() + ".polar");
             Polar.saveWorldSync(world, polarWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, new FilePolarSource(path), ChunkSelector.all(), 0, 0);
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-            PolarPaper.getPlugin().getLogger().info(String.format("Saved '%s' in %sms", world.getName(), ms));
+            PolarPaper.logger().info(String.format("Saved '%s' in %sms", world.getName(), ms));
         }
     }
 
     public static PolarPaper getPlugin() {
         return PolarPaper.getPlugin(PolarPaper.class);
+    }
+    public static Logger logger() {
+        return getPlugin().getLogger();
     }
 
     public static void registerEvents() {

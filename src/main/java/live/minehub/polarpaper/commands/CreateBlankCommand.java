@@ -41,8 +41,8 @@ public class CreateBlankCommand {
                             .append(Component.text("Failed to create world '", NamedTextColor.RED))
                             .append(Component.text(worldName, NamedTextColor.RED))
             );
-            PolarPaper.getPlugin().getLogger().warning("Error while creating blank world " + worldName);
-            PolarPaper.getPlugin().getLogger().warning(e.toString());
+            PolarPaper.logger().warning("Error while creating blank world " + worldName);
+            PolarPaper.logger().warning(e.toString());
             return Command.SINGLE_SUCCESS;
         }
 

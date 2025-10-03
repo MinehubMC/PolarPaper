@@ -108,7 +108,7 @@ public record Config(
                     gamerulesList
             );
         } catch (IllegalArgumentException e) {
-            LOGGER.warning("Failed to read config");
+            PolarPaper.logger().warning("Failed to read config");
             LOGGER.log(Level.INFO, e.getMessage(), e);
             return null;
         }
@@ -140,8 +140,8 @@ public record Config(
         try {
             fileConfig.save(configFile.toFile());
         } catch (IOException e) {
-            LOGGER.warning("Failed to save world to config file");
-            LOGGER.warning(e.toString());
+            PolarPaper.logger().warning("Failed to save world to config file");
+            PolarPaper.logger().warning(e.toString());
         }
     }
 
@@ -170,11 +170,11 @@ public record Config(
                 String pitch = split[4];
                 return new Location(null, Double.parseDouble(x), Double.parseDouble(y), Double.parseDouble(z), Float.parseFloat(yaw), Float.parseFloat(pitch));
             } else {
-                LOGGER.warning("Failed to parse spawn pos: " + string);
+                PolarPaper.logger().warning("Failed to parse spawn pos: " + string);
                 return DEFAULT.spawn;
             }
         } catch (Exception e) {
-            LOGGER.warning("Failed to parse spawn pos: " + string);
+            PolarPaper.logger().warning("Failed to parse spawn pos: " + string);
             return DEFAULT.spawn;
         }
     }

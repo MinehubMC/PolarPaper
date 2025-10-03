@@ -18,11 +18,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Random;
-import java.util.logging.Logger;
 
 public class PolarGenerator extends ChunkGenerator {
-
-    private static final Logger LOGGER = Logger.getLogger(PolarGenerator.class.getName());
 
     private static final int CHUNK_SECTION_SIZE = 16;
 
@@ -98,7 +95,7 @@ public class PolarGenerator extends ChunkGenerator {
             try {
                 materialPalette[i] = Bukkit.getServer().createBlockData(rawBlockPalette[i]);
             } catch (IllegalArgumentException e) {
-                LOGGER.warning("Failed to parse block state: " + rawBlockPalette[i]);
+                PolarPaper.logger().warning("Failed to parse block state: " + rawBlockPalette[i]);
                 materialPalette[i] = Bukkit.getServer().createBlockData("minecraft:air");
             }
         }
