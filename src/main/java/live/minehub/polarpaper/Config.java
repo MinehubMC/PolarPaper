@@ -18,7 +18,7 @@ import java.util.logging.Logger;
 
 public record Config(
         @NotNull String source,
-        boolean autoSave,
+        int autoSaveIntervalTicks,
         boolean saveOnStop,
         boolean loadOnStartup,
         @NotNull Location spawn,
@@ -36,7 +36,7 @@ public record Config(
 
     public static final Config DEFAULT = new Config(
             "file",
-            false,
+            -1,
             false,
             true,
             new Location(null, 0, 64, 0),
@@ -61,7 +61,7 @@ public record Config(
     }
 
     public @NotNull Config withSpawnPos(Location location) {
-        return new Config(this.source, this.autoSave, this.saveOnStop, this.loadOnStartup, location, this.difficulty, this.allowMonsters, this.allowAnimals, this.allowWorldExpansion, this.pvp, this.worldType, this.environment, this.gamerules);
+        return new Config(this.source, this.autoSaveIntervalTicks, this.saveOnStop, this.loadOnStartup, location, this.difficulty, this.allowMonsters, this.allowAnimals, this.allowWorldExpansion, this.pvp, this.worldType, this.environment, this.gamerules);
     }
 
     public static @Nullable Config readFromConfig(FileConfiguration config, String worldName) {
@@ -69,7 +69,7 @@ public record Config(
 
         try {
             String source = config.getString(prefix + "source", DEFAULT.source);
-            boolean autoSave = config.getBoolean(prefix + "autosave", DEFAULT.autoSave);
+            int autoSaveIntervalTicks = config.getInt(prefix + "autosaveIntervalTicks", DEFAULT.autoSaveIntervalTicks);
             boolean saveOnStop = config.getBoolean(prefix + "saveOnStop", DEFAULT.saveOnStop);
             boolean loadOnStartup = config.getBoolean(prefix + "loadOnStartup", DEFAULT.loadOnStartup);
             String spawn = config.getString(prefix + "spawn", locationToString(DEFAULT.spawn));
@@ -94,7 +94,7 @@ public record Config(
 
             return new Config(
                     source,
-                    autoSave,
+                    autoSaveIntervalTicks,
                     saveOnStop,
                     loadOnStartup,
                     stringToLocation(spawn),
@@ -118,7 +118,8 @@ public record Config(
         String prefix = String.format("worlds.%s.", worldName);
 
         fileConfig.set(prefix + "source", config.source);
-        fileConfig.set(prefix + "autosave", config.autoSave);
+        fileConfig.set(prefix + "autosaveIntervalTicks", config.autoSaveIntervalTicks);
+        fileConfig.setInlineComments(prefix + "autosaveIntervalTicks", List.of("-1 to disable"));
         fileConfig.set(prefix + "saveOnStop", config.saveOnStop);
         fileConfig.set(prefix + "loadOnStartup", config.loadOnStartup);
         fileConfig.set(prefix + "spawn", locationToString(config.spawn));

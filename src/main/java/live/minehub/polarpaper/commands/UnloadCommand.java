@@ -60,7 +60,7 @@ public class UnloadCommand {
         if (saveOverrided) {
             shouldSave = save;
         } else {
-            shouldSave = config.autoSave();
+            shouldSave = config.autoSaveIntervalTicks() != -1;
         }
 
         if (shouldSave) {

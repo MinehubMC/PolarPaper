@@ -6,6 +6,7 @@ import com.google.common.io.ByteStreams;
 import com.mojang.serialization.Lifecycle;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.CoordConversion;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.util.TriState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
@@ -43,9 +44,11 @@ import org.bukkit.craftbukkit.CraftChunk;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
+import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,6 +62,7 @@ import java.util.logging.Logger;
 public class Polar {
 
     private static final Logger LOGGER = Logger.getLogger(Polar.class.getName());
+    private static final Map<String, BukkitTask> AUTOSAVE_TASK_MAP = new HashMap<>();
 
     private Polar() {
 
@@ -108,8 +112,7 @@ public class Polar {
     }
 
     /**
-     * Creates a polar world asynchronously
-     * Should be ran synchronously or in the normal Bukkit scheduler
+     * Creates a polar world
      *
      * @param world     The polar world
      * @param worldName The name for the polar world
@@ -138,10 +141,17 @@ public class Polar {
             return;
         }
 
+        updateWorldConfig(newWorld, config);
+    }
+
+    public static void updateWorldConfig(World newWorld, Config config) {
+        PolarGenerator generator = PolarGenerator.fromWorld(newWorld);
+        if (generator != null) generator.setConfig(config);
+
         newWorld.setDifficulty(config.difficulty());
         newWorld.setPVP(config.pvp());
         newWorld.setSpawnFlags(config.allowMonsters(), config.allowAnimals());
-        newWorld.setAutoSave(config.autoSave());
+        newWorld.setAutoSave(config.autoSaveIntervalTicks() != -1);
 
         for (Map<String, ?> gamerule : config.gamerules()) {
             for (Map.Entry<String, ?> entry : gamerule.entrySet()) {
@@ -150,6 +160,21 @@ public class Polar {
                 setGameRule(newWorld, rule, entry.getValue());
             }
         }
+
+        if (config.autoSaveIntervalTicks() == -1) return;
+        BukkitTask autosaveTask = Bukkit.getScheduler().runTaskTimer(PolarPaper.getPlugin(), () -> {
+            long before = System.nanoTime();
+            PolarPaper.getPlugin().getLogger().info(String.format("Autosaving '%s'...", newWorld.getName()));
+            for (Player plr : Bukkit.getOnlinePlayers()) {
+                if (!plr.hasPermission("polar.notifications")) continue;
+                plr.sendMessage(Component.text("Autosaving '" + newWorld.getName() + "'..."));
+            }
+            saveWorldConfigSource(newWorld).thenRun(() -> {
+                int ms = (int) ((System.nanoTime() - before) / 1_000_000);
+                PolarPaper.getPlugin().getLogger().info(String.format("Saved '%s' in %sms", newWorld.getName(), ms));
+            });
+        }, config.autoSaveIntervalTicks(), config.autoSaveIntervalTicks());
+        AUTOSAVE_TASK_MAP.put(newWorld.getName(), autosaveTask);
     }
 
     @SuppressWarnings("unchecked")
@@ -179,7 +204,7 @@ public class Polar {
         // Update gamerules
         Config newConfig = new Config(
                 config.source(),
-                config.autoSave(),
+                config.autoSaveIntervalTicks(),
                 config.saveOnStop(),
                 config.loadOnStartup(),
                 config.spawn(),

@@ -11,7 +11,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.PrimaryLevelData;
-import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
@@ -27,14 +26,10 @@ public class PolarServerLevel extends ServerLevel {
 
     @Override
     public void save(@Nullable ProgressListener progressListener, boolean flush, boolean savingDisabled) {
-        System.out.println("Save called: flush: " + flush + " savingDisabled:" + savingDisabled);
     }
 
     @Override
     public void save(@Nullable ProgressListener progressListener, boolean flush, boolean savingDisabled, boolean close) {
-        System.out.println("Save called: flush: " + flush + " savingDisabled:" + savingDisabled + " close: " + close);
-        if (savingDisabled) return;
-        save(close);
     }
 
     @Override
@@ -47,27 +42,4 @@ public class PolarServerLevel extends ServerLevel {
         return true;
     }
 
-    private void save(boolean serverStopping) {
-        World world = Bukkit.getWorld(this.uuid);
-        PolarWorld polarWorld = PolarWorld.fromWorld(world);
-        if (polarWorld == null) return;
-        PolarGenerator generator = PolarGenerator.fromWorld(world);
-        long before = System.nanoTime();
-
-        if (!serverStopping) {
-            if (!generator.getConfig().autoSave()) {
-                PolarPaper.getPlugin().getLogger().info(String.format("Not saving '%s' as it has autosaving disabled", world.getName()));
-                return;
-            }
-
-            Polar.saveWorldConfigSource(world).thenAccept(successful -> {
-                if (successful) {
-                    int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-                    PolarPaper.getPlugin().getLogger().info(String.format("Saved '%s' in %sms", world.getName(), ms));
-                } else {
-                    PolarPaper.getPlugin().getLogger().warning(String.format("Something went wrong while trying to save '%s'", world.getName()));
-                }
-            });
-        }
-    }
 }
