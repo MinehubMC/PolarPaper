@@ -30,7 +30,7 @@ public class PolarReader {
     private static final int MAX_BIOME_PALETTE_SIZE = 8 * 8 * 8;
 
     public static @NotNull PolarWorld read(byte @NotNull [] data) {
-        return read(data, PolarDataConverter.NOOP);
+        return read(data, PolarDataConverter.DEFAULT);
     }
 
     public static @NotNull PolarWorld read(byte @NotNull [] data, @NotNull PolarDataConverter dataConverter) {

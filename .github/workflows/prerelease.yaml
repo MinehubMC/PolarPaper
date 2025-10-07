@@ -15,7 +15,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout latest code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Build
         shell: "bash"
         run: gradle -Pversion=${{ github.event.release.tag_name || github.ref_name }} -Dmaven.repo.local=${{github.workspace}}/localM2Repository build

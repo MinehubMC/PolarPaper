@@ -16,7 +16,7 @@ public class PolarWriter {
     private static final int CHUNK_SECTION_SIZE = 16;
 
     public static byte[] write(@NotNull PolarWorld world) {
-        return write(world, PolarDataConverter.NOOP);
+        return write(world, PolarDataConverter.DEFAULT);
     }
 
     public static byte[] write(@NotNull PolarWorld world, @NotNull PolarDataConverter dataConverter) {

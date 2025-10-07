@@ -1,5 +1,6 @@
 package live.minehub.polarpaper;
 
+import live.minehub.polarpaper.util.ChainDataConverter;
 import net.minecraft.nbt.CompoundTag;
 import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
@@ -10,6 +11,9 @@ import java.util.Map;
  * Allows for upgrading world data from one game version to another.
  */
 public interface PolarDataConverter {
+    @NotNull
+    PolarDataConverter DEFAULT = new ChainDataConverter();
+
     @NotNull
     PolarDataConverter NOOP = new PolarDataConverter() {
     };
