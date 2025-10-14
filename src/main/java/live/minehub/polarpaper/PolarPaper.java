@@ -75,11 +75,15 @@ public final class PolarPaper extends JavaPlugin {
         getLogger().info("Clearing temp directory");
         Path pluginFolder = Path.of(getDataFolder().getAbsolutePath());
         Path tempFolder = pluginFolder.resolve("temp");
-        try (Stream<Path> paths = Files.walk(tempFolder)) {
-            paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-        } catch (IOException e) {
-            getLogger().warning("Failed to delete temp directory");
-            getLogger().log(Level.INFO, e.getMessage(), e);
+        if (Files.exists(tempFolder)) {
+            try (Stream<Path> paths = Files.walk(tempFolder)) {
+                paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+            } catch (IOException e) {
+                getLogger().warning("Failed to delete temp directory");
+                getLogger().log(Level.INFO, e.getMessage(), e);
+            }
+        } else {
+            getLogger().log(Level.INFO, "Temp directory does not exist. Skipping...");
         }
 
         for (World world : getServer().getWorlds()) {
