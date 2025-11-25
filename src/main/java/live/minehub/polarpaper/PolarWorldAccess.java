@@ -1,6 +1,7 @@
 package live.minehub.polarpaper;
 
 import com.google.common.io.ByteArrayDataOutput;
+import live.minehub.polarpaper.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.util.ByteArrayUtil;
 import live.minehub.polarpaper.util.ExceptionUtil;
@@ -84,7 +85,12 @@ public interface PolarWorldAccess {
                     }
                 }
 
-                entity.spawnAt(new Location(chunk.getWorld(), x + chunk.getX() * 16, y, z + chunk.getZ() * 16, yaw, pitch));
+                Location spawnLocation = new Location(chunk.getWorld(), x + chunk.getX() * 16, y, z + chunk.getZ() * 16, yaw, pitch);
+                PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, false);
+                event.callEvent();
+                if (!event.isCancelled()) {
+                    entity.spawnAt(event.getSpawnLocation());
+                }
             }
 
             if (version >= PERSISTENT_DATA_CONTAINER_VERSION) {

@@ -4,6 +4,7 @@ import live.minehub.polarpaper.PolarChunk;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarSection;
 import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.userdata.WorldUserData;
 import live.minehub.polarpaper.util.BlockUtil;
@@ -106,7 +107,11 @@ public class Schematic {
 
             Location loc = new Location(world, x + chunk.x() * 16, y, z + chunk.z() * 16, yaw, pitch).subtract(offset.x, offset.y, offset.z);
             blockModifier.modifyEntity(loc);
-            entity.spawnAt(loc);
+            PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, loc, true);
+            event.callEvent();
+            if (!event.isCancelled()) {
+                entity.spawnAt(event.getSpawnLocation());
+            }
         }
     }
 
