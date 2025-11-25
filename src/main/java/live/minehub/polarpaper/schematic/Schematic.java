@@ -93,7 +93,7 @@ public class Schematic {
 
             Entity entity;
             try {
-                entity = EntityUtil.bytesToEntity(world, bytes);
+                entity = EntityUtil.bytesToEntity(world, bytes, true);
                 if (entity == null) continue;
             } catch (Exception e) {
                 continue;

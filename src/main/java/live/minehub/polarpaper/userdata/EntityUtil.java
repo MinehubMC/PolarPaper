@@ -68,12 +68,14 @@ public class EntityUtil {
         }
     }
 
-    public static @Nullable Entity bytesToEntity(World world, byte[] bytes) throws IOException {
+    public static @Nullable Entity bytesToEntity(World world, byte[] bytes, boolean randomUUID) throws IOException {
         ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
         DataInputStream dataInput = new DataInputStream(inputStream);
         CompoundTag compound = NbtIo.read(dataInput, NbtAccounter.unlimitedHeap());
         Optional<Integer> dataVersion = compound.getInt("DataVersion");
         compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().fixerUpper, compound, dataVersion.get(), Bukkit.getUnsafe().getDataVersion());
+
+        if (randomUUID) compound.remove("UUID"); // do not read UUID from bytes, instead use the default random uuid
 
         ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "deserialiseEntity", LogUtils.getLogger());
         ValueInput tagValueInput = TagValueInput.create(problemReporter, ((CraftWorld) world).getHandle().registryAccess(), compound);

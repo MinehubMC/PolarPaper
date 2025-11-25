@@ -73,7 +73,7 @@ public class PasteCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        String ignoreAirString = ctx.getArgument("ignoreAir", String.class);
+        String ignoreAirString = ctx.getArgument("ignoreair", String.class);
 
         try {
             Schematic.IgnoreAir ignoreAir = Schematic.IgnoreAir.valueOf(ignoreAirString.toUpperCase());

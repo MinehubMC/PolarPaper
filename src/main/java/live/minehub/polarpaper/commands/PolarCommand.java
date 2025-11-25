@@ -189,7 +189,7 @@ public class PolarCommand {
                                                     return builder.buildFuture();
                                                 })
                                                 .executes(PasteCommand::runWithRotation)
-                                                .then(Commands.argument("ignoreAir", StringArgumentType.string())
+                                                .then(Commands.argument("ignoreair", StringArgumentType.string())
                                                         .suggests((ctx, builder) -> {
                                                             for (Schematic.IgnoreAir ignoreAir : Schematic.IgnoreAir.values()) {
                                                                 builder.suggest(ignoreAir.name().toLowerCase());
@@ -220,6 +220,18 @@ public class PolarCommand {
                                 })
                                 .then(Commands.argument("newworldname", StringArgumentType.string())
                                     .executes(CreateFromRegionCommand::run)))
+                        .then(Commands.literal("copy")
+                                .requires(source -> source.getSender().hasPermission("polarpaper.copy"))
+                                .executes(ctx -> {
+                                    ctx.getSource().getSender().sendMessage(
+                                            Component.text()
+                                                    .append(Component.text("Usage: /polar copy <worldname> <new worldname> to copy a polar world", NamedTextColor.RED))
+                                    );
+                                    return Command.SINGLE_SUCCESS;
+                                })
+                                .then(Commands.argument("worldname", StringArgumentType.string())
+                                        .then(Commands.argument("newworldname", StringArgumentType.string())
+                                                .executes(CopyCommand::run))))
                         .build()
         );
     }

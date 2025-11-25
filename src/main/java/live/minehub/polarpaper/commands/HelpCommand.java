@@ -30,6 +30,8 @@ public class HelpCommand {
             .append(Component.text("  Place a polar world like a schematic\n", NamedTextColor.GRAY))
             .append(Component.text("- /polar save <worldname>\n", NamedTextColor.AQUA))
             .append(Component.text("  Save the polar world\n", NamedTextColor.GRAY))
+            .append(Component.text("- /polar copy <worldname> <newworldname>\n", NamedTextColor.AQUA))
+            .append(Component.text("  Copy a polar world\n", NamedTextColor.GRAY))
             .append(Component.text("- /polar setspawn <worldname> [rounded]\n", NamedTextColor.AQUA))
             .append(Component.text("  Set the spawn of this polar world\n", NamedTextColor.GRAY))
             .append(Component.text("- /polar wand\n", NamedTextColor.AQUA))

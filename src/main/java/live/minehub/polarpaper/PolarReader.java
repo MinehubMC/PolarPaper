@@ -25,7 +25,6 @@ import static live.minehub.polarpaper.util.ByteArrayUtil.*;
 
 public class PolarReader {
 
-    private static final boolean FORCE_LEGACY_NBT = Boolean.getBoolean("polar.debug.force-legacy-nbt");
     private static final int MAX_BLOCK_PALETTE_SIZE = 16 * 16 * 16;
     private static final int MAX_BIOME_PALETTE_SIZE = 8 * 8 * 8;
 
@@ -139,13 +138,9 @@ public class PolarReader {
         }
 
         // Objects
-        byte[] userData = new byte[0];
-        if (version > PolarWorld.VERSION_USERDATA_OPT_BLOCK_ENT_NBT) {
-            int userDataLength = getVarInt(bb);
-            byte[] bytes = new byte[userDataLength];
-            bb.readBytes(bytes);
-            userData = bytes;
-        }
+        int userDataLength = getVarInt(bb);
+        byte[] userData = new byte[userDataLength];
+        bb.readBytes(userData);
 
         if (entities != null) {
             ByteArrayDataOutput newData = ByteStreams.newDataOutput();
@@ -202,25 +197,17 @@ public class PolarReader {
             PaletteUtil.unpack(biomeData, rawBiomeData, bitsPerEntry);
         }
 
-        LightContent blockLightContent = LightContent.MISSING, skyLightContent = LightContent.MISSING;
-        byte[] blockLight = null, skyLight = null;
-        if (version > PolarWorld.VERSION_UNIFIED_LIGHT) {
-            blockLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
-                    ? LightContent.VALUES[bb.readByte()]
-                    : ((bb.readByte() == 1) ? LightContent.PRESENT : LightContent.MISSING);
-            if (blockLightContent == LightContent.PRESENT)
-                blockLight = getLightData(bb);
-            skyLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
-                    ? LightContent.VALUES[bb.readByte()]
-                    : (bb.readByte() == 1 ? LightContent.PRESENT : LightContent.MISSING);
-            if (skyLightContent == LightContent.PRESENT)
-                skyLight = getLightData(bb);
-        } else if (bb.readByte() == 1) {
-            blockLightContent = LightContent.PRESENT;
-            blockLight = getLightData(bb);
-            skyLightContent = LightContent.PRESENT;
-            skyLight = getLightData(bb);
-        }
+        byte[] blockLight = null;
+        byte[] skyLight = null;
+        LightContent blockLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
+                ? LightContent.VALUES[bb.readByte()]
+                : ((bb.readByte() == 1) ? LightContent.PRESENT : LightContent.MISSING);
+        if (blockLightContent == LightContent.PRESENT) blockLight = getLightData(bb);
+        LightContent skyLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
+                ? LightContent.VALUES[bb.readByte()]
+                : (bb.readByte() == 1 ? LightContent.PRESENT : LightContent.MISSING);
+        if (skyLightContent == LightContent.PRESENT) skyLight = getLightData(bb);
+
 
         return new PolarSection(
                 blockPalette, blockData,
@@ -237,16 +224,11 @@ public class PolarReader {
         ByteBufInputStream bbis = new ByteBufInputStream(bb);
 
         CompoundTag nbt = new CompoundTag();
-        if (version <= PolarWorld.VERSION_USERDATA_OPT_BLOCK_ENT_NBT || bb.readByte() == 1) {
-            if (version <= PolarWorld.VERSION_MINESTOM_NBT_READ_BREAK || FORCE_LEGACY_NBT) {
-                // TODO: do
-//                nbt = (CompoundBinaryTag) legacyReadNBT(buffer);
-            } else {
-                try {
-                    nbt = (CompoundTag) NbtIo.readAnyTag(bbis, NbtAccounter.unlimitedHeap());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+        if (bb.readByte() == 1) {
+            try {
+                nbt = (CompoundTag) NbtIo.readAnyTag(bbis, NbtAccounter.unlimitedHeap());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
 
@@ -265,9 +247,9 @@ public class PolarReader {
     }
 
     private static void validateVersion(int version) {
-        var invalidVersionError = String.format("Unsupported Polar version. Up to %d is supported, found %d.",
-                PolarWorld.LATEST_VERSION, version);
-        assertThat(version <= PolarWorld.LATEST_VERSION || version == PolarWorld.VERSION_DEPRECATED_ENTITIES,
+        var invalidVersionError = String.format("Unsupported Polar version. Versions %d - %d are supported, found %d.",
+                PolarWorld.LATEST_VERSION, PolarWorld.MIN_VERSION, version);
+        assertThat((version <= PolarWorld.LATEST_VERSION && version >= PolarWorld.MIN_VERSION) || version == PolarWorld.VERSION_DEPRECATED_ENTITIES,
                 invalidVersionError);
     }
 

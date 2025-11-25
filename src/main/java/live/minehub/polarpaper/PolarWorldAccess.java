@@ -73,7 +73,7 @@ public interface PolarWorldAccess {
 
                 Entity entity;
                 try {
-                    entity = EntityUtil.bytesToEntity(chunk.getWorld(), bytes);
+                    entity = EntityUtil.bytesToEntity(chunk.getWorld(), bytes, false);
                     if (entity == null) continue;
                 } catch (Exception e) {
                     continue;
