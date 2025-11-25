@@ -227,13 +227,11 @@ public record PolarChunk(
 
         ByteArrayDataOutput userDataOutput = ByteStreams.newDataOutput();
         List<net.minecraft.world.entity.Entity> allEntities = entityChunk == null ? List.of() : entityChunk.getAllEntities();
-        allEntities.iterator().forEachRemaining(ent -> { // filter entities using the blockselector
-            if (!blockSelector.test(ent.getBlockX(), ent.getBlockY(), ent.getBlockZ())) allEntities.remove(ent);
-        });
-        org.bukkit.entity.Entity[] entitiesArray = new org.bukkit.entity.Entity[allEntities.size()];
-        for (int i = 0; i < allEntities.size(); i++) {
-            entitiesArray[i] = allEntities.get(i).getBukkitEntity();
+        List<org.bukkit.entity.Entity> newAllEntities = new ArrayList<>();
+        for (net.minecraft.world.entity.Entity ent : allEntities) {
+            if (blockSelector.test(ent.getBlockX(), ent.getBlockY(), ent.getBlockZ())) newAllEntities.add(ent.getBukkitEntity());
         }
+        org.bukkit.entity.Entity[] entitiesArray = newAllEntities.toArray(new org.bukkit.entity.Entity[0]);
         worldAccess.saveChunkData(chunkAccess, blockEntities, entitiesArray, userDataOutput);
         byte[] userData = userDataOutput.toByteArray();
 

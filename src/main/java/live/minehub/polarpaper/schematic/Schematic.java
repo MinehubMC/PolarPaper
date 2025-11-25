@@ -1,19 +1,16 @@
 package live.minehub.polarpaper.schematic;
 
-import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
-import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import live.minehub.polarpaper.PolarChunk;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarSection;
 import live.minehub.polarpaper.PolarWorld;
 import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.userdata.WorldUserData;
+import live.minehub.polarpaper.util.BlockUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.chunk.ChunkAccess;
-import net.minecraft.world.level.chunk.LevelChunkSection;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -37,7 +34,6 @@ public class Schematic {
     public static void paste(PolarWorld polarWorld, World world, BlockModifier blockModifier, IgnoreAir ignoreAir) {
         CraftWorld craftWorld = (CraftWorld) world;
         ServerLevel serverLevel = craftWorld.getHandle();
-        ChunkHolderManager chunkHolderManager = serverLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
 
         byte[] userData = polarWorld.userData();
         Vector3i offset = WorldUserData.readSchematicOffset(userData);
@@ -49,7 +45,7 @@ public class Schematic {
             for (PolarSection section : chunk.sections()) {
                 Vector3i blockOffset = new Vector3i(chunk.x() * 16, (i + minSection) * 16, chunk.z() * 16)
                         .sub(offset);
-                pasteSection(section, chunkHolderManager, blockModifier, blockOffset, ignoreAir);
+                pasteSection(section, world, blockModifier, blockOffset, ignoreAir);
                 i++;
             }
 
@@ -80,6 +76,8 @@ public class Schematic {
     }
 
     private static void handleUserData(World world, PolarChunk chunk, BlockModifier blockModifier, Vector3i offset) {
+        if (chunk.userData() == null || chunk.userData().length == 0) return;
+
         final var bb = ByteBuffer.wrap(chunk.userData());
         byte version = bb.get();
         List<PolarChunk.Entity> entities = EntityUtil.getEntities(bb);
@@ -112,7 +110,7 @@ public class Schematic {
         }
     }
 
-    private static void pasteSection(PolarSection polarSection, ChunkHolderManager chunkHolderManager, BlockModifier blockModifier, Vector3i offset, IgnoreAir ignoreAir) {
+    private static void pasteSection(PolarSection polarSection, World world, BlockModifier blockModifier, Vector3i offset, IgnoreAir ignoreAir) {
         // Blocks
         int[] blockData = polarSection.blockData();
 
@@ -136,9 +134,9 @@ public class Schematic {
                     for (int x = 0; x < 16; x++) {
                         Vector3i blockPos = new Vector3i(x, y, z);
                         blockPos.add(offset);
-                        blockModifier.modify(blockPos, blockState);
+                        BlockState newBlockState = blockModifier.modify(blockPos, blockState);
 
-                        setBlockFast(chunkHolderManager, blockPos.x, blockPos.y, blockPos.z, blockState);
+                        BlockUtil.setBlockFast(world, blockPos.x, blockPos.y, blockPos.z, newBlockState);
                     }
                 }
             }
@@ -152,38 +150,13 @@ public class Schematic {
 
                         Vector3i blockPos = new Vector3i(x, y, z);
                         blockPos.add(offset);
-                        blockModifier.modify(blockPos, blockState);
+                        BlockState newBlockState = blockModifier.modify(blockPos, blockState);
 
-                        setBlockFast(chunkHolderManager, blockPos.x, blockPos.y, blockPos.z, blockState);
+                        BlockUtil.setBlockFast(world, blockPos.x, blockPos.y, blockPos.z, newBlockState);
                     }
                 }
             }
         }
-    }
-
-    private static void setBlockFast(ChunkHolderManager chunkHolderManager, int x, int y, int z, BlockState blockState) {
-        int chunkX = (int)Math.floor(x / 16.0);
-        int chunkZ = (int)Math.floor(z / 16.0);
-        int section = (int)Math.floor(y / 16.0);
-
-        NewChunkHolder chunkHolder = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
-        if (chunkHolder == null) return;
-        ChunkAccess chunkAccess = chunkHolder.getCurrentChunk();
-        if (chunkAccess == null) return;
-
-        int sectionI = section - chunkAccess.getMinSectionY();
-        if (sectionI >= chunkAccess.getSections().length) return;
-        if (sectionI < 0) return;
-
-        LevelChunkSection levelChunkSection = chunkAccess.getSection(sectionI);
-        int newBlockX = x % 16;
-        if (newBlockX < 0) newBlockX = 16 + newBlockX;
-        int newBlockY = y % 16;
-        if (newBlockY < 0) newBlockY = 16 + newBlockY;
-        int newBlockZ = z % 16;
-        if (newBlockZ < 0) newBlockZ = 16 + newBlockZ;
-
-        levelChunkSection.setBlockState(newBlockX, newBlockY, newBlockZ, blockState);
     }
 
     public enum IgnoreAir {

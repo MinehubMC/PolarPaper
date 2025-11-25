@@ -7,15 +7,31 @@ import org.joml.Vector3d;
 import org.joml.Vector3i;
 
 public interface BlockModifier {
-    void modify(Vector3i pos, BlockState blockState);
+    BlockState modify(Vector3i pos, BlockState blockState);
     void modify(Vector3i pos);
     void modifyEntity(Location location);
 
-    record PosRot(Vector3i offset, Rotation rotation) implements BlockModifier {
+    class PosRot implements BlockModifier {
+
+        private final Vector3i offset;
+        private final Rotation rotation;
+        public PosRot(Vector3i offset, Rotation rotation) {
+            this.offset = offset;
+            this.rotation = rotation;
+        }
+
+        public Vector3i getOffset() {
+            return offset;
+        }
+
+        public Rotation getRotation() {
+            return rotation;
+        }
+
         @Override
-        public void modify(Vector3i pos, BlockState blockState) {
+        public BlockState modify(Vector3i pos, BlockState blockState) {
             if (rotation != Rotation.NONE) {
-                blockState.rotate(rotation.getMcRot());
+                blockState = blockState.rotate(rotation.getMcRot());
                 Vector3d vec = new Vector3d(pos);
                 rotatePos(vec, rotation);
                 pos.x = (int) vec.x;
@@ -23,6 +39,7 @@ public interface BlockModifier {
                 pos.z = (int) vec.z;
             }
             pos.add(offset);
+            return blockState;
         }
 
         @Override

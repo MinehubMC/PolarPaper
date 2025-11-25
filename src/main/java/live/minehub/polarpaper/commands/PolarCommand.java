@@ -7,9 +7,10 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.schematic.Rotation;
+import live.minehub.polarpaper.schematic.Schematic;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.minecraft.world.level.block.Rotation;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
@@ -174,7 +175,7 @@ public class PolarCommand {
                                 .executes(ctx -> {
                                     ctx.getSource().getSender().sendMessage(
                                             Component.text()
-                                                    .append(Component.text("Usage: /polar paste <worldname> [rotation] (While in a world) to place a polar world at your current position", NamedTextColor.RED))
+                                                    .append(Component.text("Usage: /polar paste <worldname> [rotation] [air ignore] (While in a world) to place a polar world at your current position", NamedTextColor.RED))
                                     );
                                     return Command.SINGLE_SUCCESS;
                                 })
@@ -183,11 +184,19 @@ public class PolarCommand {
                                         .then(Commands.argument("rotation", StringArgumentType.string())
                                                 .suggests((ctx, builder) -> {
                                                     for (Rotation rotation : Rotation.values()) {
-                                                        builder.suggest(rotation.name().toLowerCase());
+                                                        builder.suggest(rotation.getFriendlyName());
                                                     }
                                                     return builder.buildFuture();
                                                 })
-                                                .executes(PasteCommand::runWithRotation))))
+                                                .executes(PasteCommand::runWithRotation)
+                                                .then(Commands.argument("ignoreAir", StringArgumentType.string())
+                                                        .suggests((ctx, builder) -> {
+                                                            for (Schematic.IgnoreAir ignoreAir : Schematic.IgnoreAir.values()) {
+                                                                builder.suggest(ignoreAir.name().toLowerCase());
+                                                            }
+                                                            return builder.buildFuture();
+                                                        })
+                                                        .executes(PasteCommand::runWithRotationAndAirIgnore)))))
                         .then(Commands.literal("wand")
                                 .requires(source -> source.getSender().hasPermission("polarpaper.wand"))
                                 .executes(WandCommand::wand))

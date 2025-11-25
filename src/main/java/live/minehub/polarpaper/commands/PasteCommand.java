@@ -31,7 +31,7 @@ public class PasteCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        return paste(ctx, Rotation.NONE);
+        return paste(ctx, Rotation.NONE, Schematic.IgnoreAir.ALL);
     }
 
     protected static int runWithRotation(CommandContext<CommandSourceStack> ctx) {
@@ -52,11 +52,42 @@ public class PasteCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        return paste(ctx, rotation);
+        return paste(ctx, rotation, Schematic.IgnoreAir.ALL);
     }
 
-    private static int paste(CommandContext<CommandSourceStack> ctx, Rotation rotation) {
+    protected static int runWithRotationAndAirIgnore(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player)) {
+            ctx.getSource().getSender().sendMessage(
+                    Component.text()
+                            .append(Component.text("Usage: /polar paste <world> [rotation] [air ignore] (while in a world)", NamedTextColor.RED))
+            );
+            return Command.SINGLE_SUCCESS;
+        }
+
+        String rotationString = ctx.getArgument("rotation", String.class);
+
+        Rotation rotation = Rotation.fromFriendlyName(rotationString.toLowerCase());
+        if (rotation == null) {
+            ctx.getSource().getSender().sendMessage(Component.text("Invalid rotation '" + rotationString + "'", NamedTextColor.RED));
+            return Command.SINGLE_SUCCESS;
+        }
+
+        String ignoreAirString = ctx.getArgument("ignoreAir", String.class);
+
+        try {
+            Schematic.IgnoreAir ignoreAir = Schematic.IgnoreAir.valueOf(ignoreAirString.toUpperCase());
+            return paste(ctx, rotation, ignoreAir);
+        } catch (IllegalArgumentException ignored) {
+            ctx.getSource().getSender().sendMessage(Component.text("Invalid air ignore '" + ignoreAirString + "'", NamedTextColor.RED));
+            return Command.SINGLE_SUCCESS;
+        }
+    }
+
+    private static int paste(CommandContext<CommandSourceStack> ctx, Rotation rotation, Schematic.IgnoreAir ignoreAir) {
         if (!(ctx.getSource().getSender() instanceof Player player)) return Command.SINGLE_SUCCESS;
+
+        long before = System.nanoTime();
 
         String worldName = ctx.getArgument("worldname", String.class);
 
@@ -87,7 +118,17 @@ public class PasteCommand {
 
         BlockModifier modifier = new BlockModifier.PosRot(player.getLocation().toVector().toVector3i(), rotation);
 
-        Schematic.paste(polarWorld, player.getWorld(), modifier, Schematic.IgnoreAir.EMPTY_SECTION);
+        Schematic.paste(polarWorld, player.getWorld(), modifier, ignoreAir);
+
+        int ms = (int) ((System.nanoTime() - before) / 1_000_000);
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Pasted '", NamedTextColor.AQUA))
+                        .append(Component.text(worldName, NamedTextColor.AQUA))
+                        .append(Component.text("' in ", NamedTextColor.AQUA))
+                        .append(Component.text(ms, NamedTextColor.AQUA))
+                        .append(Component.text("ms", NamedTextColor.AQUA))
+        );
 
         return Command.SINGLE_SUCCESS;
     }

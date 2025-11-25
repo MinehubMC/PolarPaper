@@ -26,7 +26,7 @@ public class HelpCommand {
             .append(Component.text("  Load a polar world from the worlds folder\n", NamedTextColor.GRAY))
             .append(Component.text("- /polar unload <worldname>\n", NamedTextColor.AQUA))
             .append(Component.text("  Unload a polar world\n", NamedTextColor.GRAY))
-            .append(Component.text("- /polar paste <worldname> [rotation]\n", NamedTextColor.AQUA))
+            .append(Component.text("- /polar paste <worldname> [rotation] [air ignore]\n", NamedTextColor.AQUA))
             .append(Component.text("  Place a polar world like a schematic\n", NamedTextColor.GRAY))
             .append(Component.text("- /polar save <worldname>\n", NamedTextColor.AQUA))
             .append(Component.text("  Save the polar world\n", NamedTextColor.GRAY))
