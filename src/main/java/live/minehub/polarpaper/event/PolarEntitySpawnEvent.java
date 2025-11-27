@@ -1,29 +1,31 @@
 package live.minehub.polarpaper.event;
 
-import live.minehub.polarpaper.PolarChunk;
+import live.minehub.polarpaper.PolarEntity;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
+import org.jspecify.annotations.NonNull;
 
+@SuppressWarnings("unused")
 public class PolarEntitySpawnEvent extends Event implements Cancellable {
 
     private static final HandlerList HANDLER_LIST = new HandlerList();
 
-    private final PolarChunk.Entity polarEntity;
+    private final PolarEntity polarEntity;
     private final Entity bukkitEntity;
     private final boolean schematic;
+    private final Location spawnLocation;
     private boolean cancelled;
-    private Location spawnLocation;
-    public PolarEntitySpawnEvent(PolarChunk.Entity polarEntity, Entity bukkitEntity, Location spawnLocation, boolean schematic) {
+    public PolarEntitySpawnEvent(PolarEntity polarEntity, Entity bukkitEntity, Location spawnLocation, boolean schematic) {
         this.polarEntity = polarEntity;
         this.bukkitEntity = bukkitEntity;
         this.spawnLocation = spawnLocation;
         this.schematic = schematic;
     }
 
-    public PolarChunk.Entity getPolarEntity() {
+    public PolarEntity getPolarEntity() {
         return polarEntity;
     }
 
@@ -35,10 +37,6 @@ public class PolarEntitySpawnEvent extends Event implements Cancellable {
         return spawnLocation;
     }
 
-    public void setSpawnLocation(Location location) {
-        this.spawnLocation = location;
-    }
-
     /**
      * @return true if entity is spawned as a result of pasting a schematic
      */
@@ -47,7 +45,7 @@ public class PolarEntitySpawnEvent extends Event implements Cancellable {
     }
 
     @Override
-    public HandlerList getHandlers() {
+    public @NonNull HandlerList getHandlers() {
         return HANDLER_LIST;
     }
 

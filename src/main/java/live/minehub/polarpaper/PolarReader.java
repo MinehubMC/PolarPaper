@@ -105,12 +105,12 @@ public class PolarReader {
         }
 
         // If the version is set to 8 copy the contents over to the beginning of userdata
-        List<PolarChunk.Entity> entities = null;
+        List<PolarEntity> entities = null;
         if (version == PolarWorld.VERSION_DEPRECATED_ENTITIES) {
             entities = new ArrayList<>();
             int entityCount = getVarInt(bb);
             for (int i = 0; i < entityCount; i++) {
-                entities.add(new PolarChunk.Entity(
+                entities.add(new PolarEntity(
                         bb.readDouble(),
                         bb.readDouble(),
                         bb.readDouble(),

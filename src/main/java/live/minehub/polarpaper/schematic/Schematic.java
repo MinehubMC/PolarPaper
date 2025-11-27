@@ -1,9 +1,6 @@
 package live.minehub.polarpaper.schematic;
 
-import live.minehub.polarpaper.PolarChunk;
-import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarSection;
-import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.userdata.WorldUserData;
@@ -19,7 +16,6 @@ import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.block.data.CraftBlockData;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Painting;
 import org.joml.Vector3i;
 
 import java.nio.ByteBuffer;
@@ -81,36 +77,20 @@ public class Schematic {
 
         final var bb = ByteBuffer.wrap(chunk.userData());
         byte version = bb.get();
-        List<PolarChunk.Entity> entities = EntityUtil.getEntities(bb);
+        List<PolarEntity> entities = EntityUtil.getEntities(bb);
 
-        for (PolarChunk.Entity polarEntity : entities) {
-            var x = polarEntity.x();
-            var y = polarEntity.y();
-            var z = polarEntity.z();
-            var yaw = polarEntity.yaw();
-            var pitch = polarEntity.pitch();
-            var bytes = polarEntity.bytes();
+        for (PolarEntity polarEntity : entities) {
+            Location spawnLocation = polarEntity.getLocation(world, chunk.x(), chunk.z());
+            spawnLocation.subtract(offset.x, offset.y, offset.z);
+            blockModifier.modifyEntity(spawnLocation);
 
-            Entity entity;
-            try {
-                entity = EntityUtil.bytesToEntity(world, bytes, true);
-                if (entity == null) continue;
-            } catch (Exception e) {
-                continue;
-            }
+            Entity entity = polarEntity.toBukkitEntity(world, spawnLocation, true);
+            if (entity == null) continue;
 
-            if (entity instanceof Painting painting) {
-                if (painting.getArt().getBlockHeight() % 2 == 0) { // strange spigot bug
-                    y--;
-                }
-            }
-
-            Location loc = new Location(world, x + chunk.x() * 16, y, z + chunk.z() * 16, yaw, pitch).subtract(offset.x, offset.y, offset.z);
-            blockModifier.modifyEntity(loc);
-            PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, loc, true);
+            PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, true);
             event.callEvent();
             if (!event.isCancelled()) {
-                entity.spawnAt(event.getSpawnLocation());
+                EntityUtil.spawnEntity(entity, world);
             }
         }
     }

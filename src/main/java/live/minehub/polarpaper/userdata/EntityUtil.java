@@ -1,31 +1,28 @@
 package live.minehub.polarpaper.userdata;
 
-import ca.spottedleaf.moonrise.common.PlatformHooks;
 import com.google.common.io.ByteArrayDataOutput;
 import com.mojang.logging.LogUtils;
-import live.minehub.polarpaper.PolarChunk;
+import live.minehub.polarpaper.PolarEntity;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ProblemReporter;
-import net.minecraft.util.datafix.fixes.References;
-import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.TagValueOutput;
-import net.minecraft.world.level.storage.ValueInput;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.entity.CraftEntity;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,8 +37,26 @@ public class EntityUtil {
 
     }
 
-    public static List<PolarChunk.Entity> getEntities(ByteBuffer bb) {
-        List<PolarChunk.Entity> polarEntities = new ArrayList<>();
+    /**
+     * Spawn an entity without reapplying Pos and Rot and causing issues with hanging entities
+     */
+    public static boolean spawnEntity(Entity entity, World world) {
+        // entity.spawnAt will setPos again unnecessarily,
+        // so we rewrite the function here just without setPos and setRot
+        ServerLevel level = ((CraftWorld) world).getHandle();
+        net.minecraft.world.entity.Entity nmsEntity = ((CraftEntity) entity).getHandleRaw();
+
+        nmsEntity.setLevel(level);
+
+        boolean spawned = !nmsEntity.valid && nmsEntity.level().addFreshEntity(nmsEntity, CreatureSpawnEvent.SpawnReason.DEFAULT);
+        if (spawned) {
+            nmsEntity.getIndirectPassengers().forEach((e) -> e.level().addFreshEntity(e, CreatureSpawnEvent.SpawnReason.DEFAULT));
+        }
+        return spawned;
+    }
+
+    public static List<PolarEntity> getEntities(ByteBuffer bb) {
+        List<PolarEntity> polarEntities = new ArrayList<>();
         int entityCount = getVarInt(bb);
         for (int i = 0; i < entityCount; i++) {
             final var x = bb.getDouble();
@@ -50,15 +65,15 @@ public class EntityUtil {
             final var yaw = bb.getFloat();
             final var pitch = bb.getFloat();
             final var bytes = getByteArray(bb);
-            polarEntities.add(new PolarChunk.Entity(x, y, z, yaw, pitch, bytes));
+            polarEntities.add(new PolarEntity(x, y, z, yaw, pitch, bytes));
         }
 
         return polarEntities;
     }
 
-    public static void writeEntities(List<PolarChunk.Entity> entities, @NotNull ByteArrayDataOutput data) {
+    public static void writeEntities(List<PolarEntity> entities, @NotNull ByteArrayDataOutput data) {
         writeVarInt(entities.size(), data);
-        for (@NotNull PolarChunk.Entity entity : entities) {
+        for (@NotNull PolarEntity entity : entities) {
             data.writeDouble(entity.x());
             data.writeDouble(entity.y());
             data.writeDouble(entity.z());
@@ -66,25 +81,6 @@ public class EntityUtil {
             data.writeFloat(entity.pitch());
             writeByteArray(entity.bytes(), data);
         }
-    }
-
-    public static @Nullable Entity bytesToEntity(World world, byte[] bytes, boolean randomUUID) throws IOException {
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
-        DataInputStream dataInput = new DataInputStream(inputStream);
-        CompoundTag compound = NbtIo.read(dataInput, NbtAccounter.unlimitedHeap());
-        Optional<Integer> dataVersion = compound.getInt("DataVersion");
-        compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().fixerUpper, compound, dataVersion.get(), Bukkit.getUnsafe().getDataVersion());
-
-        if (randomUUID) compound.remove("UUID"); // do not read UUID from bytes, instead use the default random uuid
-
-        ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "deserialiseEntity", LogUtils.getLogger());
-        ValueInput tagValueInput = TagValueInput.create(problemReporter, ((CraftWorld) world).getHandle().registryAccess(), compound);
-
-        Optional<net.minecraft.world.entity.Entity> entityOptional = net.minecraft.world.entity.EntityType
-                .create(tagValueInput, ((CraftWorld) world).getHandle(), EntitySpawnReason.LOAD);
-        if (entityOptional.isEmpty()) return null;
-
-        return entityOptional.get().getBukkitEntity();
     }
 
     public static byte @Nullable [] entityToBytes(Entity entity) {

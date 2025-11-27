@@ -86,17 +86,6 @@ public record PolarChunk(
 
     }
 
-    public record Entity(
-            double x,
-            double y,
-            double z,
-            float yaw,
-            float pitch,
-            byte[] bytes
-    ) {
-
-    }
-
     /**
      * Converts a bukkit world chunk to a polar chunk
      * @param world The bukkit world

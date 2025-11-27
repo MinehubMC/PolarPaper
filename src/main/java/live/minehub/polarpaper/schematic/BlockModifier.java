@@ -63,6 +63,12 @@ public interface BlockModifier {
                 pos.setY(vec.y);
                 pos.setZ(vec.z);
                 pos.setYaw(pos.getYaw() + rotation.toDegrees());
+
+                switch (rotation) {
+                    case CLOCKWISE_90 -> pos.add(1, 0, 0);
+                    case CLOCKWISE_180 -> pos.add(1, 0, 1);
+                    case CLOCKWISE_270 -> pos.add(0, 0, 1);
+                }
             }
             pos.add(offset.x(), offset.y(), offset.z());
         }

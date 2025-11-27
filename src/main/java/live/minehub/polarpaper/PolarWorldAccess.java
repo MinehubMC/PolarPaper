@@ -10,10 +10,10 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.craftbukkit.persistence.DirtyCraftPersistentDataContainer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Painting;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.jetbrains.annotations.ApiStatus;
@@ -53,43 +53,24 @@ public interface PolarWorldAccess {
         public void populateChunkData(@NotNull final Chunk chunk, final byte @Nullable [] userData) {
             if (userData == null) return;
 
+            World world = chunk.getWorld();
+
             final var bb = ByteBuffer.wrap(userData);
 
             byte version = bb.get();
 
-            List<PolarChunk.Entity> entities = EntityUtil.getEntities(bb);
+            List<PolarEntity> entities = EntityUtil.getEntities(bb);
 
-            for (PolarChunk.Entity polarEntity : entities) {
-                var x = polarEntity.x();
-                var y = polarEntity.y();
-                var z = polarEntity.z();
-                var yaw = polarEntity.yaw();
-                var pitch = polarEntity.pitch();
-                var bytes = polarEntity.bytes();
+            for (PolarEntity polarEntity : entities) {
+                Entity entity = polarEntity.toBukkitEntity(world, polarEntity.getLocation(chunk), true);
+                if (entity == null) continue;
 
-                // fix for previous version and also sanity check :)
-                if (x < 0) x += 16;
-                if (z < 0) z += 16;
+                Location spawnLocation = entity.getLocation();
 
-                Entity entity;
-                try {
-                    entity = EntityUtil.bytesToEntity(chunk.getWorld(), bytes, false);
-                    if (entity == null) continue;
-                } catch (Exception e) {
-                    continue;
-                }
-
-                if (entity instanceof Painting painting) {
-                    if (painting.getArt().getBlockHeight() % 2 == 0) { // strange spigot bug
-                        y--;
-                    }
-                }
-
-                Location spawnLocation = new Location(chunk.getWorld(), x + chunk.getX() * 16, y, z + chunk.getZ() * 16, yaw, pitch);
                 PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, false);
                 event.callEvent();
                 if (!event.isCancelled()) {
-                    entity.spawnAt(event.getSpawnLocation());
+                    EntityUtil.spawnEntity(entity, world);
                 }
             }
 
@@ -109,7 +90,7 @@ public interface PolarWorldAccess {
         public void saveChunkData(@NotNull ChunkAccess chunk,
                                   @NotNull Set<Map.Entry<BlockPos, BlockEntity>> blockEntities,
                                   @NotNull Entity[] entities, @NotNull ByteArrayDataOutput userData) {
-            List<PolarChunk.Entity> polarEntities = new ArrayList<>();
+            List<PolarEntity> polarEntities = new ArrayList<>();
 
             for (@NotNull Entity entity : entities) {
                 if (entity.getType() == EntityType.PLAYER) continue;
@@ -120,7 +101,7 @@ public interface PolarWorldAccess {
                 final var x = ((entityPos.x() % 16) + 16) % 16;
                 final var z = ((entityPos.z() % 16) + 16) % 16;
 
-                polarEntities.add(new PolarChunk.Entity(
+                polarEntities.add(new PolarEntity(
                         x,
                         entityPos.y(),
                         z,
