@@ -8,7 +8,7 @@ plugins {
     alias(libs.plugins.hangar.publish)
 }
 
-val developmentVersion = "${libs.versions.minecraft.get()}.10"
+val developmentVersion = "1.21.11.0"  // TODO: switch back to libs.versions.minecraft.get()
 
 version = getVersion()
 group = "live.minehub"
@@ -25,7 +25,7 @@ dependencies {
 
 tasks {
     assemble {
-        dependsOn(reobfJar)
+//        dependsOn(reobfJar)
     }
 
     runServer {
@@ -82,7 +82,7 @@ paperPluginYaml {
     name = project.name
     version = project.version.toString()
     description = "Polar world format for Paper"
-    apiVersion = libs.versions.minecraft.get()
+    apiVersion = "1.21.11" // TODO: switch back to libs.versions.minecraft.get()
 
     main = "live.minehub.polarpaper.PolarPaper"
     loader = "live.minehub.polarpaper.PolarPaperLoader"

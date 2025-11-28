@@ -13,15 +13,18 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.Main;
 import net.minecraft.server.WorldLoader;
 import net.minecraft.server.dedicated.DedicatedServerProperties;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.util.datafix.DataFixers;
-import net.minecraft.world.level.*;
+import net.minecraft.world.level.CustomSpawner;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.levelgen.WorldDimensions;
@@ -32,6 +35,7 @@ import net.minecraft.world.level.storage.PrimaryLevelData;
 import net.minecraft.world.level.validation.ContentValidationException;
 import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.craftbukkit.CraftGameRule;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.generator.CraftWorldInfo;
 import org.bukkit.entity.Player;
@@ -286,7 +290,9 @@ public class Polar {
         world.setSpawnFlags(config.allowMonsters(), config.allowAnimals());
 
         for (Map.Entry<String, Object> gamerule : config.gamerules().entrySet()) {
-            GameRule<?> rule = GameRule.getByName(gamerule.getKey());
+            NamespacedKey key = NamespacedKey.fromString(gamerule.getKey());
+            if (key == null) continue;
+            GameRule<?> rule = org.bukkit.Registry.GAME_RULE.get(key);
             if (rule == null) continue;
             setGameRule(world, rule, gamerule.getValue());
         }
@@ -420,13 +426,25 @@ public class Polar {
                 minecraftDifficulty = net.minecraft.world.Difficulty.NORMAL;
             }
 
+            net.minecraft.world.level.gamerules.GameRules nmsGameRules = new net.minecraft.world.level.gamerules.GameRules(context.dataConfiguration().enabledFeatures());
+
+            for (Map.Entry<String, Object> entry : gamerules.entrySet()) {
+                NamespacedKey key = NamespacedKey.fromString(entry.getKey());
+                if (key == null) continue;
+                GameRule<?> rule = org.bukkit.Registry.GAME_RULE.get(key);
+                if (rule == null) continue;
+                net.minecraft.world.level.gamerules.GameRule<Object> nmsRule = ((CraftGameRule<Object>)rule).getHandle();
+
+                nmsGameRules.set(nmsRule, entry.getValue(), null);
+            }
+
             DedicatedServerProperties.WorldDimensionData properties = new DedicatedServerProperties.WorldDimensionData(GsonHelper.parse((creator.generatorSettings().isEmpty()) ? "{}" : creator.generatorSettings()), creator.type().name().toLowerCase(Locale.ROOT));
             levelSettings = new LevelSettings(
                     name,
                     GameType.byId(craftServer.getDefaultGameMode().getValue()),
                     hardcore, minecraftDifficulty,
                     false,
-                    new GameRules(context.dataConfiguration().enabledFeatures()),
+                    nmsGameRules,
                     context.dataConfiguration()
             );
             worldDimensions = properties.create(context.datapackWorldgen());
@@ -465,7 +483,7 @@ public class Polar {
         } else if (name.equals(levelName + "_the_end")) {
             dimensionKey = Level.END;
         } else {
-            dimensionKey = ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath(creator.key().namespace(), creator.key().value()));
+            dimensionKey = ResourceKey.create(Registries.DIMENSION, Identifier.fromNamespaceAndPath(creator.key().namespace(), creator.key().value()));
         }
 
         ServerLevel serverLevel = new PolarServerLevel(
@@ -483,14 +501,6 @@ public class Polar {
                 creator.environment(),
                 chunkGenerator, biomeProvider
         );
-
-        for (Map.Entry<String, Object> entry : gamerules.entrySet()) {
-            GameRules.Key<?> key = serverLevel.getWorld().getGameRulesNMS().get(entry.getKey());
-            if (key == null) continue;
-            GameRules.Value<?> handle = serverLevel.getGameRules().getRule(key);
-            handle.deserialize(String.valueOf(entry.getValue()));
-            handle.onChanged(serverLevel);
-        }
 
 //        if (!(craftServer.getWorlds().containsKey(name.toLowerCase(Locale.ROOT)))) {
 //            return null;

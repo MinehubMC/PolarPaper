@@ -12,7 +12,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.BitStorage;
 import net.minecraft.world.level.biome.Biome;
@@ -166,7 +166,7 @@ public record PolarChunk(
                 if (p == null) continue;
                 if (!(p instanceof Holder<?> biomeHolder)) continue;
                 if (!(biomeHolder.value() instanceof Biome biome)) continue;
-                ResourceLocation key = biomeRegistry.getKey(biome);
+                Identifier key = biomeRegistry.getKey(biome);
                 if (key == null) continue;
                 String biomeString = key.getPath();
                 biomePaletteStrings.add(biomeString);
