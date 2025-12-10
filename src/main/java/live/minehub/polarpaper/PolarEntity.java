@@ -50,9 +50,11 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         rotationTag.add(FloatTag.valueOf(spawnLocation.getPitch()));
         compound.put("Rotation", rotationTag);
 
+        String entityId = compound.getStringOr("id", "").replace("minecraft:", "");
+
         // Rotate painting
         String paintingVariant = compound.getString("variant").orElse(null);
-        if (paintingVariant != null) {
+        if (entityId.equals("painting") && paintingVariant != null) {
             int facingIndex = (int) Math.floor(spawnLocation.getYaw() / 90) % 4;
             Direction[] directions = {Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST};
             compound.put("facing", IntTag.valueOf(facingIndex));
@@ -61,8 +63,8 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
             Direction counterClockWise = paintingDir.getCounterClockWise();
             Vec3i unitVec3i = counterClockWise.getUnitVec3i();
             Art art = Bukkit.getUnsafe().get(RegistryKey.PAINTING_VARIANT, NamespacedKey.fromString(paintingVariant.toLowerCase(Locale.ROOT)));
-            if (art.getBlockHeight() % 2 == 0) spawnLocation.subtract(0, 1, 0);
-            if (art.getBlockWidth() % 2 == 0) {
+            if (art != null && art.getBlockHeight() % 2 == 0) spawnLocation.subtract(0, 1, 0);
+            if (art != null && art.getBlockWidth() % 2 == 0) {
                 spawnLocation.subtract(unitVec3i.getX() * 0.5, 0, unitVec3i.getZ() * 0.5);
             }
 
@@ -73,7 +75,7 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         // Rotate item frame
         // 3-south, 4-west, 2-north, 5-east, 1-top, and 0-bottom
         Integer facingValue = compound.getInt("Facing").orElse(null);
-        if (facingValue != null && facingValue != 1 && facingValue != 0) {
+        if ((entityId.equals("item_frame") || entityId.equals("glow_item_frame")) && facingValue != null && facingValue != 1 && facingValue != 0) {
             int facingIndex = (int) Math.floor(spawnLocation.getYaw() / 90) % 4;
             Direction[] directions = {Direction.SOUTH, Direction.WEST, Direction.NORTH, Direction.EAST};
             int newFacingValue = directions[facingIndex].get3DDataValue();
