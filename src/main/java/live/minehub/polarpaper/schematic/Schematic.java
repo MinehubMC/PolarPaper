@@ -5,6 +5,7 @@ import live.minehub.polarpaper.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.userdata.WorldUserData;
 import live.minehub.polarpaper.util.BlockUtil;
+import live.minehub.polarpaper.util.CoordConversion;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
@@ -47,6 +48,17 @@ public class Schematic {
             }
 
             handleUserData(world, chunk, blockModifier, offset);
+
+            for (PolarChunk.BlockEntity blockEntity : chunk.blockEntities()) {
+                int x = CoordConversion.chunkBlockIndexGetX(blockEntity.index());
+                int y = CoordConversion.chunkBlockIndexGetY(blockEntity.index());
+                int z = CoordConversion.chunkBlockIndexGetZ(blockEntity.index());
+
+                Vector3i blockOffset = new Vector3i(chunk.x() * 16, 0, chunk.z() * 16).sub(offset).add(x, y, z);
+                blockModifier.modify(blockOffset);
+
+                BlockUtil.setBlockEntity(world, blockEntity, blockOffset);
+            }
         }
 
         Set<ChunkPos> chunksToRefresh = new HashSet<>();
