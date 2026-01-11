@@ -176,12 +176,13 @@ public class PolarWorld {
      * Updates the chunks in this PolarWorld
      *
      * @param world The bukkit world to retrieve the updated chunks from
+     * @param skipUnsaved Skips already saved chunks to make updating faster (false for converting)
      * @see Polar#saveWorld(World, PolarSource)
      * @see BlockSelector#ALL
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public void updateChunks(World world) {
-        updateChunks(world, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.ALL);
+    public void updateChunks(World world, boolean skipUnsaved) {
+        updateChunks(world, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.ALL, skipUnsaved);
     }
 
     /**
@@ -190,11 +191,12 @@ public class PolarWorld {
      * @param world The bukkit world to retrieve the updated chunks from
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
+     * @param skipUnsaved Skips already saved chunks to make updating faster (false for converting)
      * @see Polar#saveWorld(World, PolarSource)
      * @see BlockSelector#ALL
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public void updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
+    public void updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean skipUnsaved) {
         // TODO: consider offsets
         // TODO: chunk holders should probably be eventually released/removed (config option?)
 
@@ -218,7 +220,7 @@ public class PolarWorld {
             if (!blockSelector.testChunk(chunkX, chunkZ)) continue;
 
             ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
-            boolean unsaved = blockSelector == BlockSelector.ALL || currentChunk.isUnsaved(); // if selector is not ALL blocks, we need to update
+            boolean unsaved = blockSelector == BlockSelector.ALL || !skipUnsaved || currentChunk.isUnsaved(); // if selector is not ALL blocks, we need to update
 
             boolean onlyPlayers = true;
             if (entityChunk != null) {
@@ -274,7 +276,7 @@ public class PolarWorld {
             PolarChunk polarChunk = PolarChunk.convert(chunkHolder, polarWorldAccess, blockSelector);
             updateChunkAt(chunkX, chunkZ, polarChunk);
 
-            currentChunk.tryMarkSaved();
+            if (!skipUnsaved) currentChunk.tryMarkSaved();
         }
     }
 

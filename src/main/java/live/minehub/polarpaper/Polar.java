@@ -333,7 +333,8 @@ public class Polar {
      * @see BlockSelector#ALL
      */
     public static void saveWorld(World world, PolarWorld polarWorld, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
-        polarWorld.updateChunks(world, polarWorldAccess, blockSelector);
+        boolean sameWorld = PolarWorld.fromWorld(world) == polarWorld;
+        polarWorld.updateChunks(world, polarWorldAccess, blockSelector, sameWorld);
         byte[] worldBytes = PolarWriter.write(polarWorld);
         polarSource.saveBytes(worldBytes);
     }
