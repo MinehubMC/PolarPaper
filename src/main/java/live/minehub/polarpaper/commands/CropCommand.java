@@ -67,7 +67,7 @@ public class CropCommand {
         Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            polarWorld.updateChunks(bukkitWorld, polarGenerator.getWorldAccess(), blockSelector);
+            polarWorld.updateChunks(bukkitWorld, polarGenerator.getWorldAccess(), blockSelector, true);
             polarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
             byte[] worldBytes = PolarWriter.write(polarWorld);
             FilePolarSource.defaultFolder(bukkitWorld.getName()).saveBytes(worldBytes);

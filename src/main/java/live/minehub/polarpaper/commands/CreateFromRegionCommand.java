@@ -62,7 +62,7 @@ public class CreateFromRegionCommand {
         // TODO: center the world
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            polarWorld.updateChunks(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, blockSelector);
+            polarWorld.updateChunks(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, blockSelector, false);
             polarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
             byte[] worldBytes = PolarWriter.write(polarWorld);
             FilePolarSource.defaultFolder(newWorldName).saveBytes(worldBytes);
