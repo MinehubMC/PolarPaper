@@ -5,6 +5,7 @@ import net.kyori.adventure.key.Key;
 import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -17,8 +18,6 @@ public record Config(
         boolean loadOnStartup,
         @NotNull Location spawn,
         @NotNull Difficulty difficulty,
-        boolean allowMonsters,
-        boolean allowAnimals,
         boolean async,
         @NotNull WorldType worldType,
         @NotNull World.Environment environment,
@@ -26,21 +25,21 @@ public record Config(
 ) {
 
     public static final Map<String, Object> DEFAULT_GAMERULES = new HashMap<>() {{
-        put("doMobSpawning", false);
-        put("doFireTick", false);
-        put("randomTickSpeed", 0);
-        put("mobGriefing", false);
-        put("doVinesSpread", false);
-        put("tntExplodes", false);
+        put("spawn_mobs", false);
+        put("fire_spread_radius_around_player", 0);
+        put("random_tick_speed", 0);
+        put("mob_griefing", false);
+        put("spread_vines", false);
+        put("tnt_explodes", false);
         put("coralDeath", false); // custom gamerule
         put("blockPhysics", true); // custom gamerule
         put("blockGravity", true); // custom gamerule
         put("liquidPhysics", true); // custom gamerule
 
         // paper default gamerules, put here to remove clutter when saving other worlds
-        put("maxCommandChainLength", 65536);
-        put("commandModificationBlockLimit", 32768);
-        put("maxCommandForkCount", 65536);
+        put("max_command_sequence_length", 65536);
+        put("max_block_modifications", 32768);
+        put("max_command_forks", 65536);
     }};
 
     public static final Config BLANK_DEFAULT = new Config(
@@ -50,8 +49,6 @@ public record Config(
             true,
             new Location(null, 0, 64, 0),
             Difficulty.NORMAL,
-            true,
-            true,
             false,
             WorldType.NORMAL,
             World.Environment.NORMAL,
@@ -66,10 +63,8 @@ public record Config(
         return readPrefix(config, "default.", BLANK_DEFAULT);
     }
 
-    public static @NotNull Config getWorldDefaultConfig(FileConfiguration config, World world) {
-        Config defaultConfig = getDefaultConfig(config);
-
-        Config.Builder configBuilder = defaultConfig.toBuilder()
+    public static @NotNull Config updateConfigWithWorld(Config config, World world) {
+        Config.Builder configBuilder = config.toBuilder()
                 .time(world.getTime())
                 .spawn(world.getSpawnLocation())
                 .difficulty(world.getDifficulty())
@@ -80,15 +75,16 @@ public record Config(
         for (String name : world.getGameRules()) {
             GameRule<?> gamerule = Registry.GAME_RULE.get(Key.key("minecraft", name));
             if (gamerule == null) {
-                System.out.println("No gamerule " + name);
+                PolarPaper.logger().warning("Invalid gamerule: " + name);
                 continue;
             }
 
             Object gameRuleValue = world.getGameRuleValue(gamerule);
-            if (gameRuleValue == null) continue;
             Object gameRuleDefault = world.getGameRuleDefault(gamerule);
             if (gameRuleValue != gameRuleDefault) {
                 configBuilder.gamerule(name, gameRuleValue);
+            } else {
+                configBuilder.removeGamerule(name);
             }
         }
 
@@ -100,7 +96,7 @@ public record Config(
     }
 
     public static @NotNull Config readFromConfig(FileConfiguration config, World world) {
-        return readFromConfig(config, world.getName(), getWorldDefaultConfig(config, world));
+        return updateConfigWithWorld(readFromConfig(config, world.getName(), getDefaultConfig(config)), world);
     }
 
     public static @NotNull Config readFromConfig(FileConfiguration config, String worldName) {
@@ -119,8 +115,6 @@ public record Config(
             boolean loadOnStartup = config.getBoolean(prefix + "loadOnStartup", defaultConfig.loadOnStartup);
             String spawn = config.getString(prefix + "spawn", locationToString(defaultConfig.spawn));
             Difficulty difficulty = Difficulty.valueOf(config.getString(prefix + "difficulty", defaultConfig.difficulty.name()));
-            boolean allowMonsters = config.getBoolean(prefix + "allowMonsters", defaultConfig.allowMonsters);
-            boolean allowAnimals = config.getBoolean(prefix + "allowAnimals", defaultConfig.allowAnimals);
             boolean async = config.getBoolean(prefix + "async", defaultConfig.async);
             WorldType worldType = WorldType.valueOf(config.getString(prefix + "worldType", defaultConfig.worldType.name()));
             World.Environment environment = World.Environment.valueOf(config.getString(prefix + "environment", defaultConfig.environment.name()));
@@ -140,8 +134,6 @@ public record Config(
                     loadOnStartup,
                     stringToLocation(spawn),
                     difficulty,
-                    allowMonsters,
-                    allowAnimals,
                     async,
                     worldType,
                     environment,
@@ -172,8 +164,6 @@ public record Config(
         writeProperty(fileConfig, prefix + "loadOnStartup", config.loadOnStartup, defaultConfig.loadOnStartup);
         writeProperty(fileConfig, prefix + "spawn", locationToString(config.spawn), locationToString(defaultConfig.spawn));
         writeProperty(fileConfig, prefix + "difficulty", config.difficulty.name(), defaultConfig.difficulty.name());
-        writeProperty(fileConfig, prefix + "allowMonsters", config.allowMonsters, defaultConfig.allowMonsters);
-        writeProperty(fileConfig, prefix + "allowAnimals", config.allowAnimals, defaultConfig.allowAnimals);
         writeProperty(fileConfig, prefix + "async", config.async, defaultConfig.async);
         fileConfig.setInlineComments(prefix + "async", List.of("Very experimental"));
         writeProperty(fileConfig, prefix + "worldType", config.worldType.name(), defaultConfig.worldType.name());
@@ -278,8 +268,6 @@ public record Config(
             this.loadOnStartup = record.loadOnStartup;
             this.spawn = record.spawn;
             this.difficulty = record.difficulty;
-            this.allowMonsters = record.allowMonsters;
-            this.allowAnimals = record.allowAnimals;
             this.async = record.async;
             this.worldType = record.worldType;
             this.environment = record.environment;
@@ -346,14 +334,19 @@ public record Config(
             return this;
         }
 
-        public Builder gamerule(@NotNull String gameruleKey, @NotNull Object gameruleValue) {
+        public Builder gamerule(@NotNull String gameruleKey, @Nullable Object gameruleValue) {
             this.gamerules.put(gameruleKey, gameruleValue);
+            return this;
+        }
+
+        public Builder removeGamerule(@NotNull String gameruleKey) {
+            this.gamerules.remove(gameruleKey);
             return this;
         }
 
         public Config build() {
             return new Config(this.autoSaveIntervalTicks, this.time, this.saveOnStop, this.loadOnStartup,
-                    this.spawn, this.difficulty, this.allowMonsters, this.allowAnimals, this.async, this.worldType,
+                    this.spawn, this.difficulty, this.async, this.worldType,
                     this.environment, this.gamerules);
         }
     }

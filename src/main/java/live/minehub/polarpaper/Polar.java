@@ -191,7 +191,7 @@ public class Polar {
         CompletableFuture<@Nullable World> future = new CompletableFuture<>();
 
         Runnable worldCreateRunnable = () -> {
-            World newWorld = createWorld(worldCreator, config.difficulty(), config.gamerules(), config.allowMonsters(), config.allowAnimals(), config.time());
+            World newWorld = createWorld(worldCreator, config.difficulty(), config.gamerules(), config.time());
 
             if (newWorld == null) {
                 PolarPaper.logger().warning("An error occurred loading polar world '" + worldName + "', skipping.");
@@ -256,15 +256,8 @@ public class Polar {
     public static Config updateConfig(World world, String worldName) {
         PolarPaper.getPlugin().reloadConfig();
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
-        Config defaultConfig = Config.getWorldDefaultConfig(fileConfig, world);
-        Config config = Config.readFromConfig(fileConfig, worldName, defaultConfig); // If world not in config, use defaults
-
-        Config newConfig = config.toBuilder()
-                .time(world.getTime())
-                .difficulty(world.getDifficulty())
-                .allowMonsters(world.getAllowMonsters())
-                .allowAnimals(world.getAllowAnimals())
-                .build();
+        Config defaultConfig = Config.getDefaultConfig(fileConfig);
+        Config newConfig = Config.updateConfigWithWorld(Config.readFromConfig(fileConfig, worldName, defaultConfig), world); // If world not in config, use defaults
 
         Config.writeToConfig(fileConfig, worldName, newConfig);
 
@@ -287,13 +280,15 @@ public class Polar {
         generator.setConfig(config);
 
         world.setDifficulty(org.bukkit.Difficulty.valueOf(config.difficulty().name()));
-        world.setSpawnFlags(config.allowMonsters(), config.allowAnimals());
 
         for (Map.Entry<String, Object> gamerule : config.gamerules().entrySet()) {
             NamespacedKey key = NamespacedKey.fromString(gamerule.getKey());
             if (key == null) continue;
             GameRule<?> rule = org.bukkit.Registry.GAME_RULE.get(key);
-            if (rule == null) continue;
+            if (rule == null) {
+                PolarPaper.logger().warning("Invalid gamerule: " + key.asMinimalString());
+                continue;
+            }
             setGameRule(world, rule, gamerule.getValue());
         }
 
@@ -340,7 +335,7 @@ public class Polar {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    private static @Nullable World createWorld(WorldCreator creator, Difficulty difficulty, Map<String, Object> gamerules, boolean allowMonsters, boolean allowAnimals, long time) {
+    private static @Nullable World createWorld(WorldCreator creator, Difficulty difficulty, Map<String, Object> gamerules, long time) {
         CraftServer craftServer = (CraftServer) Bukkit.getServer();
 
         boolean async = !craftServer.isPrimaryThread();
@@ -431,9 +426,16 @@ public class Polar {
 
             for (Map.Entry<String, Object> entry : gamerules.entrySet()) {
                 NamespacedKey key = NamespacedKey.fromString(entry.getKey());
-                if (key == null) continue;
+                if (key == null) {
+                    if (Config.DEFAULT_GAMERULES.containsKey(entry.getKey())) continue; // is a custom gamerule, ignore
+                    PolarPaper.logger().warning("Invalid gamerule: " + entry.getKey());
+                    continue;
+                }
                 GameRule<?> rule = org.bukkit.Registry.GAME_RULE.get(key);
-                if (rule == null) continue;
+                if (rule == null) {
+                    PolarPaper.logger().warning("Invalid gamerule: " + key.asMinimalString());
+                    continue;
+                }
                 net.minecraft.world.level.gamerules.GameRule<Object> nmsRule = ((CraftGameRule<Object>)rule).getHandle();
 
                 nmsGameRules.set(nmsRule, entry.getValue(), null);
@@ -512,8 +514,6 @@ public class Polar {
         Runnable initRunnable = () -> {
             craftServer.getServer().addLevel(serverLevel); // Paper - Put world into worldlist before initing the world; move up
             craftServer.getServer().initWorld(serverLevel, primaryLevelData, primaryLevelData.worldGenOptions());
-
-            serverLevel.getChunkSource().setSpawnSettings(allowMonsters, allowAnimals);
             // Paper - Put world into worldlist before initing the world; move up
 
             craftServer.getServer().prepareLevel(serverLevel);
