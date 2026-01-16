@@ -1,6 +1,7 @@
 package live.minehub.polarpaper;
 
 import live.minehub.polarpaper.util.ExceptionUtil;
+import net.kyori.adventure.key.Key;
 import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.jetbrains.annotations.NotNull;
@@ -77,8 +78,11 @@ public record Config(
                 .environment(world.getEnvironment());
 
         for (String name : world.getGameRules()) {
-            GameRule<?> gamerule = GameRule.getByName(name);
-            if (gamerule == null) continue;
+            GameRule<?> gamerule = Registry.GAME_RULE.get(Key.key("minecraft", name));
+            if (gamerule == null) {
+                System.out.println("No gamerule " + name);
+                continue;
+            }
 
             Object gameRuleValue = world.getGameRuleValue(gamerule);
             if (gameRuleValue == null) continue;
