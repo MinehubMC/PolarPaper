@@ -2,7 +2,7 @@ name: Release PolarPaper
 on:
   push:
     branches:
-      - "1_21_10"
+      - "1_21_11"
 
 env:
   HANGAR_API_KEY: ${{ secrets.HANGAR_API_KEY }}
