@@ -18,9 +18,7 @@ import net.minecraft.util.BitStorage;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.chunk.ChunkAccess;
-import net.minecraft.world.level.chunk.LevelChunkSection;
-import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.world.level.chunk.*;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftServer;
@@ -125,12 +123,23 @@ public record PolarChunk(
             List<String> biomePaletteStrings = new ArrayList<>();
             if (!chunkAccessSection.hasOnlyAir()) {
                 PalettedContainer.Data<BlockState> blockPaletteData = chunkAccessSection.getStates().data;
-                Object[] palette = blockPaletteData.palette().moonrise$getRawPalette(blockPaletteData);
-                for (Object p : palette) {
-                    if (p == null) continue;
-                    if (!(p instanceof BlockState blockState)) continue;
-                    blockPaletteStrings.add(blockState.toString()
-                            .replace("Block{", "").replace("}", "")); // e.g. Block{minecraft:oak_fence}[...] to minecraft:oak_fence[...]
+                Palette<BlockState> chunkPalette = blockPaletteData.palette();
+                if (chunkPalette instanceof GlobalPalette<BlockState> globalPalette) {
+                    for (int i1 = 0; i1 < globalPalette.getSize(); i1++) {
+                        BlockState blockState = globalPalette.valueFor(i1);
+                        blockPaletteStrings.add(blockState.toString()
+                                .replace("Block{", "").replace("}", "")); // e.g. Block{minecraft:oak_fence}[...] to minecraft:oak_fence[...]
+                    }
+                } else {
+                    Object[] palette = chunkPalette.moonrise$getRawPalette(blockPaletteData);
+                    if (palette != null) {
+                        for (Object p : palette) {
+                            if (p == null) continue;
+                            if (!(p instanceof BlockState blockState)) continue;
+                            blockPaletteStrings.add(blockState.toString()
+                                    .replace("Block{", "").replace("}", "")); // e.g. Block{minecraft:oak_fence}[...] to minecraft:oak_fence[...]
+                        }
+                    }
                 }
 
                 int airIndex = blockPaletteStrings.indexOf("minecraft:air");
