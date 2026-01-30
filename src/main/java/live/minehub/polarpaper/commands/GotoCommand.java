@@ -4,8 +4,8 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Config;
+import live.minehub.polarpaper.PolarGenerator;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -36,8 +36,8 @@ public class GotoCommand {
 
         Location spawnPos;
 
-        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
-        if (polarWorld != null) {
+        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
+        if (polarGenerator != null) {
             Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld);
             spawnPos = config.spawn();
         } else {

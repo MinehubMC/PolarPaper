@@ -4,8 +4,6 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarReader;
-import live.minehub.polarpaper.PolarWorld;
 import live.minehub.polarpaper.schematic.BlockModifier;
 import live.minehub.polarpaper.schematic.Rotation;
 import live.minehub.polarpaper.schematic.Schematic;
@@ -15,7 +13,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -100,15 +97,9 @@ public class PasteCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        PolarWorld polarWorld;
+        byte[] polarBytes;
         try {
-            byte[] polarBytes;
-            try {
-                polarBytes = Files.readAllBytes(path);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            polarWorld = PolarReader.read(polarBytes);
+            polarBytes = Files.readAllBytes(path);
         } catch (Exception e) {
             PolarPaper.logger().warning("Failed to load world '" + worldName + ".polar'");
             player.sendMessage(Component.text("Failed to load world '" + worldName + ".polar'", NamedTextColor.RED));
@@ -118,7 +109,7 @@ public class PasteCommand {
 
         BlockModifier modifier = new BlockModifier.PosRot(player.getLocation().toVector().toVector3i(), rotation);
 
-        Schematic.paste(polarWorld, player.getWorld(), modifier, ignoreAir);
+        Schematic.paste(polarBytes, player.getWorld(), modifier, ignoreAir);
 
         int ms = (int) ((System.nanoTime() - before) / 1_000_000);
         ctx.getSource().getSender().sendMessage(

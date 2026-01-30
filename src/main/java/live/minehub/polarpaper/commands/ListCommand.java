@@ -3,7 +3,7 @@ package live.minehub.polarpaper.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.PolarGenerator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -21,7 +21,7 @@ public class ListCommand {
 
         for (World world : Bukkit.getServer().getWorlds()) {
             if (world == null) continue;
-            PolarWorld pw = PolarWorld.fromWorld(world);
+            PolarGenerator pw = PolarGenerator.fromWorld(world);
             if (pw == null) continue;
 
             builder.append(Component.newline());

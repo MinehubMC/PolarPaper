@@ -6,8 +6,8 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Config;
+import live.minehub.polarpaper.PolarGenerator;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -50,8 +50,8 @@ public class InfoCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
-        if (polarWorld == null) {
+        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
+        if (polarGenerator == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("'", NamedTextColor.RED))
@@ -72,19 +72,16 @@ public class InfoCommand {
                         .append(Component.text(":", NamedTextColor.AQUA))
                         .append(Component.newline())
                         .append(Component.text(" Version: ", NamedTextColor.AQUA))
-                        .append(Component.text(polarWorld.version(), NamedTextColor.AQUA))
+                        .append(Component.text(polarGenerator.getVersion(), NamedTextColor.AQUA))
                         .append(Component.text(" (", NamedTextColor.AQUA))
-                        .append(Component.text(polarWorld.dataVersion(), NamedTextColor.AQUA))
+                        .append(Component.text(polarGenerator.getDataVersion(), NamedTextColor.AQUA))
                         .append(Component.text(")", NamedTextColor.AQUA))
                         .append(Component.newline())
                         .append(Component.text(" Compression: ", NamedTextColor.AQUA))
-                        .append(Component.text(polarWorld.compression().name(), NamedTextColor.AQUA))
+                        .append(Component.text(polarGenerator.getConfig().compression().name(), NamedTextColor.AQUA))
                         .append(Component.newline())
                         .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
                         .append(Component.text(config.spawnString(), NamedTextColor.AQUA))
-                        .append(Component.newline())
-                        .append(Component.text(" Saved Chunks: ", NamedTextColor.AQUA))
-                        .append(Component.text(polarWorld.chunks().size(), NamedTextColor.AQUA))
                         .append(Component.newline())
                         .append(Component.text(" Chunk Holders: ", NamedTextColor.AQUA))
                         .append(Component.text(chunkHolders.size(), NamedTextColor.AQUA))

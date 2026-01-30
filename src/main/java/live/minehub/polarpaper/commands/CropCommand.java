@@ -3,10 +3,11 @@ package live.minehub.polarpaper.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-import live.minehub.polarpaper.*;
+import live.minehub.polarpaper.BlockSelector;
+import live.minehub.polarpaper.Polar;
+import live.minehub.polarpaper.PolarGenerator;
+import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.schematic.Schematic;
-import live.minehub.polarpaper.source.FilePolarSource;
-import live.minehub.polarpaper.userdata.WorldUserData;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -29,8 +30,8 @@ public class CropCommand {
 
         World bukkitWorld = player.getWorld();
 
-        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
-        if (polarWorld == null) {
+        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
+        if (polarGenerator == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
@@ -39,8 +40,6 @@ public class CropCommand {
             );
             return Command.SINGLE_SUCCESS;
         }
-        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
-        if (polarGenerator == null) return Command.SINGLE_SUCCESS;
 
         PersistentDataContainer data = player.getPersistentDataContainer();
         int[] pos1Array = data.get(Schematic.POS_1_KEY, PersistentDataType.INTEGER_ARRAY);
@@ -67,20 +66,21 @@ public class CropCommand {
         Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            polarWorld.updateChunks(bukkitWorld, polarGenerator.getWorldAccess(), blockSelector, true);
-            polarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
-            byte[] worldBytes = PolarWriter.write(polarWorld);
-            FilePolarSource.defaultFolder(bukkitWorld.getName()).saveBytes(worldBytes);
-
-            int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("Cropped '", NamedTextColor.AQUA))
-                            .append(Component.text(bukkitWorld.getName(), NamedTextColor.AQUA))
-                            .append(Component.text("' in ", NamedTextColor.AQUA))
-                            .append(Component.text(ms, NamedTextColor.AQUA))
-                            .append(Component.text("ms", NamedTextColor.AQUA))
-            );
+            //TODO: this
+//            polarWorld.updateChunks(bukkitWorld, polarGenerator.getWorldAccess(), blockSelector, true);
+//            polarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
+//            byte[] worldBytes = PolarWriter.write(polarWorld);
+//            FilePolarSource.defaultFolder(bukkitWorld.getName()).saveBytes(worldBytes);
+//
+//            int ms = (int) ((System.nanoTime() - before) / 1_000_000);
+//            ctx.getSource().getSender().sendMessage(
+//                    Component.text()
+//                            .append(Component.text("Cropped '", NamedTextColor.AQUA))
+//                            .append(Component.text(bukkitWorld.getName(), NamedTextColor.AQUA))
+//                            .append(Component.text("' in ", NamedTextColor.AQUA))
+//                            .append(Component.text(ms, NamedTextColor.AQUA))
+//                            .append(Component.text("ms", NamedTextColor.AQUA))
+//            );
         });
 
         return Command.SINGLE_SUCCESS;

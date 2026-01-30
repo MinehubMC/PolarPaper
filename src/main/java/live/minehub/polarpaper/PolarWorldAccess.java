@@ -1,5 +1,8 @@
 package live.minehub.polarpaper;
 
+import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
+import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
+import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import com.google.common.io.ByteArrayDataOutput;
 import live.minehub.polarpaper.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.userdata.EntityUtil;
@@ -8,9 +11,8 @@ import live.minehub.polarpaper.util.ExceptionUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.ChunkAccess;
-import org.bukkit.Chunk;
 import org.bukkit.Location;
-import org.bukkit.World;
+import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.persistence.DirtyCraftPersistentDataContainer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -50,10 +52,8 @@ public interface PolarWorldAccess {
         private static final byte PERSISTENT_DATA_CONTAINER_VERSION = 2;
 
         @Override
-        public void populateChunkData(@NotNull final Chunk chunk, final byte @Nullable [] userData) {
-            if (userData == null) return;
-
-            World world = chunk.getWorld();
+        public void populateChunkData(ChunkHolderManager chunkHolderManager, @NotNull final NewChunkHolder chunkHolder, final byte @Nullable [] userData) {
+            if (userData == null || userData.length == 0) return;
 
             final var bb = ByteBuffer.wrap(userData);
 
@@ -61,21 +61,30 @@ public interface PolarWorldAccess {
 
             List<PolarEntity> entities = EntityUtil.getEntities(bb);
 
-            for (PolarEntity polarEntity : entities) {
-                Entity entity = polarEntity.toBukkitEntity(world, polarEntity.getLocation(chunk), true);
-                if (entity == null) continue;
+            if (!entities.isEmpty()) {
+                CraftWorld world = chunkHolder.world.getWorld();
+                ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
 
-                Location spawnLocation = entity.getLocation();
+                if (entityChunk == null) {
+                    chunkHolderManager.getOrCreateEntityChunk(chunkHolder.chunkX, chunkHolder.chunkZ, false);
+                }
 
-                PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, false);
-                event.callEvent();
-                if (!event.isCancelled()) {
-                    EntityUtil.spawnEntity(entity, world);
+                for (PolarEntity polarEntity : entities) {
+                    Entity entity = polarEntity.toBukkitEntity(world, polarEntity.getLocation(world, chunkHolder.chunkX, chunkHolder.chunkZ), true);
+                    if (entity == null) continue;
+
+                    Location spawnLocation = entity.getLocation();
+
+                    PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, false);
+                    event.callEvent();
+                    if (!event.isCancelled()) {
+                        EntityUtil.spawnEntity(entity, world);
+                    }
                 }
             }
 
             if (version >= PERSISTENT_DATA_CONTAINER_VERSION) {
-                PersistentDataContainer persistentDataContainer = chunk.getPersistentDataContainer();
+                PersistentDataContainer persistentDataContainer = chunkHolder.getCurrentChunk().persistentDataContainer;
                 try {
                     byte[] bytes = ByteArrayUtil.getByteArray(bb);
                     persistentDataContainer.readFromBytes(bytes);
@@ -165,10 +174,11 @@ public interface PolarWorldAccess {
      * <br/><br/>
      * Can be used to access user data after the chunk has been loaded.
      *
-     * @param chunk The Bukkit chunk being populated
-     * @param userData The saved user data, or null if none is present
+     * @param chunkHolderManager
+     * @param chunk              The chunk being populated
+     * @param userData           The saved user data, or null if none is present
      */
-    default void populateChunkData(@NotNull Chunk chunk, byte @Nullable [] userData) {
+    default void populateChunkData(ChunkHolderManager chunkHolderManager, @NotNull NewChunkHolder chunk, byte @Nullable [] userData) {
     }
 
     /**

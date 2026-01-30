@@ -5,7 +5,6 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.source.FilePolarSource;
-import live.minehub.polarpaper.util.CoordConversion;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -31,8 +30,8 @@ public class ConvertCommand {
         World bukkitWorld = player.getWorld();
         String worldName = bukkitWorld.getName();
 
-        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
-        if (polarWorld != null) {
+        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
+        if (polarGenerator != null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
@@ -72,18 +71,11 @@ public class ConvertCommand {
 
         Polar.updateConfig(bukkitWorld, newWorldName);
 
-        int minHeight = bukkitWorld.getMinHeight();
-        int maxHeight = bukkitWorld.getMaxHeight() - 1;
-        PolarWorld newPolarWorld = new PolarWorld(
-                (byte) CoordConversion.sectionIndex(minHeight),
-                (byte) CoordConversion.sectionIndex(maxHeight)
-        );
-
         int offsetX = playerChunk.getX();
         int offsetZ = playerChunk.getZ();
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            Polar.saveWorld(bukkitWorld, newPolarWorld, FilePolarSource.defaultFolder(newWorldName), PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.square(offsetX, offsetZ, chunkRadius));
+            Polar.saveWorld(bukkitWorld, FilePolarSource.defaultFolder(newWorldName), PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.square(offsetX, offsetZ, chunkRadius));
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             ctx.getSource().getSender().sendMessage(
                     Component.text()

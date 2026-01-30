@@ -5,8 +5,8 @@ import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
+import live.minehub.polarpaper.PolarGenerator;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
 import live.minehub.polarpaper.schematic.Rotation;
 import live.minehub.polarpaper.schematic.Schematic;
 import net.kyori.adventure.text.Component;
@@ -76,8 +76,8 @@ public class PolarCommand {
                                 .then(Commands.argument("worldname", StringArgumentType.string())
                                         .suggests((ctx, builder) -> {
                                             for (World world : Bukkit.getWorlds()) {
-                                                PolarWorld polarWorld = PolarWorld.fromWorld(world);
-                                                if (polarWorld == null) continue;
+                                                PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
+                                                if (polarGenerator == null) continue;
 
                                                 if (world.getName().contains(" ")) {
                                                     builder.suggest("\"" + world.getName() + "\"");
@@ -112,8 +112,8 @@ public class PolarCommand {
                                 .then(Commands.argument("worldname", StringArgumentType.string())
                                         .suggests((ctx, builder) -> {
                                             for (World world : Bukkit.getWorlds()) {
-                                                PolarWorld polarWorld = PolarWorld.fromWorld(world);
-                                                if (polarWorld == null) continue;
+                                                PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
+                                                if (polarGenerator == null) continue;
 
                                                 if (world.getName().contains(" ")) {
                                                     builder.suggest("\"" + world.getName() + "\"");
@@ -133,8 +133,8 @@ public class PolarCommand {
                                 .then(Commands.argument("worldname", StringArgumentType.greedyString())
                                         .suggests((ctx, builder) -> {
                                             for (World world : Bukkit.getWorlds()) {
-                                                PolarWorld polarWorld = PolarWorld.fromWorld(world);
-                                                if (polarWorld == null) continue;
+                                                PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
+                                                if (polarGenerator == null) continue;
 
                                                 builder.suggest(world.getName());
                                             }

@@ -2,14 +2,19 @@ package live.minehub.polarpaper.util;
 
 import com.google.common.io.ByteArrayDataOutput;
 import io.netty.buffer.ByteBuf;
-import live.minehub.polarpaper.PolarChunk;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import org.bukkit.Bukkit;
+import org.bukkit.craftbukkit.CraftServer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 
 public class ByteArrayUtil {
 
@@ -131,17 +136,24 @@ public class ByteArrayUtil {
 
 
 
-    public static void writeBlockEntity(@NotNull ByteArrayDataOutput bb, @NotNull PolarChunk.BlockEntity blockEntity) {
-        bb.writeInt(blockEntity.index());
-        bb.write(blockEntity.id() == null ? 0 : 1);
-        if (blockEntity.id() != null) {
-            writeString(blockEntity.id(), bb);
+    public static void writeBlockEntity(@NotNull ByteArrayDataOutput bb, BlockPos blockPos, @NotNull BlockEntity blockEntity) {
+        int index = CoordConversion.chunkBlockIndex(blockPos.getX(), blockPos.getY(), blockPos.getZ());
+
+        var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
+        CompoundTag compoundTag = blockEntity.saveWithFullMetadata(registryAccess);
+
+        String id = compoundTag.getString("id").orElse(null);
+
+        bb.writeInt(index);
+        bb.write(id == null ? 0 : 1);
+        if (id != null) {
+            writeString(id, bb);
         }
 
-        bb.write(blockEntity.data() == null ? 0 : 1);
-        if (blockEntity.data() != null) {
+        bb.write(compoundTag == null ? 0 : 1);
+        if (compoundTag != null) {
             try {
-                NbtIo.writeAnyTag(blockEntity.data(), bb);
+                NbtIo.writeAnyTag(compoundTag, bb);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -178,8 +190,8 @@ public class ByteArrayUtil {
         }
     }
 
-    public static void writeStringArray(String[] strings, ByteArrayDataOutput bb) {
-        writeVarInt(strings.length, bb);
+    public static void writeStringList(Collection<String> strings, ByteArrayDataOutput bb) {
+        writeVarInt(strings.size(), bb);
         for (String aString : strings) {
             writeString(aString, bb);
         }

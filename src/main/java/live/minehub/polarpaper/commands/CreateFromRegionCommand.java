@@ -7,6 +7,7 @@ import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.schematic.Schematic;
 import live.minehub.polarpaper.source.FilePolarSource;
 import live.minehub.polarpaper.userdata.WorldUserData;
+import live.minehub.polarpaper.util.CompressionType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -44,8 +45,6 @@ public class CreateFromRegionCommand {
                         .append(Component.text("' from selected region...", NamedTextColor.GRAY))
         );
 
-        PolarWorld polarWorld = new PolarWorld((byte)-4, (byte)19);
-
         PersistentDataContainer data = player.getPersistentDataContainer();
         int[] pos1Array = data.get(Schematic.POS_1_KEY, PersistentDataType.INTEGER_ARRAY);
         int[] pos2Array = data.get(Schematic.POS_2_KEY, PersistentDataType.INTEGER_ARRAY);
@@ -62,10 +61,10 @@ public class CreateFromRegionCommand {
         // TODO: center the world
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            polarWorld.updateChunks(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, blockSelector, false);
-            polarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
-            byte[] worldBytes = PolarWriter.write(polarWorld);
-            FilePolarSource.defaultFolder(newWorldName).saveBytes(worldBytes);
+            byte[] userData = WorldUserData.writeSchematicOffset(schemOffset);
+
+            byte[] bytes = PolarStreamWriter.write(bukkitWorld, userData, blockSelector, false, CompressionType.ZSTD, PolarDataConverter.DEFAULT, PolarWorldAccess.POLAR_PAPER_FEATURES);
+            FilePolarSource.defaultFolder(newWorldName).saveBytes(bytes);
 
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             ctx.getSource().getSender().sendMessage(

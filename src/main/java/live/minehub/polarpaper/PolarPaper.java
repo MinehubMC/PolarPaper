@@ -75,9 +75,8 @@ public final class PolarPaper extends JavaPlugin {
         }
 
         for (World world : getServer().getWorlds()) {
-            PolarWorld polarWorld = PolarWorld.fromWorld(world);
             PolarGenerator generator = PolarGenerator.fromWorld(world);
-            if (polarWorld == null || generator == null) continue;
+            if (generator == null) continue;
 
             if (!generator.getConfig().saveOnStop()) {
                 PolarPaper.logger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getName()));

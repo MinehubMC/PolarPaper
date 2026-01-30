@@ -4,8 +4,8 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Polar;
+import live.minehub.polarpaper.PolarGenerator;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -24,7 +24,7 @@ public class LoadCommand {
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld != null) {
-            PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
+            PolarGenerator polarWorld = PolarGenerator.fromWorld(bukkitWorld);
             if (polarWorld == null) {
                 ctx.getSource().getSender().sendMessage(
                         Component.text()

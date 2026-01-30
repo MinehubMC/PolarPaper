@@ -1,5 +1,6 @@
 package live.minehub.polarpaper;
 
+import live.minehub.polarpaper.util.CompressionType;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.key.Key;
 import org.bukkit.*;
@@ -19,6 +20,7 @@ public record Config(
         @NotNull Location spawn,
         @NotNull Difficulty difficulty,
         boolean async,
+        CompressionType compression,
         @NotNull WorldType worldType,
         @NotNull World.Environment environment,
         @NotNull Map<String, Object> gamerules
@@ -50,6 +52,7 @@ public record Config(
             new Location(null, 0, 64, 0),
             Difficulty.NORMAL,
             false,
+            CompressionType.ZSTD,
             WorldType.NORMAL,
             World.Environment.NORMAL,
             DEFAULT_GAMERULES
@@ -68,8 +71,6 @@ public record Config(
                 .time(world.getTime())
                 .spawn(world.getSpawnLocation())
                 .difficulty(world.getDifficulty())
-                .allowMonsters(world.getAllowMonsters())
-                .allowAnimals(world.getAllowAnimals())
                 .environment(world.getEnvironment());
 
         for (String name : world.getGameRules()) {
@@ -116,6 +117,7 @@ public record Config(
             String spawn = config.getString(prefix + "spawn", locationToString(defaultConfig.spawn));
             Difficulty difficulty = Difficulty.valueOf(config.getString(prefix + "difficulty", defaultConfig.difficulty.name()));
             boolean async = config.getBoolean(prefix + "async", defaultConfig.async);
+            CompressionType compression = CompressionType.valueOf(config.getString(prefix + "compression", defaultConfig.compression.name()));
             WorldType worldType = WorldType.valueOf(config.getString(prefix + "worldType", defaultConfig.worldType.name()));
             World.Environment environment = World.Environment.valueOf(config.getString(prefix + "environment", defaultConfig.environment.name()));
 
@@ -135,6 +137,7 @@ public record Config(
                     stringToLocation(spawn),
                     difficulty,
                     async,
+                    compression,
                     worldType,
                     environment,
                     gamerulesMap
@@ -166,6 +169,8 @@ public record Config(
         writeProperty(fileConfig, prefix + "difficulty", config.difficulty.name(), defaultConfig.difficulty.name());
         writeProperty(fileConfig, prefix + "async", config.async, defaultConfig.async);
         fileConfig.setInlineComments(prefix + "async", List.of("Very experimental"));
+        writeProperty(fileConfig, prefix + "compression", config.compression, defaultConfig.compression);
+        fileConfig.setInlineComments(prefix + "compression", List.of("One of: ZSTD, NONE"));
         writeProperty(fileConfig, prefix + "worldType", config.worldType.name(), defaultConfig.worldType.name());
         fileConfig.setInlineComments(prefix + "worldType", List.of("One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES"));
         writeProperty(fileConfig, prefix + "environment", config.environment.name(), defaultConfig.environment.name());
@@ -254,9 +259,8 @@ public record Config(
         private boolean loadOnStartup;
         private @NotNull Location spawn;
         private @NotNull Difficulty difficulty;
-        private boolean allowMonsters;
-        private boolean allowAnimals;
         private boolean async;
+        private CompressionType compression;
         private @NotNull WorldType worldType;
         private @NotNull World.Environment environment;
         private @NotNull Map<String, Object> gamerules;
@@ -269,6 +273,7 @@ public record Config(
             this.spawn = record.spawn;
             this.difficulty = record.difficulty;
             this.async = record.async;
+            this.compression = record.compression;
             this.worldType = record.worldType;
             this.environment = record.environment;
             this.gamerules = record.gamerules;
@@ -304,18 +309,13 @@ public record Config(
             return this;
         }
 
-        public Builder allowMonsters(boolean allowMonsters) {
-            this.allowMonsters = allowMonsters;
-            return this;
-        }
-
-        public Builder allowAnimals(boolean allowAnimals) {
-            this.allowAnimals = allowAnimals;
-            return this;
-        }
-
         public Builder async(boolean async) {
             this.async = async;
+            return this;
+        }
+
+        public Builder compression(CompressionType compression) {
+            this.compression = compression;
             return this;
         }
 
@@ -346,7 +346,7 @@ public record Config(
 
         public Config build() {
             return new Config(this.autoSaveIntervalTicks, this.time, this.saveOnStop, this.loadOnStartup,
-                    this.spawn, this.difficulty, this.async, this.worldType,
+                    this.spawn, this.difficulty, this.async, this.compression, this.worldType,
                     this.environment, this.gamerules);
         }
     }

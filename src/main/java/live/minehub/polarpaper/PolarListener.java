@@ -5,8 +5,6 @@ import live.minehub.polarpaper.commands.WandCommand;
 import live.minehub.polarpaper.schematic.Schematic;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
-import org.bukkit.craftbukkit.CraftChunk;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -15,8 +13,6 @@ import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.world.ChunkPopulateEvent;
-import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -25,28 +21,6 @@ import org.bukkit.util.Vector;
 
 @SuppressWarnings("unused")
 public class PolarListener implements Listener {
-
-    @EventHandler
-    public void onChunkPopulate(ChunkPopulateEvent event) {
-        PolarWorld polarWorld = PolarWorld.fromWorld(event.getWorld());
-        if (polarWorld == null) return;
-
-        PolarChunk chunk = polarWorld.chunkAt(event.getChunk().getX(), event.getChunk().getZ());
-        if (chunk == null) return;
-
-        ChunkGenerator generator = event.getWorld().getGenerator();
-        if (!(generator instanceof PolarGenerator polarGenerator)) return;
-
-        // TODO: chunks still seem to be getting marked unsaved when they shouldn't, worst case is the chunk gets resaved when it didn't need to
-        CraftChunk craftChunk = ((CraftChunk) event.getChunk());
-        boolean wasUnsaved = craftChunk.getHandle(ChunkStatus.FULL).tryMarkSaved();
-//        System.out.println("Marked saved: " + wasUnsaved + " (" + chunk.x() + ", " + chunk.z() + ")");
-
-        PolarWorldAccess worldAccess = polarGenerator.getWorldAccess();
-        if (chunk.userData().length > 0) {
-            worldAccess.populateChunkData(event.getChunk(), chunk.userData());
-        }
-    }
 
     @EventHandler
     public void onBlockFade(BlockFadeEvent event) { // coral death

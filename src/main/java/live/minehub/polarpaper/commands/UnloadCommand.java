@@ -3,7 +3,10 @@ package live.minehub.polarpaper.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-import live.minehub.polarpaper.*;
+import live.minehub.polarpaper.Config;
+import live.minehub.polarpaper.Polar;
+import live.minehub.polarpaper.PolarGenerator;
+import live.minehub.polarpaper.PolarPaper;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -24,22 +27,12 @@ public class UnloadCommand {
         String worldName = ctx.getArgument("worldname", String.class);
 
         World bukkitWorld = Bukkit.getWorld(worldName);
-        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
         if (bukkitWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
                             .append(Component.text(worldName, NamedTextColor.RED))
                             .append(Component.text("' already not loaded!", NamedTextColor.RED))
-            );
-            return Command.SINGLE_SUCCESS;
-        }
-        if (polarWorld == null) {
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
-                            .append(Component.text("' is not a polar world!", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
         }
