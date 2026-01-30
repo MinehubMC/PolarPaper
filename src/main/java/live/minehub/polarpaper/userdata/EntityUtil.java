@@ -85,6 +85,7 @@ public class EntityUtil {
 
     public static byte @Nullable [] entityToBytes(Entity entity) {
         if (entity.getType() == EntityType.PLAYER) return null;
+        if (!entity.isPersistent()) return null;
 
         net.minecraft.world.entity.Entity nmsEntity = ((CraftEntity) entity).getHandle();
         ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "serialiseEntity@" + entity.getUniqueId(), LogUtils.getLogger());
