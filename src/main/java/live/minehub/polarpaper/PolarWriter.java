@@ -66,7 +66,7 @@ public class PolarWriter {
             writeSection(bb, section);
         }
 
-        writeVarInt(chunk.blockEntities().size(), bb);
+        writeVarInt(chunk.blockEntities().length, bb);
         for (var blockEntity : chunk.blockEntities()) {
             writeBlockEntity(bb, blockEntity);
         }

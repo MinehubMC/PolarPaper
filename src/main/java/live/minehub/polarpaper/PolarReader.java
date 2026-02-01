@@ -99,9 +99,9 @@ public class PolarReader {
         }
 
         int blockEntityCount = getVarInt(bb);
-        List<PolarChunk.BlockEntity> blockEntities = new ArrayList<>(blockEntityCount);
+        PolarChunk.BlockEntity[] blockEntities = new PolarChunk.BlockEntity[blockEntityCount];
         for (int i = 0; i < blockEntityCount; i++) {
-            blockEntities.add(readBlockEntity(dataConverter, version, dataVersion, bb));
+            blockEntities[i] = readBlockEntity(dataConverter, version, dataVersion, bb);
         }
 
         // If the version is set to 8 copy the contents over to the beginning of userdata

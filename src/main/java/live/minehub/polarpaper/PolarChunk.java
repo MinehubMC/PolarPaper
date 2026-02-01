@@ -31,7 +31,7 @@ public record PolarChunk(
         int x,
         int z,
         PolarSection[] sections,
-        List<BlockEntity> blockEntities,
+        BlockEntity[] blockEntities,
         int[][] heightmaps,
         byte[] userData
 ) {
@@ -68,7 +68,7 @@ public record PolarChunk(
 
     public PolarChunk(int x, int z, int sectionCount) {
         // Blank chunk
-        this(x, z, new PolarSection[sectionCount], List.of(), new int[PolarChunk.MAX_HEIGHTMAPS][0], new byte[0]);
+        this(x, z, new PolarSection[sectionCount], new BlockEntity[0], new int[PolarChunk.MAX_HEIGHTMAPS][0], new byte[0]);
         Arrays.setAll(sections, (i) -> new PolarSection());
     }
 
@@ -105,8 +105,6 @@ public record PolarChunk(
         int chunkX = chunkHolder.chunkX;
         int chunkZ = chunkHolder.chunkZ;
 
-        List<PolarChunk.BlockEntity> polarBlockEntities = new ArrayList<>();
-
         Registry<Biome> biomeRegistry = MinecraftServer.getServer().registryAccess().lookupOrThrow(Registries.BIOME);
 
         int sectionCount = chunkAccess.getSectionsCount();
@@ -115,91 +113,12 @@ public record PolarChunk(
         PolarSection[] sections = new PolarSection[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
             LevelChunkSection chunkAccessSection = chunkAccess.getSection(i);
-
-            int[] blockData = null;
-            int[] biomeData;
-
-            List<String> blockPaletteStrings = new ArrayList<>();
-            List<String> biomePaletteStrings = new ArrayList<>();
-            if (!chunkAccessSection.hasOnlyAir()) {
-                PalettedContainer.Data<BlockState> blockPaletteData = chunkAccessSection.getStates().data;
-                Palette<BlockState> chunkPalette = blockPaletteData.palette();
-                if (chunkPalette instanceof GlobalPalette<BlockState> globalPalette) {
-                    for (int i1 = 0; i1 < globalPalette.getSize(); i1++) {
-                        BlockState blockState = globalPalette.valueFor(i1);
-                        blockPaletteStrings.add(blockState.toString()
-                                .replace("Block{", "").replace("}", "")); // e.g. Block{minecraft:oak_fence}[...] to minecraft:oak_fence[...]
-                    }
-                } else {
-                    Object[] palette = chunkPalette.moonrise$getRawPalette(blockPaletteData);
-                    if (palette != null) {
-                        for (Object p : palette) {
-                            if (p == null) continue;
-                            if (!(p instanceof BlockState blockState)) continue;
-                            blockPaletteStrings.add(blockState.toString()
-                                    .replace("Block{", "").replace("}", "")); // e.g. Block{minecraft:oak_fence}[...] to minecraft:oak_fence[...]
-                        }
-                    }
-                }
-
-                int airIndex = blockPaletteStrings.indexOf("minecraft:air");
-                if (airIndex == -1) {
-                    blockPaletteStrings.add("minecraft:air");
-                    airIndex = blockPaletteStrings.size() - 1;
-                }
-
-                BitStorage blockBitStorage = blockPaletteData.storage();
-                int blockPaletteSize = blockBitStorage.getSize();
-                blockData = new int[blockPaletteSize];
-
-                for(int index = 0; index < blockPaletteSize; ++index) {
-                    boolean included = blockSelector.test(index, chunkX, chunkZ, minSection + i);
-                    if (included) {
-                        int paletteIdx = blockBitStorage.get(index);
-                        blockData[index] = paletteIdx;
-                    } else {
-                        blockData[index] = airIndex;
-                    }
-                }
-
-                // TODO: trim the palette (needed?)
-//                // remove unused blocks from the palette
-//                blockPaletteStrings = Arrays.stream(blockData).distinct().mapToObj(blockPaletteStrings::get).toList();
-            } else {
-                blockPaletteStrings.add(Blocks.AIR.defaultBlockState().toString()
-                        .replace("Block{", "").replace("}", ""));
-            }
-            PalettedContainer.Data<Holder<Biome>> biomePaletteData = ((PalettedContainer<Holder<Biome>>)chunkAccessSection.getBiomes()).data;
-            Object[] biomePalette = biomePaletteData.palette().moonrise$getRawPalette(biomePaletteData);
-            for (Object p : biomePalette) {
-                if (p == null) continue;
-                if (!(p instanceof Holder<?> biomeHolder)) continue;
-                if (!(biomeHolder.value() instanceof Biome biome)) continue;
-                Identifier key = biomeRegistry.getKey(biome);
-                if (key == null) continue;
-                String biomeString = key.getPath();
-                biomePaletteStrings.add(biomeString);
-            }
-
-            BitStorage biomeBitStorage = biomePaletteData.storage();
-            int biomePaletteSize = biomeBitStorage.getSize();
-            biomeData = new int[biomePaletteSize];
-
-            for(int index = 0; index < biomePaletteSize; ++index) {
-                int paletteIdx = biomeBitStorage.get(index);// TODO: use blockselector here
-                biomeData[index] = paletteIdx;
-            }
-
-            sections[i] = new PolarSection(
-                    blockPaletteStrings.toArray(new String[0]), blockData,
-                    biomePaletteStrings.toArray(new String[0]), biomeData,
-                    PolarSection.LightContent.MISSING, null, // TODO: Provide block light
-                    PolarSection.LightContent.MISSING, null
-            );
+            sections[i] = convertSection(chunkX, chunkZ, chunkAccessSection, biomeRegistry, blockSelector, minSection, i);
         }
 
         var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
         Set<Map.Entry<BlockPos, net.minecraft.world.level.block.entity.BlockEntity>> blockEntities = chunkAccess.blockEntities.entrySet();
+        List<PolarChunk.BlockEntity> polarBlockEntities = new ArrayList<>();
         for (Map.Entry<BlockPos, net.minecraft.world.level.block.entity.BlockEntity> entry : blockEntities) {
             BlockPos blockPos = entry.getKey();
             net.minecraft.world.level.block.entity.BlockEntity blockEntity = entry.getValue();
@@ -237,9 +156,92 @@ public record PolarChunk(
                 chunkX,
                 chunkZ,
                 sections,
-                polarBlockEntities,
+                polarBlockEntities.toArray(new PolarChunk.BlockEntity[0]),
                 heightMaps,
                 userData
+        );
+    }
+
+    private static PolarSection convertSection(int chunkX, int chunkZ, LevelChunkSection chunkAccessSection, Registry<Biome> biomeRegistry, BlockSelector blockSelector, int minSection, int sectionI) {
+        int[] blockData = null;
+        int[] biomeData;
+
+        List<String> blockPaletteStrings = new ArrayList<>();
+        List<String> biomePaletteStrings = new ArrayList<>();
+        if (!chunkAccessSection.hasOnlyAir()) {
+            PalettedContainer.Data<BlockState> blockPaletteData = chunkAccessSection.getStates().data;
+            Palette<BlockState> chunkPalette = blockPaletteData.palette();
+            if (chunkPalette instanceof GlobalPalette<BlockState> globalPalette) {
+                for (int i1 = 0; i1 < globalPalette.getSize(); i1++) {
+                    BlockState blockState = globalPalette.valueFor(i1);
+                    blockPaletteStrings.add(blockState.toString()
+                            .replace("Block{", "").replace("}", "")); // e.g. Block{minecraft:oak_fence}[...] to minecraft:oak_fence[...]
+                }
+            } else {
+                Object[] palette = chunkPalette.moonrise$getRawPalette(blockPaletteData);
+                if (palette != null) {
+                    for (Object p : palette) {
+                        if (p == null) continue;
+                        if (!(p instanceof BlockState blockState)) continue;
+                        blockPaletteStrings.add(blockState.toString()
+                                .replace("Block{", "").replace("}", "")); // e.g. Block{minecraft:oak_fence}[...] to minecraft:oak_fence[...]
+                    }
+                }
+            }
+
+            int airIndex = blockPaletteStrings.indexOf("minecraft:air");
+            if (airIndex == -1) {
+                blockPaletteStrings.add("minecraft:air");
+                airIndex = blockPaletteStrings.size() - 1;
+            }
+
+            BitStorage blockBitStorage = blockPaletteData.storage();
+            int blockPaletteSize = blockBitStorage.getSize();
+            blockData = new int[blockPaletteSize];
+
+            for(int index = 0; index < blockPaletteSize; ++index) {
+                boolean included = blockSelector.test(index, chunkX, chunkZ, minSection + sectionI);
+                if (included) {
+                    int paletteIdx = blockBitStorage.get(index);
+                    blockData[index] = paletteIdx;
+                } else {
+                    blockData[index] = airIndex;
+                }
+            }
+
+            // TODO: trim the palette (needed?)
+//                // remove unused blocks from the palette
+//                blockPaletteStrings = Arrays.stream(blockData).distinct().mapToObj(blockPaletteStrings::get).toList();
+        } else {
+            blockPaletteStrings.add(Blocks.AIR.defaultBlockState().toString()
+                    .replace("Block{", "").replace("}", ""));
+        }
+        PalettedContainer.Data<Holder<Biome>> biomePaletteData = ((PalettedContainer<Holder<Biome>>)chunkAccessSection.getBiomes()).data;
+        Object[] biomePalette = biomePaletteData.palette().moonrise$getRawPalette(biomePaletteData);
+        for (Object p : biomePalette) {
+            if (p == null) continue;
+            if (!(p instanceof Holder<?> biomeHolder)) continue;
+            if (!(biomeHolder.value() instanceof Biome biome)) continue;
+            Identifier key = biomeRegistry.getKey(biome);
+            if (key == null) continue;
+            String biomeString = key.getPath();
+            biomePaletteStrings.add(biomeString);
+        }
+
+        BitStorage biomeBitStorage = biomePaletteData.storage();
+        int biomePaletteSize = biomeBitStorage.getSize();
+        biomeData = new int[biomePaletteSize];
+
+        for(int index = 0; index < biomePaletteSize; ++index) {
+            int paletteIdx = biomeBitStorage.get(index);// TODO: use blockselector here
+            biomeData[index] = paletteIdx;
+        }
+
+        return new PolarSection(
+                blockPaletteStrings.toArray(new String[0]), blockData,
+                biomePaletteStrings.toArray(new String[0]), biomeData,
+                PolarSection.LightContent.MISSING, null, // TODO: Provide block light
+                PolarSection.LightContent.MISSING, null
         );
     }
 

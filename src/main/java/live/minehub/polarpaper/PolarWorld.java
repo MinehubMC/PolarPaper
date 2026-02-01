@@ -211,13 +211,11 @@ public class PolarWorld {
 
         for (NewChunkHolder chunkHolder : chunkHolderManager.getChunkHolders()) {
             if (chunkHolder == null) continue;
-            ChunkAccess currentChunk = chunkHolder.getCurrentChunk();
-            if (currentChunk == null) continue;
-
             int chunkX = chunkHolder.chunkX;
             int chunkZ = chunkHolder.chunkZ;
-
             if (!blockSelector.testChunk(chunkX, chunkZ)) continue;
+            ChunkAccess currentChunk = chunkHolder.getCurrentChunk();
+            if (currentChunk == null) continue;
 
             ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
             boolean unsaved = blockSelector == BlockSelector.ALL || !skipUnsaved || currentChunk.isUnsaved(); // if selector is not ALL blocks, we need to update
