@@ -46,35 +46,48 @@ public final class PaletteUtil {
     }
 
     public static long[] pack(int[] ints, int bitsPerEntry) {
-        int intsPerLong = (int) Math.floor(64d / bitsPerEntry);
-        long[] longs = new long[(int) Math.ceil(ints.length / (double) intsPerLong)];
+        final int intsPerLong = 64 / bitsPerEntry;
+        final int intCount = ints.length;
+        final int longCount = (intCount + intsPerLong - 1) / intsPerLong;
 
-        long mask = (1L << bitsPerEntry) - 1L;
-        for (int i = 0; i < longs.length; i++) {
-            for (int intIndex = 0; intIndex < intsPerLong; intIndex++) {
-                int bitIndex = intIndex * bitsPerEntry;
-                int intActualIndex = intIndex + i * intsPerLong;
-                if (intActualIndex < ints.length) {
-                    longs[i] |= (ints[intActualIndex] & mask) << bitIndex;
-                }
+        final long[] longs = new long[longCount];
+        final long mask = (1L << bitsPerEntry) - 1L;
+
+        int baseIndex = 0;
+
+        for (int i = 0; i < longCount; i++) {
+            long value = 0L;
+
+            int remaining = intCount - baseIndex;
+            int entries = Math.min(intsPerLong, remaining);
+
+            for (int j = 0; j < entries; j++) {
+                value |= ((long) ints[baseIndex + j] & mask)
+                        << (j * bitsPerEntry);
             }
+
+            longs[i] = value;
+            baseIndex += entries;
         }
 
         return longs;
     }
 
     public static void unpack(int[] out, long[] in, int bitsPerEntry) {
-        assert in.length != 0: "unpack input array is zero";
+        assert in.length != 0 : "unpack input array is zero";
 
-        var intsPerLong = Math.floor(64d / bitsPerEntry);
-        var intsPerLongCeil = (int) Math.ceil(intsPerLong);
+        final int intsPerLong = 64 / bitsPerEntry;
+        final long mask = (1L << bitsPerEntry) - 1L;
 
-        long mask = (1L << bitsPerEntry) - 1L;
-        for (int i = 0; i < out.length; i++) {
-            int longIndex = i / intsPerLongCeil;
-            int subIndex = i % intsPerLongCeil;
+        int outIndex = 0;
 
-            out[i] = (int) ((in[longIndex] >>> (bitsPerEntry * subIndex)) & mask);
+        for (int longIndex = 0; longIndex < in.length && outIndex < out.length; longIndex++) {
+            long value = in[longIndex];
+
+            for (int subIndex = 0; subIndex < intsPerLong && outIndex < out.length; subIndex++) {
+                out[outIndex++] = (int) (value & mask);
+                value >>>= bitsPerEntry;
+            }
         }
     }
 }
