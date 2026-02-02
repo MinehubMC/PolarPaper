@@ -10,6 +10,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.CoordConversion;
+import live.minehub.polarpaper.util.FoliaUtil;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -200,6 +201,8 @@ public class PolarWorld {
         // TODO: consider offsets
         // TODO: chunk holders should probably be eventually released/removed (config option?)
 
+        if (FoliaUtil.isFolia()) skipUnsaved = false;
+
         ChunkSystemServerLevel chunkSystemServerLevel = ((CraftWorld) world).getHandle();
         ChunkHolderManager chunkHolderManager = chunkSystemServerLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
 
@@ -247,7 +250,7 @@ public class PolarWorld {
                     // (otherwise we don't know if it's blank because its really blank, or because it hasn't generated yet)
                     if (currentChunk.getPersistedStatus().isOrBefore(ChunkStatus.SURFACE)) continue;
                     removeChunkAt(chunkX, chunkZ);
-                    currentChunk.tryMarkSaved();
+                    if (skipUnsaved) currentChunk.tryMarkSaved();
                     continue;
                 }
             } else {
@@ -274,8 +277,9 @@ public class PolarWorld {
             PolarChunk polarChunk = PolarChunk.convert(chunkHolder, polarWorldAccess, blockSelector);
             updateChunkAt(chunkX, chunkZ, polarChunk);
 
-            if (!skipUnsaved) currentChunk.tryMarkSaved();
+            if (skipUnsaved) currentChunk.tryMarkSaved();
         }
+
     }
 
 }

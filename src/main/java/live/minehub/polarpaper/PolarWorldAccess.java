@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Provides access to user world data for the polar loader to get and set user
@@ -90,25 +91,18 @@ public interface PolarWorldAccess {
         public void saveChunkData(@NotNull ChunkAccess chunk,
                                   @NotNull Set<Map.Entry<BlockPos, BlockEntity>> blockEntities,
                                   @NotNull Entity[] entities, @NotNull ByteArrayDataOutput userData) {
+            List<CompletableFuture<PolarEntity>> entityFutures = new ArrayList<>();
             List<PolarEntity> polarEntities = new ArrayList<>();
 
             for (@NotNull Entity entity : entities) {
                 if (entity.getType() == EntityType.PLAYER) continue;
-                byte[] entityBytes = EntityUtil.entityToBytes(entity);
-                if (entityBytes == null) continue;
-                Location entityPos = entity.getLocation();
+                CompletableFuture<PolarEntity> entityFuture = EntityUtil.entityToPolarEntity(entity);
+                entityFutures.add(entityFuture);
+            }
 
-                final var x = ((entityPos.x() % 16) + 16) % 16;
-                final var z = ((entityPos.z() % 16) + 16) % 16;
-
-                polarEntities.add(new PolarEntity(
-                        x,
-                        entityPos.y(),
-                        z,
-                        entityPos.getYaw(),
-                        entityPos.getPitch(),
-                        entityBytes
-                ));
+            for (CompletableFuture<PolarEntity> entityFuture : entityFutures) {
+                PolarEntity polarEntity = entityFuture.join();
+                polarEntities.add(polarEntity);
             }
 
             userData.writeByte(CURRENT_FEATURES_VERSION);

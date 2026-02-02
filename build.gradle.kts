@@ -8,7 +8,7 @@ plugins {
     alias(libs.plugins.hangar.publish)
 }
 
-val developmentVersion = "${libs.versions.minecraft.get()}.2"
+val developmentVersion = "${libs.versions.minecraft.get()}.3"
 
 version = getVersion()
 group = "live.minehub"
@@ -83,6 +83,8 @@ paperPluginYaml {
     version = project.version.toString()
     description = "Polar world format for Paper"
     apiVersion = libs.versions.minecraft.get()
+
+    foliaSupported = true
 
     main = "live.minehub.polarpaper.PolarPaper"
     loader = "live.minehub.polarpaper.PolarPaperLoader"

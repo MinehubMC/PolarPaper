@@ -5,12 +5,14 @@ import com.mojang.logging.LogUtils;
 import live.minehub.polarpaper.PolarEntity;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.util.ExceptionUtil;
+import live.minehub.polarpaper.util.FoliaUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.storage.TagValueOutput;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.entity.CraftEntity;
@@ -83,50 +85,84 @@ public class EntityUtil {
         }
     }
 
-    public static byte @Nullable [] entityToBytes(Entity entity) {
-        if (entity.getType() == EntityType.PLAYER) return null;
-        if (!entity.isPersistent()) return null;
+    public static CompletableFuture<@Nullable PolarEntity> entityToPolarEntity(Entity entity) {
+        return entityToBytes(entity).thenApply(entityBytes -> {
+            if (entityBytes == null) return null;
+            Location entityPos = entity.getLocation();
 
-        net.minecraft.world.entity.Entity nmsEntity = ((CraftEntity) entity).getHandle();
-        ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "serialiseEntity@" + entity.getUniqueId(), LogUtils.getLogger());
-        TagValueOutput tagValueOutput = TagValueOutput.createWithContext(problemReporter, nmsEntity.registryAccess());
+            final var x = ((entityPos.x() % 16) + 16) % 16;
+            final var z = ((entityPos.z() % 16) + 16) % 16;
 
-        boolean successful;
-        try {
-            successful = ((CraftEntity) entity).getHandle().saveAsPassenger(tagValueOutput, true, false, false);
-        } catch (Exception e) {
-            // saveAsPassenger sometimes calls events (e.g. VillagerAcquireTradeEvent), causing errors when called async so try again synchronously
-            CompletableFuture<Boolean> successfulFuture = new CompletableFuture<>();
-            Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
-                try {
-                    boolean successful2 = ((CraftEntity) entity).getHandle().saveAsPassenger(tagValueOutput, true, false, false);
-                    successfulFuture.complete(successful2);
-                } catch (Exception e2) {
-                    PolarPaper.logger().warning("Failed to serialize entity");
-                    ExceptionUtil.log(e2);
-                }
-            });
-            successful = successfulFuture.join();
-        }
-
-        CompoundTag compound = tagValueOutput.buildResult();
-
-        Optional<String> id = compound.getString("id");
-        if (id.isEmpty() || id.get().isBlank() || !successful) return null;
-        compound.putInt("DataVersion", Bukkit.getUnsafe().getDataVersion());
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        DataOutputStream dataOutput = new DataOutputStream(outputStream);
-        try {
-            NbtIo.write(
-                    compound,
-                    dataOutput
+            return new PolarEntity(
+                    x,
+                    entityPos.y(),
+                    z,
+                    entityPos.getYaw(),
+                    entityPos.getPitch(),
+                    entityBytes
             );
-            outputStream.flush();
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
-        }
+        });
+    }
 
-        return outputStream.toByteArray();
+    public static CompletableFuture<byte @Nullable []> entityToBytes(Entity entity) {
+        CompletableFuture<byte @Nullable []> byteArrayFuture = new CompletableFuture<>();
+        FoliaUtil.scheduleOnEntityIfFolia(entity, () -> {
+            if (entity.getType() == EntityType.PLAYER) {
+                byteArrayFuture.complete(null);
+                return;
+            }
+            if (!entity.isPersistent()) {
+                byteArrayFuture.complete(null);
+                return;
+            }
+
+            net.minecraft.world.entity.Entity nmsEntity = ((CraftEntity) entity).getHandle();
+            ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "serialiseEntity@" + entity.getUniqueId(), LogUtils.getLogger());
+            TagValueOutput tagValueOutput = TagValueOutput.createWithContext(problemReporter, nmsEntity.registryAccess());
+
+            boolean successful;
+            try {
+                successful = ((CraftEntity) entity).getHandle().saveAsPassenger(tagValueOutput, true, false, false);
+            } catch (Exception e) {
+                // saveAsPassenger sometimes calls events (e.g. VillagerAcquireTradeEvent), causing errors when called async so try again synchronously
+                CompletableFuture<Boolean> successfulFuture = new CompletableFuture<>();
+
+                entity.getScheduler().run(PolarPaper.getPlugin(), (t) -> {
+                    try {
+                        boolean successful2 = ((CraftEntity) entity).getHandle().saveAsPassenger(tagValueOutput, true, false, false);
+                        successfulFuture.complete(successful2);
+                    } catch (Exception e2) {
+                        PolarPaper.logger().warning("Failed to serialize entity");
+                        ExceptionUtil.log(e2);
+                    }
+                }, null);
+                successful = successfulFuture.join();
+            }
+
+            CompoundTag compound = tagValueOutput.buildResult();
+
+            Optional<String> id = compound.getString("id");
+            if (id.isEmpty() || id.get().isBlank() || !successful) {
+                byteArrayFuture.complete(null);
+                return;
+            }
+            compound.putInt("DataVersion", Bukkit.getUnsafe().getDataVersion());
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            DataOutputStream dataOutput = new DataOutputStream(outputStream);
+            try {
+                NbtIo.write(
+                        compound,
+                        dataOutput
+                );
+                outputStream.flush();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+
+            byteArrayFuture.complete(outputStream.toByteArray());
+        });
+
+        return byteArrayFuture;
     }
 
 }

@@ -61,34 +61,36 @@ public class InfoCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld);
+        Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
+            Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld);
 
-        List<NewChunkHolder> chunkHolders = ((ChunkSystemServerLevel) ((CraftWorld) bukkitWorld).getHandle()).moonrise$getChunkTaskScheduler().chunkHolderManager.getChunkHolders();
+            List<NewChunkHolder> chunkHolders = ((ChunkSystemServerLevel) ((CraftWorld) bukkitWorld).getHandle()).moonrise$getChunkTaskScheduler().chunkHolderManager.getChunkHolders();
 
-        ctx.getSource().getSender().sendMessage(
-                Component.text()
-                        .append(Component.text("Info for ", NamedTextColor.AQUA))
-                        .append(Component.text(bukkitWorld.getName(), NamedTextColor.AQUA))
-                        .append(Component.text(":", NamedTextColor.AQUA))
-                        .append(Component.newline())
-                        .append(Component.text(" Version: ", NamedTextColor.AQUA))
-                        .append(Component.text(polarWorld.version(), NamedTextColor.AQUA))
-                        .append(Component.text(" (", NamedTextColor.AQUA))
-                        .append(Component.text(polarWorld.dataVersion(), NamedTextColor.AQUA))
-                        .append(Component.text(")", NamedTextColor.AQUA))
-                        .append(Component.newline())
-                        .append(Component.text(" Compression: ", NamedTextColor.AQUA))
-                        .append(Component.text(polarWorld.compression().name(), NamedTextColor.AQUA))
-                        .append(Component.newline())
-                        .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
-                        .append(Component.text(config.spawnString(), NamedTextColor.AQUA))
-                        .append(Component.newline())
-                        .append(Component.text(" Saved Chunks: ", NamedTextColor.AQUA))
-                        .append(Component.text(polarWorld.chunks().size(), NamedTextColor.AQUA))
-                        .append(Component.newline())
-                        .append(Component.text(" Chunk Holders: ", NamedTextColor.AQUA))
-                        .append(Component.text(chunkHolders.size(), NamedTextColor.AQUA))
-        );
+            ctx.getSource().getSender().sendMessage(
+                    Component.text()
+                            .append(Component.text("Info for ", NamedTextColor.AQUA))
+                            .append(Component.text(bukkitWorld.getName(), NamedTextColor.AQUA))
+                            .append(Component.text(":", NamedTextColor.AQUA))
+                            .append(Component.newline())
+                            .append(Component.text(" Version: ", NamedTextColor.AQUA))
+                            .append(Component.text(polarWorld.version(), NamedTextColor.AQUA))
+                            .append(Component.text(" (", NamedTextColor.AQUA))
+                            .append(Component.text(polarWorld.dataVersion(), NamedTextColor.AQUA))
+                            .append(Component.text(")", NamedTextColor.AQUA))
+                            .append(Component.newline())
+                            .append(Component.text(" Compression: ", NamedTextColor.AQUA))
+                            .append(Component.text(polarWorld.compression().name(), NamedTextColor.AQUA))
+                            .append(Component.newline())
+                            .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
+                            .append(Component.text(config.spawnString(), NamedTextColor.AQUA))
+                            .append(Component.newline())
+                            .append(Component.text(" Saved Chunks: ", NamedTextColor.AQUA))
+                            .append(Component.text(polarWorld.chunks().size(), NamedTextColor.AQUA))
+                            .append(Component.newline())
+                            .append(Component.text(" Chunk Holders: ", NamedTextColor.AQUA))
+                            .append(Component.text(chunkHolders.size(), NamedTextColor.AQUA))
+            );
+        });
 
         return Command.SINGLE_SUCCESS;
     }
