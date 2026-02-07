@@ -330,9 +330,10 @@ public class Polar {
      */
     public static void saveWorld(World world, PolarWorld polarWorld, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
         boolean sameWorld = PolarWorld.fromWorld(world) == polarWorld;
-        polarWorld.updateChunks(world, polarWorldAccess, blockSelector, sameWorld);
+        Runnable clearRunnable = polarWorld.updateChunks(world, polarWorldAccess, blockSelector, sameWorld);
         byte[] worldBytes = PolarWriter.write(polarWorld);
         polarSource.saveBytes(worldBytes);
+        clearRunnable.run();
     }
 
     @SuppressWarnings("UnstableApiUsage")

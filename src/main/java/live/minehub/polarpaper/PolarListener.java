@@ -30,12 +30,13 @@ public class PolarListener implements Listener {
     public void onChunkPopulate(ChunkPopulateEvent event) {
         PolarWorld polarWorld = PolarWorld.fromWorld(event.getWorld());
         if (polarWorld == null) return;
+        ChunkGenerator generator = event.getWorld().getGenerator();
+        if (!(generator instanceof PolarGenerator polarGenerator)) return;
 
         PolarChunk chunk = polarWorld.chunkAt(event.getChunk().getX(), event.getChunk().getZ());
         if (chunk == null) return;
 
-        ChunkGenerator generator = event.getWorld().getGenerator();
-        if (!(generator instanceof PolarGenerator polarGenerator)) return;
+        polarWorld.removeChunkAt(event.getChunk().getX(), event.getChunk().getZ());
 
         // TODO: chunks still seem to be getting marked unsaved when they shouldn't, worst case is the chunk gets resaved when it didn't need to
         CraftChunk craftChunk = ((CraftChunk) event.getChunk());

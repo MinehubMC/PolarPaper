@@ -84,7 +84,7 @@ public class InfoCommand {
                             .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
                             .append(Component.text(config.spawnString(), NamedTextColor.AQUA))
                             .append(Component.newline())
-                            .append(Component.text(" Saved Chunks: ", NamedTextColor.AQUA))
+                            .append(Component.text(" Held Polar Chunks: ", NamedTextColor.AQUA))
                             .append(Component.text(polarWorld.chunks().size(), NamedTextColor.AQUA))
                             .append(Component.newline())
                             .append(Component.text(" Chunk Holders: ", NamedTextColor.AQUA))

@@ -4,13 +4,12 @@ import ca.spottedleaf.moonrise.patches.chunk_system.level.ChunkSystemServerLevel
 import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
-import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.CoordConversion;
 import live.minehub.polarpaper.util.FoliaUtil;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -23,9 +22,7 @@ import org.bukkit.generator.ChunkGenerator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class PolarWorld {
@@ -129,6 +126,13 @@ public class PolarWorld {
         this.userData = userData;
     }
 
+    public boolean hasChunkAt(int x, int z) {
+        chunksLock.readLock().lock();
+        boolean containsChunk = chunks.containsKey(CoordConversion.chunkIndex(x, z));
+        chunksLock.readLock().unlock();
+        return containsChunk;
+    }
+
     public @Nullable PolarChunk chunkAt(int x, int z) {
         chunksLock.readLock().lock();
         PolarChunk chunk = chunks.getOrDefault(CoordConversion.chunkIndex(x, z), null);
@@ -181,9 +185,10 @@ public class PolarWorld {
      * @see Polar#saveWorld(World, PolarSource)
      * @see BlockSelector#ALL
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
+     * @return runnable to remove chunks that weren't being held before updating. To be ran after using the updated chunks (e.g. saving to file)
      */
-    public void updateChunks(World world, boolean skipUnsaved) {
-        updateChunks(world, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.ALL, skipUnsaved);
+    public Runnable updateChunks(World world, boolean skipUnsaved) {
+        return updateChunks(world, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.ALL, skipUnsaved);
     }
 
     /**
@@ -196,8 +201,9 @@ public class PolarWorld {
      * @see Polar#saveWorld(World, PolarSource)
      * @see BlockSelector#ALL
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
+     * @return runnable to remove chunks that weren't being held before updating. To be ran after using the updated chunks (e.g. saving to file)
      */
-    public void updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean skipUnsaved) {
+    public Runnable updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean skipUnsaved) {
         // TODO: consider offsets
         // TODO: chunk holders should probably be eventually released/removed (config option?)
 
@@ -212,6 +218,8 @@ public class PolarWorld {
             }
         }
 
+        Set<ChunkPos> chunksToUnload = new HashSet<>();
+
         for (NewChunkHolder chunkHolder : chunkHolderManager.getChunkHolders()) {
             if (chunkHolder == null) continue;
             int chunkX = chunkHolder.chunkX;
@@ -221,7 +229,6 @@ public class PolarWorld {
             if (currentChunk == null) continue;
 
             ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
-            boolean unsaved = blockSelector == BlockSelector.ALL || !skipUnsaved || currentChunk.isUnsaved(); // if selector is not ALL blocks, we need to update
 
             boolean onlyPlayers = true;
             if (entityChunk != null) {
@@ -235,8 +242,6 @@ public class PolarWorld {
             }
 
             if (onlyPlayers) { // if contains no entities or the entities are all players (only difference is blocks)
-                if (!unsaved) continue;
-
                 boolean allEmpty = true;
                 for (LevelChunkSection section : currentChunk.getSections()) {
                     if (!section.hasOnlyAir()) {
@@ -253,33 +258,22 @@ public class PolarWorld {
                     if (skipUnsaved) currentChunk.tryMarkSaved();
                     continue;
                 }
-            } else {
-                if (!unsaved) { // if only difference is entities
-                    PolarChunk prevChunk = chunkAt(chunkX, chunkZ);
-                    if (prevChunk == null) continue;
+            }
 
-                    // only update entities
-                    ByteArrayDataOutput userDataOutput = ByteStreams.newDataOutput();
-                    List<net.minecraft.world.entity.Entity> allEntities = entityChunk.getAllEntities();
-                    Entity[] entitiesArray = new Entity[allEntities.size()];
-                    for (int i = 0; i < allEntities.size(); i++) {
-                        entitiesArray[i] = allEntities.get(i).getBukkitEntity();
-                    }
-                    polarWorldAccess.saveChunkData(currentChunk, currentChunk.blockEntities.entrySet(), entitiesArray, userDataOutput);
-                    byte[] userData = userDataOutput.toByteArray();
-
-                    updateChunkAt(chunkX, chunkZ, prevChunk.withUserData(userData));
-
-                    continue;
-                }
+            // if was not held before saving - already generated, should be unloaded after using the chunks
+            if (!hasChunkAt(chunkX, chunkZ)) {
+                chunksToUnload.add(new ChunkPos(chunkX, chunkZ));
             }
 
             PolarChunk polarChunk = PolarChunk.convert(chunkHolder, polarWorldAccess, blockSelector);
             updateChunkAt(chunkX, chunkZ, polarChunk);
-
-            if (skipUnsaved) currentChunk.tryMarkSaved();
         }
 
+        return () -> {
+            for (ChunkPos chunkPos : chunksToUnload) {
+                removeChunkAt(chunkPos.x, chunkPos.z);
+            }
+        };
     }
 
 }
