@@ -87,6 +87,19 @@ public class Polar {
     }
 
     /**
+     * Load a polar world using the source defined in the config
+     *
+     * @param worldName The name of the world to load
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     * @see FilePolarSource#defaultFolder(String)
+     */
+    public static CompletableFuture<@Nullable World> loadWorld(@NotNull PolarSource source, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
+        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
+        return loadWorld(source, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
+    }
+
+    /**
      * Load and create a polar world
      *
      * @param source The source to load the polar world from
@@ -96,10 +109,7 @@ public class Polar {
      * @see FilePolarSource#defaultFolder(String)
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public static CompletableFuture<@Nullable World> loadWorld(@NotNull PolarSource source, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
-        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
-        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
-
+    public static CompletableFuture<@Nullable World> loadWorld(@NotNull PolarSource source, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
         CompletableFuture<@Nullable World> future = new CompletableFuture<>();
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), task -> {
@@ -116,6 +126,7 @@ public class Polar {
                     createWorld(polarWorld, worldName, config, worldAccess).thenAccept(future::complete);
                 });
             } catch (Exception e) {
+                PolarPaper.logger().warning("Exception while loading world: " + worldName);
                 ExceptionUtil.log(e);
                 future.complete(null);
             }
@@ -329,11 +340,9 @@ public class Polar {
      * @see BlockSelector#ALL
      */
     public static void saveWorld(World world, PolarWorld polarWorld, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
-        boolean sameWorld = PolarWorld.fromWorld(world) == polarWorld;
-        Runnable clearRunnable = polarWorld.updateChunks(world, polarWorldAccess, blockSelector, sameWorld);
-        byte[] worldBytes = PolarWriter.write(polarWorld);
+        PolarWorld newPolarWorld = polarWorld.updateChunks(world, polarWorldAccess, blockSelector);
+        byte[] worldBytes = PolarWriter.write(newPolarWorld);
         polarSource.saveBytes(worldBytes);
-        clearRunnable.run();
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -349,7 +358,6 @@ public class Polar {
 
         Preconditions.checkState(craftServer.getServer().getAllLevels().iterator().hasNext(), "Cannot create additional worlds on STARTUP");
         //Preconditions.checkState(!this.console.isIteratingOverLevels, "Cannot create a world while worlds are being ticked"); // Paper - Cat - Temp disable. We'll see how this goes.
-        Preconditions.checkArgument(creator != null, "WorldCreator cannot be null");
 
         String name = creator.name();
         ChunkGenerator chunkGenerator = creator.generator();

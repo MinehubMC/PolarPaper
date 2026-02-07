@@ -5,7 +5,6 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.source.FilePolarSource;
-import live.minehub.polarpaper.util.CoordConversion;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -59,8 +58,6 @@ public class ConvertCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        Chunk playerChunk = player.getChunk();
-
         long before = System.nanoTime();
 
         ctx.getSource().getSender().sendMessage(
@@ -72,18 +69,15 @@ public class ConvertCommand {
 
         Polar.updateConfig(bukkitWorld, newWorldName);
 
-        int minHeight = bukkitWorld.getMinHeight();
-        int maxHeight = bukkitWorld.getMaxHeight() - 1;
-        PolarWorld newPolarWorld = new PolarWorld(
-                (byte) CoordConversion.sectionIndex(minHeight),
-                (byte) CoordConversion.sectionIndex(maxHeight)
-        );
-
+        Chunk playerChunk = player.getChunk();
         int offsetX = playerChunk.getX();
         int offsetZ = playerChunk.getZ();
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            Polar.saveWorld(bukkitWorld, newPolarWorld, FilePolarSource.defaultFolder(newWorldName), PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.square(offsetX, offsetZ, chunkRadius));
+            PolarWorld newPolarWorld = PolarWorld.fromWorld(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.square(offsetX, offsetZ, chunkRadius));
+            byte[] polarBytes = PolarWriter.write(newPolarWorld);
+            FilePolarSource.defaultFolder(newWorldName).saveBytes(polarBytes);
+
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             ctx.getSource().getSender().sendMessage(
                     Component.text()

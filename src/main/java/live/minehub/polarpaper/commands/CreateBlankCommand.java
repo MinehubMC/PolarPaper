@@ -8,7 +8,10 @@ import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -40,7 +43,16 @@ public class CreateBlankCommand {
                 Component.text()
                         .append(Component.text("Created blank world '", NamedTextColor.AQUA))
                         .append(Component.text(worldName, NamedTextColor.AQUA))
-                        .append(Component.text("'", NamedTextColor.AQUA))
+                        .append(Component.text("'. ", NamedTextColor.AQUA))
+                        .append(Component.text("Use ", NamedTextColor.AQUA))
+                        .append(
+                                Component.text()
+                                        .append(Component.text("/polar goto ", NamedTextColor.WHITE))
+                                        .append(Component.text(worldName, NamedTextColor.WHITE))
+                                        .clickEvent(ClickEvent.runCommand("/polar goto " + worldName))
+                                        .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
+                                        .decorate(TextDecoration.UNDERLINED))
+                        .append(Component.text(" to teleport now", NamedTextColor.AQUA))
         );
 
 

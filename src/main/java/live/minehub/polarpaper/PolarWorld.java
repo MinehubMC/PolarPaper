@@ -6,8 +6,6 @@ import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManage
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.CoordConversion;
-import live.minehub.polarpaper.util.FoliaUtil;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -20,7 +18,10 @@ import org.bukkit.generator.ChunkGenerator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PolarWorld {
@@ -143,13 +144,13 @@ public class PolarWorld {
         return chunks.values();
     }
 
-    public int nonEmptyChunks() {
-        int count = 0;
+    public @NotNull List<PolarChunk> nonEmptyChunks() {
+        List<PolarChunk> nonEmptyChunks = new ArrayList<>();
         for (PolarChunk chunk : chunks()) {
             if (chunk.isEmpty()) continue;
-            count++;
+            nonEmptyChunks.add(chunk);
         }
-        return count;
+        return nonEmptyChunks;
     }
 
     /**
@@ -165,47 +166,74 @@ public class PolarWorld {
     }
 
     /**
-     * Updates the chunks in this PolarWorld
+     * Creates a new PolarWorld by converting chunks from the supplied bukkit world
+     * <p>
+     * Includes chunks already in this PolarWorld
      *
      * @param world The bukkit world to retrieve the updated chunks from
-     * @param skipUnsaved Skips already saved chunks to make updating faster (false for converting)
      * @see Polar#saveWorld(World, PolarSource)
-     * @see BlockSelector#ALL
-     * @see PolarWorldAccess#POLAR_PAPER_FEATURES
-     * @return runnable to remove chunks that weren't being held before updating. To be ran after using the updated chunks (e.g. saving to file)
      */
-    public Runnable updateChunks(World world, boolean skipUnsaved) {
-        return updateChunks(world, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.ALL, skipUnsaved);
+    public PolarWorld updateChunks(World world) {
+        return updateChunks(world, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.ALL);
     }
 
     /**
-     * Updates the chunks in this PolarWorld
+     * Creates a new PolarWorld by converting chunks from the supplied bukkit world
+     * <p>
+     * Includes chunks already in this PolarWorld
+     *
+     * @param world The bukkit world to retrieve the updated chunks from
+     * @see Polar#saveWorld(World, PolarSource)
+     * @see BlockSelector#ALL
+     * @see PolarWorldAccess#POLAR_PAPER_FEATURES
+     */
+    public PolarWorld updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
+        return fromWorld(world, polarWorldAccess, blockSelector, this.nonEmptyChunks());
+    }
+
+    /**
+     * Creates a new PolarWorld by converting chunks from the supplied bukkit world
      *
      * @param world The bukkit world to retrieve the updated chunks from
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
-     * @param skipUnsaved Skips already saved chunks to make updating faster (false for converting)
      * @see Polar#saveWorld(World, PolarSource)
      * @see BlockSelector#ALL
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
-     * @return runnable to remove chunks that weren't being held before updating. To be ran after using the updated chunks (e.g. saving to file)
      */
-    public Runnable updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean skipUnsaved) {
+    public static PolarWorld fromWorld(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
+        return fromWorld(world, polarWorldAccess, blockSelector, List.of());
+    }
+
+    /**
+     * Creates a new PolarWorld by converting chunks from the supplied bukkit worldit sUpdates the chunks in this PolarWorld
+     *
+     * @param world The bukkit world to retrieve the updated chunks from
+     * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
+     * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
+     * @param includedChunks PolarChunks to add to the world
+     * @see Polar#saveWorld(World, PolarSource)
+     * @see BlockSelector#ALL
+     * @see PolarWorldAccess#POLAR_PAPER_FEATURES
+     */
+    public static PolarWorld fromWorld(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Collection<PolarChunk> includedChunks) {
         // TODO: consider offsets
         // TODO: chunk holders should probably be eventually released/removed (config option?)
 
-        if (FoliaUtil.isFolia()) skipUnsaved = false;
+        int minHeight = world.getMinHeight();
+        int maxHeight = world.getMaxHeight() - 1;
+        PolarWorld newPolarWorld = new PolarWorld(
+                (byte) CoordConversion.sectionIndex(minHeight),
+                (byte) CoordConversion.sectionIndex(maxHeight)
+        );
 
         ChunkSystemServerLevel chunkSystemServerLevel = ((CraftWorld) world).getHandle();
         ChunkHolderManager chunkHolderManager = chunkSystemServerLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
 
-        for (PolarChunk chunk : new ArrayList<>(chunks())) {
-            if (!blockSelector.testChunk(chunk.x(), chunk.z())) {
-                removeChunkAt(chunk.x(), chunk.z());
-            }
+        for (PolarChunk chunk : includedChunks) {
+            if (!blockSelector.testChunk(chunk.x(), chunk.z())) continue;
+            newPolarWorld.updateChunkAt(chunk.x(), chunk.z(), chunk);
         }
-
-        Set<ChunkPos> chunksToUnload = new HashSet<>();
 
         for (NewChunkHolder chunkHolder : chunkHolderManager.getChunkHolders()) {
             if (chunkHolder == null) continue;
@@ -214,6 +242,10 @@ public class PolarWorld {
             if (!blockSelector.testChunk(chunkX, chunkZ)) continue;
             ChunkAccess currentChunk = chunkHolder.getCurrentChunk();
             if (currentChunk == null) continue;
+            if (currentChunk.getPersistedStatus().isBefore(ChunkStatus.FULL)) {
+                System.out.println("ignoring chunk " + chunkX + " " + chunkZ);
+                continue;
+            }
 
             ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
 
@@ -221,10 +253,9 @@ public class PolarWorld {
             if (entityChunk != null) {
                 for (net.minecraft.world.entity.Entity nmsEntity : entityChunk.getAllEntities()) {
                     Entity entity = nmsEntity.getBukkitEntity();
-                    if (entity.getType() != EntityType.PLAYER) {
-                        onlyPlayers = false;
-                        break;
-                    }
+                    if (entity.getType() == EntityType.PLAYER) continue;
+                    onlyPlayers = false;
+                    break;
                 }
             }
 
@@ -238,29 +269,16 @@ public class PolarWorld {
                 }
 
                 if (allEmpty) {
-                    // check if the chunk has generated the surface yet
-                    // (otherwise we don't know if it's blank because its really blank, or because it hasn't generated yet)
-                    if (currentChunk.getPersistedStatus().isOrBefore(ChunkStatus.SURFACE)) continue;
-                    removeChunkAt(chunkX, chunkZ);
-                    if (skipUnsaved) currentChunk.tryMarkSaved();
+                    newPolarWorld.removeChunkAt(chunkX, chunkZ);
                     continue;
                 }
             }
 
-            // if was not held before saving - already generated, should be unloaded after using the chunks
-            if (!hasChunkAt(chunkX, chunkZ)) {
-                chunksToUnload.add(new ChunkPos(chunkX, chunkZ));
-            }
-
             PolarChunk polarChunk = PolarChunk.convert(chunkHolder, polarWorldAccess, blockSelector);
-            updateChunkAt(chunkX, chunkZ, polarChunk);
+            newPolarWorld.updateChunkAt(chunkX, chunkZ, polarChunk);
         }
 
-        return () -> {
-            for (ChunkPos chunkPos : chunksToUnload) {
-                removeChunkAt(chunkPos.x, chunkPos.z);
-            }
-        };
+        return newPolarWorld;
     }
 
 }

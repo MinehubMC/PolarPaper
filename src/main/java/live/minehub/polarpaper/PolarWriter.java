@@ -7,6 +7,8 @@ import live.minehub.polarpaper.util.ByteArrayUtil;
 import live.minehub.polarpaper.util.PaletteUtil;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
+
 import static live.minehub.polarpaper.util.ByteArrayUtil.*;
 
 public class PolarWriter {
@@ -28,9 +30,9 @@ public class PolarWriter {
         writeVarInt(world.userData().length, bb);
         bb.writeBytes(world.userData());
 
-        writeVarInt(world.nonEmptyChunks(), bb);
-        for (PolarChunk chunk : world.chunks()) {
-            if (chunk.isEmpty()) continue;
+        List<PolarChunk> nonEmptyChunks = world.nonEmptyChunks();
+        writeVarInt(nonEmptyChunks.size(), bb);
+        for (PolarChunk chunk : nonEmptyChunks) {
             writeChunk(bb, chunk, world.maxSection() - world.minSection() + 1);
         }
 
