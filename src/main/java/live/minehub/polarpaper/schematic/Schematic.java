@@ -7,6 +7,7 @@ import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.userdata.WorldUserData;
 import live.minehub.polarpaper.util.BlockUtil;
 import live.minehub.polarpaper.util.CoordConversion;
+import live.minehub.polarpaper.util.PaletteUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
@@ -109,7 +110,12 @@ public class Schematic {
 
     private static void pasteSection(PolarSection polarSection, World world, BlockModifier blockModifier, Vector3i offset, IgnoreAir ignoreAir) {
         // Blocks
-        int[] blockData = polarSection.blockData();
+        long[] blockDataLongs = polarSection.blockData();
+        int[] blockData = new int[4096];
+        if (blockDataLongs != null) {
+            int bits = PaletteUtil.getBitsForLongLength(blockDataLongs.length);
+            PaletteUtil.unpack(blockData, blockDataLongs, bits);
+        }
 
         String[] rawBlockPalette = polarSection.blockPalette();
         BlockState[] materialPalette = new BlockState[rawBlockPalette.length];

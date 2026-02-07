@@ -4,8 +4,6 @@ import ca.spottedleaf.moonrise.patches.chunk_system.level.ChunkSystemServerLevel
 import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
-import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.CoordConversion;
 import live.minehub.polarpaper.util.FoliaUtil;
@@ -23,7 +21,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PolarWorld {
 
@@ -53,8 +51,7 @@ public class PolarWorld {
     private byte @NotNull [] userData;
 
     // Chunk data
-    private final Long2ObjectMap<PolarChunk> chunks = new Long2ObjectOpenHashMap<>();
-    private final ReentrantReadWriteLock chunksLock = new ReentrantReadWriteLock();
+    private final Map<Long, PolarChunk> chunks = new ConcurrentHashMap<>();
 
     public PolarWorld(byte minSection, byte maxSection) {
         this(LATEST_VERSION, Bukkit.getUnsafe().getDataVersion(), DEFAULT_COMPRESSION, minSection, maxSection, new byte[0], List.of());
@@ -127,29 +124,19 @@ public class PolarWorld {
     }
 
     public boolean hasChunkAt(int x, int z) {
-        chunksLock.readLock().lock();
-        boolean containsChunk = chunks.containsKey(CoordConversion.chunkIndex(x, z));
-        chunksLock.readLock().unlock();
-        return containsChunk;
+        return chunks.containsKey(CoordConversion.chunkIndex(x, z));
     }
 
     public @Nullable PolarChunk chunkAt(int x, int z) {
-        chunksLock.readLock().lock();
-        PolarChunk chunk = chunks.getOrDefault(CoordConversion.chunkIndex(x, z), null);
-        chunksLock.readLock().unlock();
-        return chunk;
+        return chunks.getOrDefault(CoordConversion.chunkIndex(x, z), null);
     }
 
     public void removeChunkAt(int x, int z) {
-        chunksLock.writeLock().lock();
         chunks.remove(CoordConversion.chunkIndex(x, z));
-        chunksLock.writeLock().unlock();
     }
 
     public void updateChunkAt(int x, int z, @NotNull PolarChunk chunk) {
-        chunksLock.writeLock().lock();
         chunks.put(CoordConversion.chunkIndex(x, z), chunk);
-        chunksLock.writeLock().unlock();
     }
 
     public @NotNull Collection<PolarChunk> chunks() {

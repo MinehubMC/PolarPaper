@@ -164,8 +164,8 @@ public record PolarChunk(
     }
 
     private static PolarSection convertSection(int chunkX, int chunkZ, LevelChunkSection chunkAccessSection, Registry<Biome> biomeRegistry, BlockSelector blockSelector, int minSection, int sectionI) {
-        int[] blockData = null;
-        int[] biomeData;
+        long[] blockData = null;
+        long[] biomeData;
 
         List<String> blockPaletteStrings = new ArrayList<>();
         List<String> biomePaletteStrings = new ArrayList<>();
@@ -196,19 +196,15 @@ public record PolarChunk(
                 airIndex = blockPaletteStrings.size() - 1;
             }
 
-            BitStorage blockBitStorage = blockPaletteData.storage();
-            int blockPaletteSize = blockBitStorage.getSize();
-            blockData = new int[blockPaletteSize];
-
-            for(int index = 0; index < blockPaletteSize; ++index) {
+            // TODO: measure time impact of this
+            BitStorage blockBitStorage = blockPaletteData.storage().copy();
+            for (int index = 0; index < blockBitStorage.getSize(); ++index) {
                 boolean included = blockSelector.test(index, chunkX, chunkZ, minSection + sectionI);
-                if (included) {
-                    int paletteIdx = blockBitStorage.get(index);
-                    blockData[index] = paletteIdx;
-                } else {
-                    blockData[index] = airIndex;
-                }
+                if (included) continue;
+                blockBitStorage.set(index, airIndex);
             }
+
+            blockData = blockBitStorage.getRaw();
 
             // TODO: trim the palette (needed?)
 //                // remove unused blocks from the palette
@@ -230,13 +226,7 @@ public record PolarChunk(
         }
 
         BitStorage biomeBitStorage = biomePaletteData.storage();
-        int biomePaletteSize = biomeBitStorage.getSize();
-        biomeData = new int[biomePaletteSize];
-
-        for(int index = 0; index < biomePaletteSize; ++index) {
-            int paletteIdx = biomeBitStorage.get(index);// TODO: use blockselector here
-            biomeData[index] = paletteIdx;
-        }
+        biomeData = biomeBitStorage.getRaw();
 
         return new PolarSection(
                 blockPaletteStrings.toArray(new String[0]), blockData,

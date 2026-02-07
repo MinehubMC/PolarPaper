@@ -101,9 +101,7 @@ public class PolarWriter {
         writeStringArray(blockPalette, bb);
         if (blockPalette.length > 1) {
             var blockData = section.blockData();
-            var bitsPerEntry = (int) Math.ceil(Math.log(blockPalette.length) / Math.log(2));
-            if (bitsPerEntry < 1) bitsPerEntry = 1;
-            writeLongArray(PaletteUtil.pack(blockData, bitsPerEntry), bb);
+            writeLongArray(blockData, bb);
         }
 
         // Biomes
@@ -111,9 +109,7 @@ public class PolarWriter {
         writeStringArray(biomePalette, bb);
         if (biomePalette.length > 1) {
             var biomeData = section.biomeData();
-            var bitsPerEntry = (int) Math.ceil(Math.log(biomePalette.length) / Math.log(2));
-            if (bitsPerEntry < 1) bitsPerEntry = 1;
-            writeLongArray(PaletteUtil.pack(biomeData, bitsPerEntry), bb);
+            writeLongArray(biomeData, bb);
         }
 
         // Light

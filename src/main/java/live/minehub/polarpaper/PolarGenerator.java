@@ -53,7 +53,7 @@ public class PolarGenerator extends ChunkGenerator {
         for (PolarSection section : chunk.sections()) {
             LevelChunkSection chunkAccessSection = chunkAccess.getSection(i++);
 
-            loadSection(section, chunkAccess, chunkAccessSection);
+            loadSection(section, chunkAccessSection);
         }
 
         // TODO: load light
@@ -91,9 +91,9 @@ public class PolarGenerator extends ChunkGenerator {
         chunkAccess.blockEntities.put(blockPos, blockEntity);
     }
 
-    private void loadSection(@NotNull PolarSection section, @NotNull ChunkAccess chunkAccess, LevelChunkSection chunkAccessSection) {
+    private void loadSection(@NotNull PolarSection section, LevelChunkSection chunkAccessSection) {
         // Blocks
-        int[] blockData = section.blockData();
+        long[] blockData = section.blockData();
 
         String[] rawBlockPalette = section.blockPalette();
         BlockState[] materialPalette = new BlockState[rawBlockPalette.length];
@@ -108,7 +108,10 @@ public class PolarGenerator extends ChunkGenerator {
 
         PalettedContainer<BlockState> states = chunkAccessSection.getStates();
 
-        var bitsPerEntry = (int) Math.ceil(Math.log(rawBlockPalette.length) / Math.log(2));
+        int bitsPerEntry = (int) Math.ceil(Math.log(rawBlockPalette.length) / Math.log(2));
+        if (blockData != null) {
+            bitsPerEntry = PaletteUtil.getBitsForLongLength(blockData.length);
+        }
 
         if (blockData == null) {
             if (materialPalette.length == 1) {
@@ -124,11 +127,24 @@ public class PolarGenerator extends ChunkGenerator {
                     PaletteUtil.createPalette(0, Arrays.asList(materialPalette))
             );
         } else {
-            states.data = new PalettedContainer.Data<>(
-                    PaletteUtil.getConfigurationForBitCount(bitsPerEntry),
-                    new SimpleBitStorage(Math.max(4, bitsPerEntry), blockData.length, blockData),
-                    PaletteUtil.createPalette(bitsPerEntry, Arrays.asList(materialPalette))
-            );
+            if (4 > bitsPerEntry) {
+                System.out.println("packing and unpacking");
+                int[] unpacked = new int[4096];
+                PaletteUtil.unpack(unpacked, blockData, bitsPerEntry);
+                long[] newLongs = PaletteUtil.pack(unpacked, 4);
+
+                states.data = new PalettedContainer.Data<>(
+                        PaletteUtil.getConfigurationForBitCount(bitsPerEntry),
+                        new SimpleBitStorage(4, 4096, newLongs),
+                        PaletteUtil.createPalette(bitsPerEntry, Arrays.asList(materialPalette))
+                );
+            } else {
+                states.data = new PalettedContainer.Data<>(
+                        PaletteUtil.getConfigurationForBitCount(bitsPerEntry),
+                        new SimpleBitStorage(Math.max(4, bitsPerEntry), 4096, blockData),
+                        PaletteUtil.createPalette(bitsPerEntry, Arrays.asList(materialPalette))
+                );
+            }
         }
 
         chunkAccessSection.recalcBlockCounts();

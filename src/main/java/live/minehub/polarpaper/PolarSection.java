@@ -24,10 +24,10 @@ public class PolarSection {
     private final boolean empty;
 
     private final String @NotNull [] blockPalette;
-    private final int @Nullable [] blockData;
+    private final long @Nullable [] blockData;
 
     private final String @NotNull [] biomePalette;
-    private final int @Nullable [] biomeData;
+    private final long @Nullable [] biomeData;
 
     private final LightContent blockLightContent;
     private final byte @Nullable [] blockLight;
@@ -49,8 +49,8 @@ public class PolarSection {
     }
 
     public PolarSection(
-            String @NotNull [] blockPalette, int @Nullable [] blockData,
-            String @NotNull [] biomePalette, int @Nullable [] biomeData,
+            String @NotNull [] blockPalette, long @Nullable [] blockData,
+            String @NotNull [] biomePalette, long @Nullable [] biomeData,
             @NotNull LightContent blockLightContent, byte @Nullable [] blockLight,
             @NotNull LightContent skyLightContent, byte @Nullable [] skyLight
     ) {
@@ -79,7 +79,7 @@ public class PolarSection {
      * Returns the uncompressed palette data. Each int corresponds to an index in the palette.
      * Always has a length of 4096.
      */
-    public int[] blockData() {
+    public long[] blockData() {
         assert blockData != null : "must check length of blockPalette() before using blockData()";
         return blockData;
     }
@@ -92,7 +92,7 @@ public class PolarSection {
      * Returns the uncompressed palette data. Each int corresponds to an index in the palette.
      * Always has a length of 256.
      */
-    public int[] biomeData() {
+    public long[] biomeData() {
         assert biomeData != null : "must check length of biomePalette() before using biomeData()";
         return biomeData;
     }

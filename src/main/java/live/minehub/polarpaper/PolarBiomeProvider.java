@@ -3,6 +3,7 @@ package live.minehub.polarpaper;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
 import live.minehub.polarpaper.util.CoordConversion;
+import live.minehub.polarpaper.util.PaletteUtil;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Registry;
 import org.bukkit.block.Biome;
@@ -49,7 +50,7 @@ public class PolarBiomeProvider extends BiomeProvider {
             return parseBiome(rawBiomePalette[0]);
         }
 
-        int[] biomeDataArray = section.biomeData();
+        long[] biomeDataArray = section.biomeData();
         if (biomeDataArray == null) return defaultBiome;
 
         int localX = CoordConversion.globalToSectionRelative(x);
@@ -58,7 +59,9 @@ public class PolarBiomeProvider extends BiomeProvider {
 
         int index = localX / 4 + (localZ / 4) * 4 + (localY / 4) * 16;
 
-        int biomeData = biomeDataArray[index];
+        int bits = Math.max(1, PaletteUtil.getBitsForLongLength(biomeDataArray.length));
+        int biomeData = PaletteUtil.getFromPalette(biomeDataArray, index, bits);
+
         return parseBiome(rawBiomePalette[biomeData]);
     }
 

@@ -1,5 +1,6 @@
 package live.minehub.polarpaper.util;
 
+import ca.spottedleaf.concurrentutil.util.IntegerUtil;
 import net.minecraft.world.level.chunk.*;
 
 import java.util.List;
@@ -11,9 +12,6 @@ public final class PaletteUtil {
     private static final Palette.Factory LINEAR_PALETTE_FACTORY = LinearPalette::create;
     private static final Palette.Factory HASHMAP_PALETTE_FACTORY = HashMapPalette::create;
     static final Configuration ZERO_BITS = new Configuration.Simple(SINGLE_VALUE_PALETTE_FACTORY, 0);
-    //    static final Configuration ONE_BIT_LINEAR = new Configuration.Simple(LINEAR_PALETTE_FACTORY, 1);
-//    static final Configuration TWO_BITS_LINEAR = new Configuration.Simple(LINEAR_PALETTE_FACTORY, 2);
-//    static final Configuration THREE_BITS_LINEAR = new Configuration.Simple(LINEAR_PALETTE_FACTORY, 3);
     static final Configuration FOUR_BITS_LINEAR = new Configuration.Simple(LINEAR_PALETTE_FACTORY, 4);
     static final Configuration FIVE_BITS_HASHMAP = new Configuration.Simple(HASHMAP_PALETTE_FACTORY, 5);
     static final Configuration SIX_BITS_HASHMAP = new Configuration.Simple(HASHMAP_PALETTE_FACTORY, 6);
@@ -90,4 +88,29 @@ public final class PaletteUtil {
             }
         }
     }
+
+    private static final int[] BETTER_MAGIC = new int[33];
+    static {
+        for(int bits = 1; bits < BETTER_MAGIC.length; ++bits) {
+            BETTER_MAGIC[bits] = (int) IntegerUtil.getUnsignedDivisorMagic(64L / (long)bits, 20);
+        }
+    }
+
+    /**
+     * Gets the uncompressed int from a compressed/packed long array
+     */
+    public static int getFromPalette(long[] data, int index, int bits) {
+        int mulBits = 64 / bits * bits;
+        long mask = (1L << bits) - 1L;
+        int magic = BETTER_MAGIC[bits];
+        int full = magic * index;
+        int divQ = full >>> 20;
+        int divR = (full & 1048575) * mulBits >>> 20;
+        return (int)(data[divQ] >>> divR & mask);
+    }
+
+    public static int getBitsForLongLength(int longLength) {
+        return (longLength * 64) / 4096;
+    }
+
 }

@@ -177,23 +177,15 @@ public class PolarReader {
                 }
             }
         }
-        int[] blockData = null;
+        long[] blockData = null;
         if (blockPalette.length > 1) {
-            blockData = new int[PolarSection.BLOCK_PALETTE_SIZE];
-
-            long[] rawBlockData = getLongArray(bb);
-            int bitsPerEntry = (int) Math.ceil(Math.log(blockPalette.length) / Math.log(2));
-            PaletteUtil.unpack(blockData, rawBlockData, bitsPerEntry);
+            blockData = getLongArray(bb);
         }
 
         String[] biomePalette = getStringList(bb, MAX_BIOME_PALETTE_SIZE);
-        int[] biomeData = null;
+        long[] biomeData = null;
         if (biomePalette.length > 1) {
-            biomeData = new int[PolarSection.BIOME_PALETTE_SIZE];
-
-            long[] rawBiomeData = getLongArray(bb);
-            int bitsPerEntry = (int) Math.ceil(Math.log(biomePalette.length) / Math.log(2));
-            PaletteUtil.unpack(biomeData, rawBiomeData, bitsPerEntry);
+            biomeData = getLongArray(bb);
         }
 
         byte[] blockLight = null;
