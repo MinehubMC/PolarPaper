@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.util;
 
 import ca.spottedleaf.concurrentutil.util.IntegerUtil;
+import live.minehub.polarpaper.PolarSection;
 import net.minecraft.world.level.chunk.*;
 
 import java.util.List;
@@ -110,7 +111,7 @@ public final class PaletteUtil {
     }
 
     public static int getBitsForLongLength(int longLength) {
-        return (longLength * 64) / 4096;
+        return (longLength * 64) / PolarSection.BLOCK_PALETTE_SIZE;
     }
 
 }

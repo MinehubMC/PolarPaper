@@ -123,25 +123,24 @@ public class PolarGenerator extends ChunkGenerator {
         if (blockData == null || bitsPerEntry == 0) {
             states.data = new PalettedContainer.Data<>(
                     PaletteUtil.getConfigurationForBitCount(0),
-                    new ZeroBitStorage(4096),
+                    new ZeroBitStorage(PolarSection.BLOCK_PALETTE_SIZE),
                     PaletteUtil.createPalette(0, Arrays.asList(materialPalette))
             );
         } else {
             if (4 > bitsPerEntry) {
-                System.out.println("packing and unpacking");
-                int[] unpacked = new int[4096];
+                int[] unpacked = new int[PolarSection.BLOCK_PALETTE_SIZE];
                 PaletteUtil.unpack(unpacked, blockData, bitsPerEntry);
                 long[] newLongs = PaletteUtil.pack(unpacked, 4);
 
                 states.data = new PalettedContainer.Data<>(
                         PaletteUtil.getConfigurationForBitCount(bitsPerEntry),
-                        new SimpleBitStorage(4, 4096, newLongs),
+                        new SimpleBitStorage(4, PolarSection.BLOCK_PALETTE_SIZE, newLongs),
                         PaletteUtil.createPalette(bitsPerEntry, Arrays.asList(materialPalette))
                 );
             } else {
                 states.data = new PalettedContainer.Data<>(
                         PaletteUtil.getConfigurationForBitCount(bitsPerEntry),
-                        new SimpleBitStorage(Math.max(4, bitsPerEntry), 4096, blockData),
+                        new SimpleBitStorage(Math.max(4, bitsPerEntry), PolarSection.BLOCK_PALETTE_SIZE, blockData),
                         PaletteUtil.createPalette(bitsPerEntry, Arrays.asList(materialPalette))
                 );
             }

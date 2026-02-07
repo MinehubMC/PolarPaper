@@ -111,7 +111,7 @@ public class Schematic {
     private static void pasteSection(PolarSection polarSection, World world, BlockModifier blockModifier, Vector3i offset, IgnoreAir ignoreAir) {
         // Blocks
         long[] blockDataLongs = polarSection.blockData();
-        int[] blockData = new int[4096];
+        int[] blockData = new int[PolarSection.BLOCK_PALETTE_SIZE];
         if (blockDataLongs != null) {
             int bits = PaletteUtil.getBitsForLongLength(blockDataLongs.length);
             PaletteUtil.unpack(blockData, blockDataLongs, bits);
