@@ -1,8 +1,9 @@
 package live.minehub.polarpaper;
 
 import com.github.luben.zstd.Zstd;
-import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import live.minehub.polarpaper.util.ByteArrayUtil;
 import live.minehub.polarpaper.util.PaletteUtil;
 import org.jetbrains.annotations.NotNull;
 
@@ -20,12 +21,12 @@ public class PolarWriter {
     }
 
     public static byte[] write(@NotNull PolarWorld world, @NotNull PolarDataConverter dataConverter) {
-        ByteArrayDataOutput bb = ByteStreams.newDataOutput();
+        ByteBuf bb = Unpooled.directBuffer();
 
-        bb.write(world.minSection());
-        bb.write(world.maxSection());
+        bb.writeByte(world.minSection());
+        bb.writeByte(world.maxSection());
         writeVarInt(world.userData().length, bb);
-        bb.write(world.userData());
+        bb.writeBytes(world.userData());
 
         writeVarInt(world.nonEmptyChunks(), bb);
         for (PolarChunk chunk : world.chunks()) {
@@ -33,30 +34,30 @@ public class PolarWriter {
             writeChunk(bb, chunk, world.maxSection() - world.minSection() + 1);
         }
 
-        byte[] contentBytes = bb.toByteArray();
+        byte[] contentBytes = ByteArrayUtil.outputArray(bb);
 
 
         // Create final buffer
-        ByteArrayDataOutput finalBB = ByteStreams.newDataOutput();
+        ByteBuf finalBB = Unpooled.directBuffer();
         finalBB.writeInt(PolarWorld.MAGIC_NUMBER);
         finalBB.writeShort(PolarWorld.LATEST_VERSION);
         writeVarInt(dataConverter.dataVersion(), finalBB);
-        finalBB.write(world.compression().ordinal());
+        finalBB.writeByte(world.compression().ordinal());
         switch (world.compression()) {
             case NONE -> {
                 writeVarInt(contentBytes.length, finalBB);
-                finalBB.write(contentBytes);
+                finalBB.writeBytes(contentBytes);
             }
             case ZSTD -> {
                 writeVarInt(contentBytes.length, finalBB);
-                finalBB.write(Zstd.compress(contentBytes));
+                finalBB.writeBytes(Zstd.compress(contentBytes));
             }
         }
 
-        return finalBB.toByteArray();
+        return ByteArrayUtil.outputArray(finalBB);
     }
 
-    private static void writeChunk(@NotNull ByteArrayDataOutput bb, @NotNull PolarChunk chunk, int sectionCount) {
+    private static void writeChunk(@NotNull ByteBuf bb, @NotNull PolarChunk chunk, int sectionCount) {
         writeVarInt(chunk.x(), bb);
         writeVarInt(chunk.z(), bb);
 
@@ -91,8 +92,8 @@ public class PolarWriter {
         writeByteArray(chunk.userData(), bb);
     }
 
-    private static void writeSection(@NotNull ByteArrayDataOutput bb, @NotNull PolarSection section) {
-        bb.write(section.isEmpty() ? 1 : 0);
+    private static void writeSection(@NotNull ByteBuf bb, @NotNull PolarSection section) {
+        bb.writeByte(section.isEmpty() ? 1 : 0);
         if (section.isEmpty()) return;
 
         // Blocks
@@ -116,12 +117,12 @@ public class PolarWriter {
         }
 
         // Light
-        bb.write((byte) section.blockLightContent().ordinal());
+        bb.writeByte((byte) section.blockLightContent().ordinal());
         if (section.blockLightContent() == PolarSection.LightContent.PRESENT)
-            bb.write(section.blockLight());
-        bb.write((byte) section.skyLightContent().ordinal());
+            bb.writeBytes(section.blockLight());
+        bb.writeByte((byte) section.skyLightContent().ordinal());
         if (section.skyLightContent() == PolarSection.LightContent.PRESENT)
-            bb.write(section.skyLight());
+            bb.writeBytes(section.skyLight());
     }
 
 }

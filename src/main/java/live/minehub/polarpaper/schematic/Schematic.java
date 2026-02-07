@@ -1,5 +1,6 @@
 package live.minehub.polarpaper.schematic;
 
+import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.userdata.EntityUtil;
@@ -19,7 +20,6 @@ import org.bukkit.craftbukkit.block.data.CraftBlockData;
 import org.bukkit.entity.Entity;
 import org.joml.Vector3i;
 
-import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -87,8 +87,8 @@ public class Schematic {
     private static void handleUserData(World world, PolarChunk chunk, BlockModifier blockModifier, Vector3i offset) {
         if (chunk.userData() == null || chunk.userData().length == 0) return;
 
-        final var bb = ByteBuffer.wrap(chunk.userData());
-        byte version = bb.get();
+        final var bb = Unpooled.wrappedBuffer(chunk.userData());
+        byte version = bb.readByte();
         List<PolarEntity> entities = EntityUtil.getEntities(bb);
 
         for (PolarEntity polarEntity : entities) {

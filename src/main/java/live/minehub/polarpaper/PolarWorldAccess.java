@@ -1,6 +1,7 @@
 package live.minehub.polarpaper;
 
-import com.google.common.io.ByteArrayDataOutput;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.util.ByteArrayUtil;
@@ -21,7 +22,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -56,9 +56,9 @@ public interface PolarWorldAccess {
 
             World world = chunk.getWorld();
 
-            final var bb = ByteBuffer.wrap(userData);
+            final var bb = Unpooled.wrappedBuffer(userData);
 
-            byte version = bb.get();
+            byte version = bb.readByte();
 
             List<PolarEntity> entities = EntityUtil.getEntities(bb);
 
@@ -90,7 +90,7 @@ public interface PolarWorldAccess {
         @Override
         public void saveChunkData(@NotNull ChunkAccess chunk,
                                   @NotNull Set<Map.Entry<BlockPos, BlockEntity>> blockEntities,
-                                  @NotNull Entity[] entities, @NotNull ByteArrayDataOutput userData) {
+                                  @NotNull Entity[] entities, @NotNull ByteBuf userData) {
             List<CompletableFuture<PolarEntity>> entityFutures = new ArrayList<>();
             List<PolarEntity> polarEntities = new ArrayList<>();
 
@@ -177,7 +177,7 @@ public interface PolarWorldAccess {
      */
     default void saveChunkData(@NotNull ChunkAccess chunk,
                                @NotNull Set<Map.Entry<BlockPos, BlockEntity>> blockEntities, @NotNull Entity[] entities,
-                               @NotNull ByteArrayDataOutput userData) {
+                               @NotNull ByteBuf userData) {
     }
 
     @ApiStatus.Experimental

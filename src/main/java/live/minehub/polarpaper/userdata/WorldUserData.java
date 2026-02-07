@@ -1,7 +1,8 @@
 package live.minehub.polarpaper.userdata;
 
-import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import live.minehub.polarpaper.util.ByteArrayUtil;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3i;
 
@@ -27,11 +28,11 @@ public class WorldUserData {
     }
 
     public static byte[] writeSchematicOffset(Vector3i offset) {
-        ByteArrayDataOutput bb = ByteStreams.newDataOutput();
-        bb.write(CURRENT_FEATURES_VERSION);
+        ByteBuf bb = Unpooled.directBuffer();
+        bb.writeByte(CURRENT_FEATURES_VERSION);
         bb.writeInt(offset.x);
         bb.writeInt(offset.y);
         bb.writeInt(offset.z);
-        return bb.toByteArray();
+        return ByteArrayUtil.outputArray(bb);
     }
 }

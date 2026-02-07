@@ -4,8 +4,9 @@ import ca.spottedleaf.moonrise.patches.chunk_system.level.ChunkSystemServerLevel
 import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
-import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import live.minehub.polarpaper.util.ByteArrayUtil;
 import live.minehub.polarpaper.util.CoordConversion;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -142,7 +143,7 @@ public record PolarChunk(
         int[][] heightMaps = new int[PolarChunk.MAX_HEIGHTMAPS][0];
         worldAccess.saveHeightmaps(chunkAccess, heightMaps);
 
-        ByteArrayDataOutput userDataOutput = ByteStreams.newDataOutput();
+        ByteBuf userDataOutput = Unpooled.directBuffer();
         List<net.minecraft.world.entity.Entity> allEntities = entityChunk == null ? List.of() : entityChunk.getAllEntities();
         List<org.bukkit.entity.Entity> newAllEntities = new ArrayList<>();
         for (net.minecraft.world.entity.Entity ent : allEntities) {
@@ -150,7 +151,7 @@ public record PolarChunk(
         }
         org.bukkit.entity.Entity[] entitiesArray = newAllEntities.toArray(new org.bukkit.entity.Entity[0]);
         worldAccess.saveChunkData(chunkAccess, blockEntities, entitiesArray, userDataOutput);
-        byte[] userData = userDataOutput.toByteArray();
+        byte[] userData = ByteArrayUtil.outputArray(userDataOutput);
 
         return new PolarChunk(
                 chunkX,

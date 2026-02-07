@@ -1,14 +1,13 @@
 package live.minehub.polarpaper;
 
 import com.github.luben.zstd.Zstd;
-import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.PolarSection.LightContent;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.userdata.EntityUtil;
+import live.minehub.polarpaper.util.ByteArrayUtil;
 import live.minehub.polarpaper.util.PaletteUtil;
 import net.kyori.adventure.key.Key;
 import net.minecraft.nbt.CompoundTag;
@@ -143,11 +142,11 @@ public class PolarReader {
         bb.readBytes(userData);
 
         if (entities != null) {
-            ByteArrayDataOutput newData = ByteStreams.newDataOutput();
+            ByteBuf newData = Unpooled.directBuffer();
             newData.writeByte((byte) 1);
             EntityUtil.writeEntities(entities, newData);
 
-            userData = newData.toByteArray();
+            userData = ByteArrayUtil.outputArray(newData);
         }
 
         return new PolarChunk(

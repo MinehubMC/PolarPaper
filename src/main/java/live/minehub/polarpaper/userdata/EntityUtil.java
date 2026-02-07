@@ -1,7 +1,7 @@
 package live.minehub.polarpaper.userdata;
 
-import com.google.common.io.ByteArrayDataOutput;
 import com.mojang.logging.LogUtils;
+import io.netty.buffer.ByteBuf;
 import live.minehub.polarpaper.PolarEntity;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.util.ExceptionUtil;
@@ -25,7 +25,6 @@ import org.jetbrains.annotations.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -57,15 +56,15 @@ public class EntityUtil {
         return spawned;
     }
 
-    public static List<PolarEntity> getEntities(ByteBuffer bb) {
+    public static List<PolarEntity> getEntities(ByteBuf bb) {
         List<PolarEntity> polarEntities = new ArrayList<>();
         int entityCount = getVarInt(bb);
         for (int i = 0; i < entityCount; i++) {
-            final var x = bb.getDouble();
-            final var y = bb.getDouble();
-            final var z = bb.getDouble();
-            final var yaw = bb.getFloat();
-            final var pitch = bb.getFloat();
+            final var x = bb.readDouble();
+            final var y = bb.readDouble();
+            final var z = bb.readDouble();
+            final var yaw = bb.readFloat();
+            final var pitch = bb.readFloat();
             final var bytes = getByteArray(bb);
             polarEntities.add(new PolarEntity(x, y, z, yaw, pitch, bytes));
         }
@@ -73,7 +72,7 @@ public class EntityUtil {
         return polarEntities;
     }
 
-    public static void writeEntities(List<PolarEntity> entities, @NotNull ByteArrayDataOutput data) {
+    public static void writeEntities(List<PolarEntity> entities, @NotNull ByteBuf data) {
         writeVarInt(entities.size(), data);
         for (@NotNull PolarEntity entity : entities) {
             data.writeDouble(entity.x());
