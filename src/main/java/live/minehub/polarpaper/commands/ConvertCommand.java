@@ -74,7 +74,7 @@ public class ConvertCommand {
         int offsetZ = playerChunk.getZ();
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            PolarWorld newPolarWorld = PolarWorld.fromWorld(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.square(offsetX, offsetZ, chunkRadius));
+            PolarWorld newPolarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.square(offsetX, offsetZ, chunkRadius));
             byte[] polarBytes = PolarWriter.write(newPolarWorld);
             FilePolarSource.defaultFolder(newWorldName).saveBytes(polarBytes);
 

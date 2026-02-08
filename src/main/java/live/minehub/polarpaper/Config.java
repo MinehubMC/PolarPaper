@@ -11,6 +11,23 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 
+/**
+ * @see Config#getDefaultConfig(FileConfiguration) 
+ * @see Config#BLANK_DEFAULT
+ * @see Config#toBuilder() 
+ * @param autoSaveIntervalTicks the time between each autosave in ticks (20 ticks = 1 second), -1 to disable autosaving
+ * @param time the daytime of the world
+ * @param saveOnStop whether to save on shutdown or when using /polar unload
+ * @param loadOnStartup whether to load the world when the plugin is enabled
+ * @param spawn the spawn location
+ * @param difficulty the difficulty
+ * @param async whether to create the world asynchronously. Can cause issues with other plugins
+ * @param removeChunks whether chunks are removed from the PolarWorld once fully generated to save memory.
+ * Should be disabled if reusing the PolarWorld object between multiple worlds
+ * @param worldType
+ * @param environment
+ * @param gamerules map of gamerules - custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath
+ */
 public record Config(
         int autoSaveIntervalTicks,
         long time,
@@ -19,6 +36,7 @@ public record Config(
         @NotNull Location spawn,
         @NotNull Difficulty difficulty,
         boolean async,
+        boolean removeChunks,
         @NotNull WorldType worldType,
         @NotNull World.Environment environment,
         @NotNull Map<String, Object> gamerules
@@ -50,6 +68,7 @@ public record Config(
             new Location(null, 0, 64, 0),
             Difficulty.NORMAL,
             false,
+            true,
             WorldType.NORMAL,
             World.Environment.NORMAL,
             DEFAULT_GAMERULES
@@ -68,8 +87,6 @@ public record Config(
                 .time(world.getTime())
                 .spawn(world.getSpawnLocation())
                 .difficulty(world.getDifficulty())
-                .allowMonsters(world.getAllowMonsters())
-                .allowAnimals(world.getAllowAnimals())
                 .environment(world.getEnvironment());
 
         for (String name : world.getGameRules()) {
@@ -116,6 +133,7 @@ public record Config(
             String spawn = config.getString(prefix + "spawn", locationToString(defaultConfig.spawn));
             Difficulty difficulty = Difficulty.valueOf(config.getString(prefix + "difficulty", defaultConfig.difficulty.name()));
             boolean async = config.getBoolean(prefix + "async", defaultConfig.async);
+            boolean removeChunks = config.getBoolean(prefix + "removeChunks", defaultConfig.removeChunks);
             WorldType worldType = WorldType.valueOf(config.getString(prefix + "worldType", defaultConfig.worldType.name()));
             World.Environment environment = World.Environment.valueOf(config.getString(prefix + "environment", defaultConfig.environment.name()));
 
@@ -135,6 +153,7 @@ public record Config(
                     stringToLocation(spawn),
                     difficulty,
                     async,
+                    removeChunks,
                     worldType,
                     environment,
                     gamerulesMap
@@ -166,6 +185,8 @@ public record Config(
         writeProperty(fileConfig, prefix + "difficulty", config.difficulty.name(), defaultConfig.difficulty.name());
         writeProperty(fileConfig, prefix + "async", config.async, defaultConfig.async);
         fileConfig.setInlineComments(prefix + "async", List.of("Very experimental"));
+        writeProperty(fileConfig, prefix + "removeChunks", config.removeChunks, defaultConfig.removeChunks);
+        fileConfig.setInlineComments(prefix + "removeChunks", List.of("Whether chunks are removed from the PolarWorld once fully generated to save memory"));
         writeProperty(fileConfig, prefix + "worldType", config.worldType.name(), defaultConfig.worldType.name());
         fileConfig.setInlineComments(prefix + "worldType", List.of("One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES"));
         writeProperty(fileConfig, prefix + "environment", config.environment.name(), defaultConfig.environment.name());
@@ -254,9 +275,8 @@ public record Config(
         private boolean loadOnStartup;
         private @NotNull Location spawn;
         private @NotNull Difficulty difficulty;
-        private boolean allowMonsters;
-        private boolean allowAnimals;
         private boolean async;
+        private boolean removeChunks;
         private @NotNull WorldType worldType;
         private @NotNull World.Environment environment;
         private @NotNull Map<String, Object> gamerules;
@@ -269,11 +289,17 @@ public record Config(
             this.spawn = record.spawn;
             this.difficulty = record.difficulty;
             this.async = record.async;
+            this.removeChunks = record.removeChunks;
             this.worldType = record.worldType;
             this.environment = record.environment;
             this.gamerules = record.gamerules;
         }
 
+        /**
+         * The time between each autosave in ticks (20 ticks = 1 second)
+         * <p>
+         * -1 to disable autosaving
+         */
         public Builder autoSaveIntervalTicks(int autoSaveIntervalTicks) {
             this.autoSaveIntervalTicks = autoSaveIntervalTicks;
             return this;
@@ -284,11 +310,17 @@ public record Config(
             return this;
         }
 
+        /**
+         * Whether to save on shutdown or when using /polar unload
+         */
         public Builder saveOnStop(boolean saveOnStop) {
             this.saveOnStop = saveOnStop;
             return this;
         }
 
+        /**
+         * Whether to load the world when the plugin is enabled
+         */
         public Builder loadOnStartup(boolean loadOnStartup) {
             this.loadOnStartup = loadOnStartup;
             return this;
@@ -304,18 +336,21 @@ public record Config(
             return this;
         }
 
-        public Builder allowMonsters(boolean allowMonsters) {
-            this.allowMonsters = allowMonsters;
-            return this;
-        }
-
-        public Builder allowAnimals(boolean allowAnimals) {
-            this.allowAnimals = allowAnimals;
-            return this;
-        }
-
+        /**
+         * Whether to create the world asynchronously.
+         * Can cause issues with other plugins
+         */
         public Builder async(boolean async) {
             this.async = async;
+            return this;
+        }
+
+        /**
+         * Whether chunks are removed from the PolarWorld once fully generated to save memory.
+         * Should be disabled if reusing the PolarWorld object between multiple worlds
+         */
+        public Builder removeChunks(boolean removeChunks) {
+            this.removeChunks = removeChunks;
             return this;
         }
 
@@ -346,7 +381,7 @@ public record Config(
 
         public Config build() {
             return new Config(this.autoSaveIntervalTicks, this.time, this.saveOnStop, this.loadOnStartup,
-                    this.spawn, this.difficulty, this.async, this.worldType,
+                    this.spawn, this.difficulty, this.async, this.removeChunks, this.worldType,
                     this.environment, this.gamerules);
         }
     }

@@ -188,7 +188,7 @@ public class PolarWorld {
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
     public PolarWorld updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
-        return fromWorld(world, polarWorldAccess, blockSelector, this.nonEmptyChunks());
+        return convert(world, polarWorldAccess, blockSelector, this.nonEmptyChunks());
     }
 
     /**
@@ -201,8 +201,8 @@ public class PolarWorld {
      * @see BlockSelector#ALL
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public static PolarWorld fromWorld(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
-        return fromWorld(world, polarWorldAccess, blockSelector, List.of());
+    public static PolarWorld convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
+        return convert(world, polarWorldAccess, blockSelector, List.of());
     }
 
     /**
@@ -216,7 +216,7 @@ public class PolarWorld {
      * @see BlockSelector#ALL
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public static PolarWorld fromWorld(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Collection<PolarChunk> includedChunks) {
+    public static PolarWorld convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Collection<PolarChunk> includedChunks) {
         // TODO: consider offsets
         // TODO: chunk holders should probably be eventually released/removed (config option?)
 

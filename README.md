@@ -110,6 +110,22 @@ Register events
 PolarPaper.registerEvents();
 ```
 
+Reusing the PolarWorld object
+```java
+// We can save memory and load time by reusing one PolarWorld
+// We just have to let the generator know not to remove chunks
+
+byte[] bytes = ...
+PolarWorld polarWorld = PolarReader.read(bytes);
+FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
+Config config = Config.getDefaultConfig(fileConfig).toBuilder()
+        .removeChunks(false)
+        .build();
+Polar.createWorld(polarWorld, "worldName1", config);
+Polar.createWorld(polarWorld, "worldName2", config);
+Polar.createWorld(polarWorld, "worldName3", config);
+```
+
 ### Versioning
 `<mc version>.<our version>`
 
