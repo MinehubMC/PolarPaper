@@ -242,10 +242,7 @@ public class PolarWorld {
             if (!blockSelector.testChunk(chunkX, chunkZ)) continue;
             ChunkAccess currentChunk = chunkHolder.getCurrentChunk();
             if (currentChunk == null) continue;
-            if (currentChunk.getPersistedStatus().isBefore(ChunkStatus.FULL)) {
-                System.out.println("ignoring chunk " + chunkX + " " + chunkZ);
-                continue;
-            }
+            if (currentChunk.getPersistedStatus().isBefore(ChunkStatus.FULL)) continue;
 
             ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
 
