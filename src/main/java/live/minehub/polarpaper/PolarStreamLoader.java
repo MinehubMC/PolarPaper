@@ -1,10 +1,14 @@
 package live.minehub.polarpaper;
 
+import ca.spottedleaf.concurrentutil.lock.ReentrantAreaLock;
+import ca.spottedleaf.moonrise.common.util.WorldUtil;
+import ca.spottedleaf.moonrise.patches.chunk_system.level.chunk.ChunkData;
+import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
+import ca.spottedleaf.moonrise.patches.chunk_system.level.poi.PoiChunk;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
+import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkTaskScheduler;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import com.github.luben.zstd.Zstd;
-import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.Unpooled;
@@ -14,18 +18,25 @@ import live.minehub.polarpaper.util.*;
 import net.kyori.adventure.key.Key;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.FullChunkStatus;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.SimpleBitStorage;
 import net.minecraft.util.ZeroBitStorage;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.*;
+import net.minecraft.world.ticks.LevelChunkTicks;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftServer;
@@ -35,6 +46,9 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -111,10 +125,116 @@ public class PolarStreamLoader {
         var chunkX = getVarInt(bb);
         var chunkZ = getVarInt(bb);
 
-        world.loadChunk(chunkX, chunkZ, false);
+        CraftWorld craftWorld = (CraftWorld) world;
+        ServerLevel serverLevel = craftWorld.getHandle();
+        ChunkTaskScheduler chunkTaskScheduler = serverLevel.moonrise$getChunkTaskScheduler();
+        ChunkHolderManager chunkHolderManager = chunkTaskScheduler.chunkHolderManager;
 
+        LevelChunkSection[] levelChunkSections = new LevelChunkSection[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
-            readSection(world, i, chunkX, chunkZ, dataConverter, version, dataVersion, bb);
+            levelChunkSections[i] = readSection(serverLevel.registryAccess(), dataConverter, version, dataVersion, bb);
+        }
+
+        // Begin reflection hell :D
+        // TODO: Fix "ProtoChunk cannot be cast to class LevelChunk" when rejoining while chunks are loading (scheduleTickingState)
+        // TODO: Chunks are not lit and cannot be relit with /paper fixlight
+        try {
+            ReentrantAreaLock.Node lock1 = chunkTaskScheduler.schedulingLockArea.lock(chunkX, chunkZ);
+            ReentrantAreaLock.Node lock = chunkHolderManager.ticketLockArea.lock(chunkX, chunkZ);
+            Method getOrCreateChunkHolderMethod = chunkHolderManager.getClass().getDeclaredMethod("getOrCreateChunkHolder", int.class, int.class);
+            getOrCreateChunkHolderMethod.setAccessible(true);
+            NewChunkHolder newChunkHolder = (NewChunkHolder) getOrCreateChunkHolderMethod.invoke(chunkHolderManager, chunkX, chunkZ);
+            chunkHolderManager.ticketLockArea.unlock(lock);
+            chunkTaskScheduler.schedulingLockArea.unlock(lock1);
+
+            ChunkEntitySlices entityChunk = new ChunkEntitySlices(serverLevel, chunkX, chunkZ, FullChunkStatus.FULL, new ChunkData(), WorldUtil.getMinSection(serverLevel), WorldUtil.getMaxSection(serverLevel));
+            entityChunk.setTransient(false);
+            serverLevel.moonrise$getEntityLookup().entitySectionLoad(chunkX, chunkZ, entityChunk);
+            Field entityChunkField = newChunkHolder.getClass().getDeclaredField("entityChunk");
+            entityChunkField.setAccessible(true);
+            entityChunkField.set(newChunkHolder, entityChunk);
+            chunkHolderManager.getOrCreateEntityChunk(chunkX, chunkZ, false);
+
+            NoUnloadLevelChunk newLevelChunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(chunkX, chunkZ), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
+            newLevelChunk.needsDecoration = false;
+//            newLevelChunk.setLightCorrect(true);
+            Field currentChunkField = newChunkHolder.getClass().getDeclaredField("currentChunk");
+            currentChunkField.setAccessible(true);
+            currentChunkField.set(newChunkHolder, newLevelChunk);
+//            currentChunkField.set(newChunkHolder, imposter);
+
+//            ImposterProtoChunk imposter = new ImposterNoBiomeChunk(newLevelChunk, false);
+//            newChunkHolder.replaceProtoChunk(imposter);
+
+//            Field chunkCompletionArrayHandleField = newChunkHolder.getClass().getDeclaredField("CHUNK_COMPLETION_ARRAY_HANDLE");
+//            chunkCompletionArrayHandleField.setAccessible(true);
+//            VarHandle chunkCompletionArrayHandle = (VarHandle)chunkCompletionArrayHandleField.get(newChunkHolder);
+//            Field chunkCompletionsField = newChunkHolder.getClass().getDeclaredField("chunkCompletions");
+//            chunkCompletionsField.setAccessible(true);
+//            NewChunkHolder.ChunkCompletion[] chunkCompletions = (NewChunkHolder.ChunkCompletion[])chunkCompletionsField.get(newChunkHolder);
+//            Field allStatusesField = newChunkHolder.getClass().getDeclaredField("ALL_STATUSES");
+//            allStatusesField.setAccessible(true);
+//            ChunkStatus[] allStatuses = (ChunkStatus[])allStatusesField.get(newChunkHolder);
+//
+//            for (int i = 0, max = ChunkStatus.FULL.getIndex(); i < max; ++i) {
+//                chunkCompletionArrayHandle.setVolatile(chunkCompletions, i, new NewChunkHolder.ChunkCompletion(newLevelChunk, allStatuses[i]));
+//            }
+
+            Field poiChunkField = newChunkHolder.getClass().getDeclaredField("poiChunk");
+            poiChunkField.setAccessible(true);
+            poiChunkField.set(newChunkHolder, PoiChunk.empty(serverLevel, chunkX, chunkZ));
+
+            Field processingFullStatus = newChunkHolder.getClass().getDeclaredField("processingFullStatus");
+            processingFullStatus.setAccessible(true);
+            processingFullStatus.set(newChunkHolder, true);
+
+            Field currentFullChunkStatusField = newChunkHolder.getClass().getDeclaredField("currentFullChunkStatus");
+            currentFullChunkStatusField.setAccessible(true);
+            currentFullChunkStatusField.set(newChunkHolder, FullChunkStatus.FULL);
+            Field pendingFullChunkStatusField = newChunkHolder.getClass().getDeclaredField("pendingFullChunkStatus");
+            pendingFullChunkStatusField.setAccessible(true);
+            pendingFullChunkStatusField.set(newChunkHolder, FullChunkStatus.FULL);
+
+            newLevelChunk.runPostLoad();
+            newLevelChunk.setLoaded(true);
+            newLevelChunk.registerAllBlockEntitiesAfterLevelLoad();
+            newLevelChunk.registerTickContainerInLevel(serverLevel);
+
+
+            serverLevel.getChunkSource().moonrise$setFullChunk(chunkX, chunkZ, newLevelChunk);
+
+//            Method updateTicketLevelMethod = newChunkHolder.getClass().getDeclaredMethod("updateTicketLevel", int.class);
+//            updateTicketLevelMethod.setAccessible(true);
+//            updateTicketLevelMethod.invoke(newChunkHolder, 0);
+
+//            serverLevel.getChunkSource().updateChunkForced(new ChunkPos(chunkX, chunkZ), true);
+
+//            Bukkit.getGlobalRegionScheduler().runDelayed(PolarPaper.getPlugin(), (t) -> {
+//                newChunkHolder.handleFullStatusChange(List.of(newChunkHolder));
+//                chunkHolderManager.addTicketAtLevel(TicketType.CHUNK_LOAD, chunkX, chunkZ, 33, null);
+//                chunkHolderManager.processTicketUpdates();
+//            }, 60);
+
+//            ChunkLoadTask chunkLoadTask = new ChunkLoadTask(chunkTaskScheduler, serverLevel, chunkX, chunkZ, newChunkHolder, Priority.NORMAL);
+//            chunkLoadTask.onComplete((a, b) -> {
+//                Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
+//                    ChunkFullTask chunkFullTask = new ChunkFullTask(chunkTaskScheduler, serverLevel, chunkX, chunkZ, newChunkHolder, newLevelChunk, Priority.NORMAL);
+//                    chunkFullTask.run();
+//                });
+//            });
+//            chunkLoadTask.schedule();
+//            chunkTaskScheduler.scheduleChunkLoad(chunkX, chunkZ, ChunkStatus.FULL, true, Priority.LOWEST, ca -> {
+//                System.out.println("returned : " + ca.locX + " " + ca.locZ);
+//            });
+
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        } catch (InvocationTargetException e) {
+            throw new RuntimeException(e);
+        } catch (NoSuchFieldException e) {
+            throw new RuntimeException(e);
         }
 
         int blockEntityCount = getVarInt(bb);
@@ -161,25 +281,20 @@ public class PolarStreamLoader {
         bb.readBytes(userData);
 
         if (entities != null) { // deprecated entities
-            ByteArrayDataOutput newData = ByteStreams.newDataOutput();
+            ByteBuf newData = Unpooled.directBuffer();
             newData.writeByte((byte) 1);
             EntityUtil.writeEntities(entities, newData);
 
-            userData = newData.toByteArray();
+            userData = outputArray(newData);
         }
 
-        CraftWorld craftWorld = (CraftWorld) world;
-        ServerLevel serverLevel = craftWorld.getHandle();
-        ChunkHolderManager chunkHolderManager = serverLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
-        NewChunkHolder chunkHolder = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
-        if (chunkHolder == null) return;
-
-        worldAccess.populateChunkData(chunkHolderManager, chunkHolder, userData);
+        //TODO: this
+//        worldAccess.populateChunkData(chunkHolderManager, chunkHolder, userData);
     }
 
-    private static void readSection(World world, int sectionI, int chunkX, int chunkZ, @NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb) {
+    private static @NotNull LevelChunkSection readSection(RegistryAccess registryAccess, @NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb) {
         // If section is empty exit immediately
-        if (bb.readByte() == 1) return;
+        if (bb.readByte() == 1) return createEmptySection(registryAccess);
 
         String[] blockPalette = getStringList(bb, MAX_BLOCK_PALETTE_SIZE);
         if (dataVersion < dataConverter.dataVersion()) {
@@ -196,23 +311,15 @@ public class PolarStreamLoader {
                 }
             }
         }
-        int[] blockData = null;
+        long[] blockData = null;
         if (blockPalette.length > 1) {
-            blockData = new int[PolarConstants.BLOCK_PALETTE_SIZE];
-
-            long[] rawBlockData = getLongArray(bb);
-            int bitsPerEntry = (int) Math.ceil(Math.log(blockPalette.length) / Math.log(2));
-            PaletteUtil.unpack(blockData, rawBlockData, bitsPerEntry);
+            blockData = getLongArray(bb);
         }
 
         String[] biomePalette = getStringList(bb, MAX_BIOME_PALETTE_SIZE);
-        int[] biomeData;
+        long[] biomeData = null;
         if (biomePalette.length > 1) {
-            biomeData = new int[PolarConstants.BIOME_PALETTE_SIZE];
-
-            long[] rawBiomeData = getLongArray(bb);
-            int bitsPerEntry = (int) Math.ceil(Math.log(biomePalette.length) / Math.log(2));
-            PaletteUtil.unpack(biomeData, rawBiomeData, bitsPerEntry);
+            biomeData = getLongArray(bb);
         }
 
         byte[] blockLight = null;
@@ -226,21 +333,10 @@ public class PolarStreamLoader {
                 : (bb.readByte() == 1 ? LightContent.PRESENT : LightContent.MISSING);
         if (skyLightContent == LightContent.PRESENT) skyLight = getLightData(bb);
 
-
-        CraftWorld craftWorld = (CraftWorld) world;
-        ServerLevel serverLevel = craftWorld.getHandle();
-        ChunkHolderManager chunkHolderManager = serverLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
-        NewChunkHolder chunkHolder = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
-        if (chunkHolder == null) return;
-        ChunkAccess chunkAccess = chunkHolder.getCurrentChunk();
-        if (chunkAccess == null) return;
-
-        LevelChunkSection levelChunkSection = chunkAccess.getSection(sectionI);
-
-        loadSection(blockPalette, blockData, chunkAccess, levelChunkSection, sectionI);
+        return loadSection(registryAccess, blockPalette, blockData, biomePalette, biomeData);
     }
 
-    public static void loadSection(String[] rawBlockPalette, int[] blockData, @NotNull ChunkAccess chunkAccess, LevelChunkSection chunkAccessSection, int sectionI) {
+    public static LevelChunkSection loadSection(RegistryAccess registryAccess, String[] rawBlockPalette, long[] blockData, String[] rawBiomePalette, long[] biomeData) {
         // Blocks
         BlockState[] materialPalette = new BlockState[rawBlockPalette.length];
         for (int i = 0; i < rawBlockPalette.length; i++) {
@@ -252,44 +348,107 @@ public class PolarStreamLoader {
             }
         }
 
-        var bitsPerEntry = (int) Math.ceil(Math.log(rawBlockPalette.length) / Math.log(2));
+        // Biomes
+        Registry<Biome> registry = registryAccess.lookupOrThrow(Registries.BIOME);
+        Holder.Reference<Biome> orThrow = registry.getOrThrow(Biomes.PLAINS);
+        Holder<Biome>[] biomePalette = new Holder[rawBiomePalette.length];
+        for (int i = 0; i < rawBiomePalette.length; i++) {
+            Identifier identifier = Identifier.tryParse(rawBiomePalette[i]);
+            if (identifier == null) {
+                System.out.println("Failed to parse " + rawBiomePalette[i]);
+                biomePalette[i] = orThrow;
+                continue;
+            }
+            Holder.Reference<Biome> biome = registry.get(identifier).orElse(null);
+            if (biome == null) {
+                System.out.println("Failed to get " + rawBiomePalette[i]);
+                biomePalette[i] = orThrow;
+                continue;
+            }
+            biomePalette[i] = biome;
+        }
 
-//        PalettedContainer<BlockState> states = chunkAccessSection.getStates();
-        PalettedContainerRO<Holder<Biome>> biomes = chunkAccessSection.getBiomes();
+        int bitsPerBlockEntry = (int) Math.ceil(Math.log(rawBlockPalette.length) / Math.log(2));
+        int longBitsPerBlockEntry = bitsPerBlockEntry;
+        if (blockData != null) {
+            longBitsPerBlockEntry = PaletteUtil.getBitsForLongLength(blockData.length);
+        }
+
+        int bitsPerBiomeEntry = (int) Math.ceil(Math.log(rawBiomePalette.length) / Math.log(2));
+        int longBitsPerBiomeEntry = bitsPerBiomeEntry;
+        if (biomeData != null) {
+            longBitsPerBiomeEntry = PaletteUtil.getBitsForLongLength(biomeData.length);
+        }
+
+        Strategy<BlockState> blockStrategy = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
+        PalettedContainer<BlockState> states = new PalettedContainer<>(Blocks.AIR.defaultBlockState(), blockStrategy, materialPalette);
 
 
-        Strategy<BlockState> strategy = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
-        PalettedContainer<BlockState> states = new PalettedContainer<>(Blocks.AIR.defaultBlockState(), strategy, materialPalette);
+        Strategy<Holder<Biome>> biomeStrategy = Strategy.createForBiomes(registry.asHolderIdMap());
+        PalettedContainer<Holder<Biome>> biomes = new PalettedContainer<>(orThrow, biomeStrategy, biomePalette);
+
+        if (biomeData == null) {
+            biomes.data = new PalettedContainer.Data<>(
+                    PaletteUtil.getConfigurationForBitCountBiome(0),
+                    new ZeroBitStorage(PolarSection.BIOME_PALETTE_SIZE),
+                    PaletteUtil.createPalette(0, Arrays.asList(biomePalette))
+            );
+        } else {
+            biomes.data = new PalettedContainer.Data<>(
+                    PaletteUtil.getConfigurationForBitCountBiome(bitsPerBiomeEntry),
+                    new SimpleBitStorage(bitsPerBiomeEntry, PolarSection.BIOME_PALETTE_SIZE, biomeData),
+                    PaletteUtil.createPalette(bitsPerBiomeEntry, Arrays.asList(biomePalette))
+            );
+        }
 
 
         if (blockData == null) {
             if (materialPalette.length == 1) {
                 BlockState first = materialPalette[0];
-                if (first.isAir()) return;
+                if (first.isAir()) return createEmptySection(registryAccess);
             }
         }
-
-        if (blockData == null || bitsPerEntry == 0) {
+        if (blockData == null || bitsPerBlockEntry == 0) {
             states.data = new PalettedContainer.Data<>(
-                    PaletteUtil.getConfigurationForBitCount(0),
-                    new ZeroBitStorage(4096),
+                    PaletteUtil.getConfigurationForBitCountBlock(0),
+                    new ZeroBitStorage(PolarSection.BLOCK_PALETTE_SIZE),
                     PaletteUtil.createPalette(0, Arrays.asList(materialPalette))
             );
         } else {
-            states.data = new PalettedContainer.Data<>(
-                    PaletteUtil.getConfigurationForBitCount(bitsPerEntry),
-                    new SimpleBitStorage(Math.max(4, bitsPerEntry), blockData.length, blockData),
-                    PaletteUtil.createPalette(bitsPerEntry, Arrays.asList(materialPalette))
-            );
+            if (4 > longBitsPerBlockEntry) {
+                int[] unpacked = new int[PolarSection.BLOCK_PALETTE_SIZE];
+                PaletteUtil.unpack(unpacked, blockData, bitsPerBlockEntry);
+                long[] newLongs = PaletteUtil.pack(unpacked, 4);
+
+                states.data = new PalettedContainer.Data<>(
+                        PaletteUtil.getConfigurationForBitCountBlock(bitsPerBlockEntry),
+                        new SimpleBitStorage(4, PolarSection.BLOCK_PALETTE_SIZE, newLongs),
+                        PaletteUtil.createPalette(bitsPerBlockEntry, Arrays.asList(materialPalette))
+                );
+            } else {
+                states.data = new PalettedContainer.Data<>(
+                        PaletteUtil.getConfigurationForBitCountBlock(bitsPerBlockEntry),
+                        new SimpleBitStorage(Math.max(4, longBitsPerBlockEntry), PolarSection.BLOCK_PALETTE_SIZE, blockData),
+                        PaletteUtil.createPalette(bitsPerBlockEntry, Arrays.asList(materialPalette))
+                );
+            }
         }
 
-        LevelChunkSection newLevelChunkSection = new LevelChunkSection(
-                states,
-                biomes.copy() // TODO: do biomes
-        );
-        chunkAccess.getSections()[sectionI] = newLevelChunkSection;
+        return new LevelChunkSection(states, biomes);
 
 //        chunkAccessSection.recalcBlockCounts();
+    }
+
+    private static LevelChunkSection createEmptySection(RegistryAccess registryAccess) {
+        Registry<Biome> registry = registryAccess.lookupOrThrow(Registries.BIOME);
+        Strategy<BlockState> blockStrategy = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
+        PalettedContainer<BlockState> states = new PalettedContainer<>(Blocks.AIR.defaultBlockState(), blockStrategy, null);
+
+        Strategy<Holder<Biome>> biomeStrategy = Strategy.createForBiomes(registry.asHolderIdMap());
+        Holder.Reference<Biome> orThrow = registry.getOrThrow(Biomes.PLAINS);
+        PalettedContainer<Holder<Biome>> biomes = new PalettedContainer<>(orThrow, biomeStrategy, null);
+
+        return new LevelChunkSection(states, biomes);
     }
 
     private static void readBlockEntity(@NotNull PolarDataConverter dataConverter, World world, int chunkX, int chunkZ, int dataVersion, @NotNull ByteBuf bb) {
@@ -331,10 +490,11 @@ public class PolarStreamLoader {
         BlockState blockState = chunkAccess.getBlockState(x, y, z);
         BlockPos blockPos = new BlockPos(chunkX * 16 + x, y, chunkZ * 16 + z);
 
+        // TODO: reenable
         var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
-        BlockEntity blockEntity = BlockEntity.loadStatic(blockPos, blockState, nbt, registryAccess);
-        if (blockEntity == null) return;
-        chunkAccess.blockEntities.put(new BlockPos(x, y, z), blockEntity);
+//        BlockEntity blockEntity = BlockEntity.loadStatic(blockPos, blockState, nbt, registryAccess);
+//        if (blockEntity == null) return;
+//        chunkAccess.blockEntities.put(new BlockPos(x, y, z), blockEntity);
     }
 
     private static void validateVersion(int version) {

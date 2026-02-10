@@ -5,8 +5,8 @@ import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlic
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import com.github.luben.zstd.Zstd;
-import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.util.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -45,16 +45,16 @@ public class PolarStreamWriter {
     }
 
     public static byte[] write(@NotNull World world, byte[] userData, BlockSelector blockSelector, boolean skipUnsaved, CompressionType compression, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) {
-        ByteArrayDataOutput bb = ByteStreams.newDataOutput();
+        ByteBuf bb = Unpooled.directBuffer();
         int minHeight = world.getMinHeight();
         int maxHeight = world.getMaxHeight() - 1;
         int minSection = (byte) CoordConversion.sectionIndex(minHeight);
         int maxSection = (byte) CoordConversion.sectionIndex(maxHeight);
 
-        bb.write(minSection);
-        bb.write(maxSection);
+        bb.writeByte(minSection);
+        bb.writeByte(maxSection);
         writeVarInt(userData.length, bb);
-        bb.write(userData);
+        bb.writeBytes(userData);
 
         ChunkSystemServerLevel chunkSystemServerLevel = ((CraftWorld) world).getHandle();
         ChunkHolderManager chunkHolderManager = chunkSystemServerLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
@@ -130,30 +130,30 @@ public class PolarStreamWriter {
             writeChunk(bb, chunkHolder, worldAccess, blockSelector);
         }
 
-        byte[] contentBytes = bb.toByteArray();
+        byte[] contentBytes = ByteArrayUtil.outputArray(bb);
 
 
         // Create final buffer
-        ByteArrayDataOutput finalBB = ByteStreams.newDataOutput();
+        ByteBuf finalBB = Unpooled.directBuffer();
         finalBB.writeInt(PolarConstants.MAGIC_NUMBER);
         finalBB.writeShort(PolarConstants.LATEST_VERSION);
         writeVarInt(dataConverter.dataVersion(), finalBB);
-        finalBB.write(compression.ordinal());
+        finalBB.writeByte(compression.ordinal());
         switch (compression) {
             case NONE -> {
                 writeVarInt(contentBytes.length, finalBB);
-                finalBB.write(contentBytes);
+                finalBB.writeBytes(contentBytes);
             }
             case ZSTD -> {
                 writeVarInt(contentBytes.length, finalBB);
-                finalBB.write(Zstd.compress(contentBytes));
+                finalBB.writeBytes(Zstd.compress(contentBytes));
             }
         }
 
-        return finalBB.toByteArray();
+        return ByteArrayUtil.outputArray(finalBB);
     }
 
-    private static void writeSection(@NotNull ByteArrayDataOutput bb, int chunkX, int chunkZ, ChunkAccess chunkAccess, int sectionI, int minSection, BlockSelector blockSelector) {
+    private static void writeSection(@NotNull ByteBuf bb, int chunkX, int chunkZ, ChunkAccess chunkAccess, int sectionI, int minSection, BlockSelector blockSelector) {
         Registry<Biome> biomeRegistry = MinecraftServer.getServer().registryAccess().lookupOrThrow(Registries.BIOME);
 
         LevelChunkSection chunkAccessSection = chunkAccess.getSection(sectionI);
@@ -209,7 +209,7 @@ public class PolarStreamWriter {
 //                blockPaletteStrings = Arrays.stream(blockData).distinct().mapToObj(blockPaletteStrings::get).toList();
         } else {
             // section is empty
-            bb.write(1);
+            bb.writeByte(1);
             return;
 //            blockPaletteStrings.add(Blocks.AIR.defaultBlockState().toString()
 //                    .replace("Block{", "").replace("}", ""));
@@ -236,10 +236,10 @@ public class PolarStreamWriter {
         }
 
         // Section is not empty by this point
-        bb.write(0);
+        bb.writeByte(0);
 
         // Blocks
-        writeStringList(blockPaletteStrings, bb);
+        writeStringCollection(blockPaletteStrings, bb);
         if (blockPaletteStrings.size() > 1) {
             var bitsPerEntry = (int) Math.ceil(Math.log(blockPaletteStrings.size()) / Math.log(2));
             if (bitsPerEntry < 1) bitsPerEntry = 1;
@@ -247,7 +247,7 @@ public class PolarStreamWriter {
         }
 
         // Biomes
-        writeStringList(biomePaletteStrings, bb);
+        writeStringCollection(biomePaletteStrings, bb);
         if (biomePaletteStrings.size() > 1) {
             var bitsPerEntry = (int) Math.ceil(Math.log(biomePaletteStrings.size()) / Math.log(2));
             if (bitsPerEntry < 1) bitsPerEntry = 1;
@@ -256,8 +256,8 @@ public class PolarStreamWriter {
 
         // Light
         // TODO: do eventually
-        bb.write((byte) LightContent.MISSING.ordinal());
-        bb.write((byte) LightContent.MISSING.ordinal());
+        bb.writeByte((byte) LightContent.MISSING.ordinal());
+        bb.writeByte((byte) LightContent.MISSING.ordinal());
 //        bb.write((byte) section.blockLightContent().ordinal());
 //        if (section.blockLightContent() == PolarSection.LightContent.PRESENT)
 //            bb.write(section.blockLight());
@@ -273,13 +273,13 @@ public class PolarStreamWriter {
      * @param chunkZ The Z coordinate of the chunk in the bukkit world
      * @param blockSelector Used to filter which blocks are converted
      */
-    public static void writeChunk(ByteArrayDataOutput bb, World world, int chunkX, int chunkZ, PolarWorldAccess worldAccess, BlockSelector blockSelector) {
+    public static void writeChunk(ByteBuf bb, World world, int chunkX, int chunkZ, PolarWorldAccess worldAccess, BlockSelector blockSelector) {
         ChunkSystemServerLevel chunkSystemServerLevel = ((CraftWorld) world).getHandle();
         ChunkHolderManager chunkHolderManager = chunkSystemServerLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
         writeChunk(bb, chunkHolderManager.getChunkHolder(chunkX, chunkZ), worldAccess, blockSelector);
     }
 
-    public static void writeChunk(ByteArrayDataOutput bb, NewChunkHolder chunkHolder, PolarWorldAccess worldAccess, BlockSelector blockSelector) {
+    public static void writeChunk(ByteBuf bb, NewChunkHolder chunkHolder, PolarWorldAccess worldAccess, BlockSelector blockSelector) {
         ChunkAccess chunkAccess = chunkHolder.getCurrentChunk();
         ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
         int chunkX = chunkHolder.chunkX;
@@ -297,16 +297,16 @@ public class PolarStreamWriter {
             writeSection(bb, chunkX, chunkZ, chunkAccess, i, minSection, blockSelector);
         }
 
-        ByteArrayDataOutput userDataOutput = ByteStreams.newDataOutput();
+        ByteBuf userDataOutput = Unpooled.directBuffer();
         writeBlockEntities(bb, chunkAccess, entityChunk, blockSelector, worldAccess, userDataOutput);
-        byte[] userData = userDataOutput.toByteArray();
+        byte[] userData = ByteArrayUtil.outputArray(userDataOutput);
 
         writeHeightMaps(bb, sectionCount, heightMaps);
 
         writeByteArray(userData, bb);
     }
 
-    private static void writeHeightMaps(ByteArrayDataOutput bb, int sectionCount, int[][] heightMaps) {
+    private static void writeHeightMaps(ByteBuf bb, int sectionCount, int[][] heightMaps) {
         int heightmapBits = 0;
         for (int i = 0; i < PolarConstants.MAX_HEIGHTMAPS; i++) {
             if (heightMaps[i] != null)
@@ -323,7 +323,7 @@ public class PolarStreamWriter {
         }
     }
 
-    private static void writeBlockEntities(ByteArrayDataOutput bb, ChunkAccess chunkAccess, ChunkEntitySlices entityChunk, BlockSelector blockSelector, PolarWorldAccess worldAccess, ByteArrayDataOutput userDataOutput) {
+    private static void writeBlockEntities(ByteBuf bb, ChunkAccess chunkAccess, ChunkEntitySlices entityChunk, BlockSelector blockSelector, PolarWorldAccess worldAccess, ByteBuf userDataOutput) {
         int filteredBlockEntityCount = 0;
         Set<Map.Entry<BlockPos, BlockEntity>> blockEntities = chunkAccess.blockEntities.entrySet();
         for (Map.Entry<BlockPos, BlockEntity> entry : blockEntities) {
