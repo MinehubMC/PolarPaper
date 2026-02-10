@@ -51,6 +51,7 @@ public class PolarGenerator extends ChunkGenerator {
         ChunkAccess chunkAccess = ((CraftChunkData) chunkData).getHandle();
         int i = 0;
         for (PolarSection section : chunk.sections()) {
+            // TODO: switching world to nether environment causes out of bounds here
             LevelChunkSection chunkAccessSection = chunkAccess.getSection(i++);
 
             loadSection(section, chunkAccessSection);

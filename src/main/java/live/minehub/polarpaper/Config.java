@@ -24,7 +24,7 @@ import java.util.*;
  * @param async whether to create the world asynchronously. Can cause issues with other plugins
  * @param removeChunks whether chunks are removed from the PolarWorld once fully generated to save memory.
  * Should be disabled if reusing the PolarWorld object between multiple worlds
- * @param worldType
+ * @param worldType Prefer WorldType.FLAT if possible as it skips unnecessary vanilla biome generation
  * @param environment
  * @param gamerules map of gamerules - custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath
  */
@@ -69,7 +69,7 @@ public record Config(
             Difficulty.NORMAL,
             false,
             true,
-            WorldType.NORMAL,
+            WorldType.FLAT,
             World.Environment.NORMAL,
             DEFAULT_GAMERULES
     );
@@ -354,6 +354,9 @@ public record Config(
             return this;
         }
 
+        /**
+         * Prefer WorldType.FLAT if possible as it skips unnecessary vanilla biome generation
+         */
         public Builder worldType(@NotNull WorldType worldType) {
             this.worldType = Objects.requireNonNull(worldType, "Null worldType");
             return this;
