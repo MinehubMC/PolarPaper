@@ -34,25 +34,26 @@ public class GotoCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        Location spawnPos;
+        Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
+            PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
+            Location spawnPos;
+            if (polarGenerator != null) {
+                Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld);
+                spawnPos = config.spawn();
+            } else {
+                spawnPos = bukkitWorld.getSpawnLocation();
+            }
 
-        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
-        if (polarGenerator != null) {
-            Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld);
-            spawnPos = config.spawn();
-        } else {
-            spawnPos = bukkitWorld.getSpawnLocation();
-        }
+            sender.sendMessage(
+                    Component.text()
+                            .append(Component.text("Teleporting to '", NamedTextColor.AQUA))
+                            .append(Component.text(bukkitWorld.getName(), NamedTextColor.AQUA))
+                            .append(Component.text("'", NamedTextColor.AQUA))
+            );
 
-        sender.sendMessage(
-                Component.text()
-                        .append(Component.text("Teleporting to '", NamedTextColor.AQUA))
-                        .append(Component.text(bukkitWorld.getName(), NamedTextColor.AQUA))
-                        .append(Component.text("'", NamedTextColor.AQUA))
-        );
-
-        spawnPos.setWorld(bukkitWorld);
-        player.teleportAsync(spawnPos);
+            spawnPos.setWorld(bukkitWorld);
+            player.teleportAsync(spawnPos);
+        });
 
         return Command.SINGLE_SUCCESS;
     }

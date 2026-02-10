@@ -28,6 +28,8 @@ public class PolarCommand {
                             );
                             return Command.SINGLE_SUCCESS;
                         })
+//                        .then(Commands.literal("gc") // TODO: remove
+//                                .executes(GCCommand::run))
                         .then(Commands.literal("help")
                                 .requires(source -> source.getSender().hasPermission("polarpaper.help"))
                                 .executes(HelpCommand::run)

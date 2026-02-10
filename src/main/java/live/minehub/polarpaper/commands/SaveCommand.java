@@ -47,7 +47,9 @@ public class SaveCommand {
 
         long before = System.nanoTime();
 
-        Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
+        Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
+            Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
+        });
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
             Polar.saveWorldToFile(bukkitWorld);

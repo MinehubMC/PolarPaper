@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.Lifecycle;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import io.papermc.paper.world.PaperWorldLoader;
 import live.minehub.polarpaper.source.FilePolarSource;
 import live.minehub.polarpaper.source.PolarSource;
@@ -42,7 +43,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.generator.WorldInfo;
-import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -54,11 +54,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("unused")
 public class Polar {
 
-    private static final Map<String, BukkitTask> AUTOSAVE_TASK_MAP = new HashMap<>();
+    private static final Map<String, ScheduledTask> AUTOSAVE_TASK_MAP = new HashMap<>();
 
     private Polar() {
 
@@ -111,7 +112,7 @@ public class Polar {
 //                    source.saveBytes(worldBytes);
 //                }
 
-                Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
+                Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
                     createWorld(bytes, worldName, config, worldAccess)
                             .thenAccept(future::complete)
                             .exceptionally(e -> {
@@ -120,6 +121,7 @@ public class Polar {
                             });
                 });
             } catch (Exception e) {
+                PolarPaper.logger().warning("Exception while loading world: " + worldName);
                 ExceptionUtil.log(e);
                 future.complete(null);
             }
@@ -208,7 +210,7 @@ public class Polar {
         };
 
         if (config.async()) {
-            Bukkit.getScheduler().runTaskAsynchronously(PolarPaper.getPlugin(), worldCreateRunnable);
+            Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (t) -> worldCreateRunnable.run());
         } else {
             worldCreateRunnable.run();
         }
@@ -217,12 +219,12 @@ public class Polar {
     }
 
     private static void startAutoSaveTask(World world, Config config) {
-        BukkitTask prevTask = AUTOSAVE_TASK_MAP.get(world.getName());
+        ScheduledTask prevTask = AUTOSAVE_TASK_MAP.get(world.getName());
         if (prevTask != null) prevTask.cancel();
 
         if (config.autoSaveIntervalTicks() == -1) return;
 
-        BukkitTask autosaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(PolarPaper.getPlugin(), () -> {
+        ScheduledTask autosaveTask = Bukkit.getAsyncScheduler().runAtFixedRate(PolarPaper.getPlugin(), (t) -> {
             long before = System.nanoTime();
             String savingMsg = String.format("Autosaving '%s'...", world.getName());
             PolarPaper.logger().info(savingMsg);
@@ -231,7 +233,7 @@ public class Polar {
                 plr.sendMessage(Component.text(savingMsg, NamedTextColor.AQUA));
             }
 
-            Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
+            Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
                 updateConfig(world, world.getName()); // config should only be updated synchronously
             });
             saveWorldToFile(world);
@@ -243,7 +245,7 @@ public class Polar {
                 if (!plr.hasPermission("polar.notifications")) continue;
                 plr.sendMessage(Component.text(savedMsg, NamedTextColor.AQUA));
             }
-        }, config.autoSaveIntervalTicks(), config.autoSaveIntervalTicks());
+        }, config.autoSaveIntervalTicks() * 50L, config.autoSaveIntervalTicks() * 50L, TimeUnit.MILLISECONDS);
 
         AUTOSAVE_TASK_MAP.put(world.getName(), autosaveTask);
     }
@@ -320,6 +322,7 @@ public class Polar {
      * Can be called asynchronously
      *
      * @param world The bukkit world to retrieve new chunks from
+     * @param polarWorld The polar world
      * @param polarSource The source to use to save the polar world (e.g. FilePolarSource)
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
@@ -346,7 +349,6 @@ public class Polar {
 
         Preconditions.checkState(craftServer.getServer().getAllLevels().iterator().hasNext(), "Cannot create additional worlds on STARTUP");
         //Preconditions.checkState(!this.console.isIteratingOverLevels, "Cannot create a world while worlds are being ticked"); // Paper - Cat - Temp disable. We'll see how this goes.
-        Preconditions.checkArgument(creator != null, "WorldCreator cannot be null");
 
         String name = creator.name();
         ChunkGenerator chunkGenerator = creator.generator();
@@ -518,7 +520,7 @@ public class Polar {
             craftServer.getServer().prepareLevel(serverLevel);
         };
         if (async) {
-            Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), initRunnable);
+            Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), initRunnable);
         } else {
             initRunnable.run();
         }

@@ -12,6 +12,23 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 
+/**
+ * @see Config#getDefaultConfig(FileConfiguration)
+ * @see Config#BLANK_DEFAULT
+ * @see Config#toBuilder()
+ * @param autoSaveIntervalTicks the time between each autosave in ticks (20 ticks = 1 second), -1 to disable autosaving
+ * @param time the daytime of the world
+ * @param saveOnStop whether to save on shutdown or when using /polar unload
+ * @param loadOnStartup whether to load the world when the plugin is enabled
+ * @param spawn the spawn location
+ * @param difficulty the difficulty
+ * @param async whether to create the world asynchronously. Can cause issues with other plugins
+ * @param removeChunks whether chunks are removed from the PolarWorld once fully generated to save memory.
+ * Should be disabled if reusing the PolarWorld object between multiple worlds
+ * @param worldType
+ * @param environment
+ * @param gamerules map of gamerules - custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath
+ */
 public record Config(
         int autoSaveIntervalTicks,
         long time,
@@ -279,6 +296,11 @@ public record Config(
             this.gamerules = record.gamerules;
         }
 
+        /**
+         * The time between each autosave in ticks (20 ticks = 1 second)
+         * <p>
+         * -1 to disable autosaving
+         */
         public Builder autoSaveIntervalTicks(int autoSaveIntervalTicks) {
             this.autoSaveIntervalTicks = autoSaveIntervalTicks;
             return this;
@@ -289,11 +311,17 @@ public record Config(
             return this;
         }
 
+        /**
+         * Whether to save on shutdown or when using /polar unload
+         */
         public Builder saveOnStop(boolean saveOnStop) {
             this.saveOnStop = saveOnStop;
             return this;
         }
 
+        /**
+         * Whether to load the world when the plugin is enabled
+         */
         public Builder loadOnStartup(boolean loadOnStartup) {
             this.loadOnStartup = loadOnStartup;
             return this;
@@ -309,6 +337,10 @@ public record Config(
             return this;
         }
 
+        /**
+         * Whether to create the world asynchronously.
+         * Can cause issues with other plugins
+         */
         public Builder async(boolean async) {
             this.async = async;
             return this;

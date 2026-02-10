@@ -1,9 +1,7 @@
 package live.minehub.polarpaper;
 
-import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
-import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
-import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
-import com.google.common.io.ByteArrayDataOutput;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.util.ByteArrayUtil;
@@ -11,8 +9,9 @@ import live.minehub.polarpaper.util.ExceptionUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
-import org.bukkit.craftbukkit.CraftWorld;
+import org.bukkit.World;
 import org.bukkit.craftbukkit.persistence.DirtyCraftPersistentDataContainer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -23,11 +22,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Provides access to user world data for the polar loader to get and set user
@@ -52,39 +51,32 @@ public interface PolarWorldAccess {
         private static final byte PERSISTENT_DATA_CONTAINER_VERSION = 2;
 
         @Override
-        public void populateChunkData(ChunkHolderManager chunkHolderManager, @NotNull final NewChunkHolder chunkHolder, final byte @Nullable [] userData) {
-            if (userData == null || userData.length == 0) return;
+        public void populateChunkData(@NotNull final Chunk chunk, final byte @Nullable [] userData) {
+            if (userData == null) return;
 
-            final var bb = ByteBuffer.wrap(userData);
+            World world = chunk.getWorld();
 
-            byte version = bb.get();
+            final var bb = Unpooled.wrappedBuffer(userData);
+
+            byte version = bb.readByte();
 
             List<PolarEntity> entities = EntityUtil.getEntities(bb);
 
-            if (!entities.isEmpty()) {
-                CraftWorld world = chunkHolder.world.getWorld();
-                ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
+            for (PolarEntity polarEntity : entities) {
+                Entity entity = polarEntity.toBukkitEntity(world, polarEntity.getLocation(chunk), true);
+                if (entity == null) continue;
 
-                if (entityChunk == null) {
-                    chunkHolderManager.getOrCreateEntityChunk(chunkHolder.chunkX, chunkHolder.chunkZ, false);
-                }
+                Location spawnLocation = entity.getLocation();
 
-                for (PolarEntity polarEntity : entities) {
-                    Entity entity = polarEntity.toBukkitEntity(world, polarEntity.getLocation(world, chunkHolder.chunkX, chunkHolder.chunkZ), true);
-                    if (entity == null) continue;
-
-                    Location spawnLocation = entity.getLocation();
-
-                    PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, false);
-                    event.callEvent();
-                    if (!event.isCancelled()) {
-                        EntityUtil.spawnEntity(entity, world);
-                    }
+                PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, false);
+                event.callEvent();
+                if (!event.isCancelled()) {
+                    EntityUtil.spawnEntity(entity, world);
                 }
             }
 
             if (version >= PERSISTENT_DATA_CONTAINER_VERSION) {
-                PersistentDataContainer persistentDataContainer = chunkHolder.getCurrentChunk().persistentDataContainer;
+                PersistentDataContainer persistentDataContainer = chunk.getPersistentDataContainer();
                 try {
                     byte[] bytes = ByteArrayUtil.getByteArray(bb);
                     persistentDataContainer.readFromBytes(bytes);
@@ -98,26 +90,19 @@ public interface PolarWorldAccess {
         @Override
         public void saveChunkData(@NotNull ChunkAccess chunk,
                                   @NotNull Set<Map.Entry<BlockPos, BlockEntity>> blockEntities,
-                                  @NotNull Entity[] entities, @NotNull ByteArrayDataOutput userData) {
+                                  @NotNull Entity[] entities, @NotNull ByteBuf userData) {
+            List<CompletableFuture<PolarEntity>> entityFutures = new ArrayList<>();
             List<PolarEntity> polarEntities = new ArrayList<>();
 
             for (@NotNull Entity entity : entities) {
                 if (entity.getType() == EntityType.PLAYER) continue;
-                byte[] entityBytes = EntityUtil.entityToBytes(entity);
-                if (entityBytes == null) continue;
-                Location entityPos = entity.getLocation();
+                CompletableFuture<PolarEntity> entityFuture = EntityUtil.entityToPolarEntity(entity);
+                entityFutures.add(entityFuture);
+            }
 
-                final var x = ((entityPos.x() % 16) + 16) % 16;
-                final var z = ((entityPos.z() % 16) + 16) % 16;
-
-                polarEntities.add(new PolarEntity(
-                        x,
-                        entityPos.y(),
-                        z,
-                        entityPos.getYaw(),
-                        entityPos.getPitch(),
-                        entityBytes
-                ));
+            for (CompletableFuture<PolarEntity> entityFuture : entityFutures) {
+                PolarEntity polarEntity = entityFuture.join();
+                polarEntities.add(polarEntity);
             }
 
             userData.writeByte(CURRENT_FEATURES_VERSION);
@@ -174,11 +159,10 @@ public interface PolarWorldAccess {
      * <br/><br/>
      * Can be used to access user data after the chunk has been loaded.
      *
-     * @param chunkHolderManager
-     * @param chunk              The chunk being populated
-     * @param userData           The saved user data, or null if none is present
+     * @param chunk The Bukkit chunk being populated
+     * @param userData The saved user data, or null if none is present
      */
-    default void populateChunkData(ChunkHolderManager chunkHolderManager, @NotNull NewChunkHolder chunk, byte @Nullable [] userData) {
+    default void populateChunkData(@NotNull Chunk chunk, byte @Nullable [] userData) {
     }
 
     /**
@@ -193,7 +177,7 @@ public interface PolarWorldAccess {
      */
     default void saveChunkData(@NotNull ChunkAccess chunk,
                                @NotNull Set<Map.Entry<BlockPos, BlockEntity>> blockEntities, @NotNull Entity[] entities,
-                               @NotNull ByteArrayDataOutput userData) {
+                               @NotNull ByteBuf userData) {
     }
 
     @ApiStatus.Experimental

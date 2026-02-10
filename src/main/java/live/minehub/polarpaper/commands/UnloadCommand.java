@@ -3,6 +3,8 @@ package live.minehub.polarpaper.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import live.minehub.polarpaper.*;
+import live.minehub.polarpaper.util.FoliaUtil;
 import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarGenerator;
@@ -25,6 +27,14 @@ public class UnloadCommand {
 
     protected static int unload(CommandContext<CommandSourceStack> ctx, boolean saveOverrided, boolean save) {
         String worldName = ctx.getArgument("worldname", String.class);
+
+        if (FoliaUtil.isFolia()) {
+            ctx.getSource().getSender().sendMessage(
+                    Component.text()
+                            .append(Component.text("Unloading worlds is not supported on Folia!", NamedTextColor.RED))
+            );
+            return Command.SINGLE_SUCCESS;
+        }
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld == null) {
@@ -84,7 +94,7 @@ public class UnloadCommand {
     }
 
     private static void bukkitUnload(CommandContext<CommandSourceStack> ctx, World bukkitWorld) {
-        Bukkit.getScheduler().runTask(PolarPaper.getPlugin(), () -> {
+        Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
             String worldName = bukkitWorld.getName();
             boolean successful = Bukkit.unloadWorld(bukkitWorld, false);
 

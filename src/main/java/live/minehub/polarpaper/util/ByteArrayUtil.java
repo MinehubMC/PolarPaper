@@ -1,29 +1,20 @@
 package live.minehub.polarpaper.util;
 
-import com.google.common.io.ByteArrayDataOutput;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
+import io.netty.buffer.ByteBufOutputStream;
+import live.minehub.polarpaper.PolarChunk;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import org.bukkit.Bukkit;
-import org.bukkit.craftbukkit.CraftServer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
 
 public class ByteArrayUtil {
 
-    public static byte[] getByteArray(ByteBuffer bb) {
-        int packedLength = getVarInt(bb);
-        byte[] bytes = new byte[packedLength];
-        for (int i = 0; i < packedLength; i++) {
-            bytes[i] = bb.get();
-        }
+    public static byte[] outputArray(ByteBuf bb) {
+        byte[] bytes = new byte[bb.readableBytes()];
+        bb.readBytes(bytes);
         return bytes;
     }
 
@@ -46,37 +37,6 @@ public class ByteArrayUtil {
     }
 
     // Copyright 2019 Google LLC
-    public static int getVarInt(ByteBuffer bb) {
-        int tmp;
-        if ((tmp = bb.get()) >= 0) {
-            return tmp;
-        }
-        int result = tmp & 0x7f;
-        if ((tmp = bb.get()) >= 0) {
-            result |= tmp << 7;
-        } else {
-            result |= (tmp & 0x7f) << 7;
-            if ((tmp = bb.get()) >= 0) {
-                result |= tmp << 14;
-            } else {
-                result |= (tmp & 0x7f) << 14;
-                if ((tmp = bb.get()) >= 0) {
-                    result |= tmp << 21;
-                } else {
-                    result |= (tmp & 0x7f) << 21;
-                    result |= (tmp = bb.get()) << 28;
-                    while (tmp < 0) {
-                        // We get into this loop only in the case of overflow.
-                        // By doing this, we can call getVarInt() instead of
-                        // getVarLong() when we only need an int.
-                        tmp = bb.get();
-                    }
-                }
-            }
-        }
-        return result;
-    }
-
     public static int getVarInt(ByteBuf bb) {
         int tmp;
         if ((tmp = bb.readByte()) >= 0) {
@@ -136,62 +96,57 @@ public class ByteArrayUtil {
 
 
 
-    public static void writeBlockEntity(@NotNull ByteArrayDataOutput bb, BlockPos blockPos, @NotNull BlockEntity blockEntity) {
-        int index = CoordConversion.chunkBlockIndex(blockPos.getX(), blockPos.getY(), blockPos.getZ());
-
-        var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
-        CompoundTag compoundTag = blockEntity.saveWithFullMetadata(registryAccess);
-
-        String id = compoundTag.getString("id").orElse(null);
-
-        bb.writeInt(index);
-        bb.write(id == null ? 0 : 1);
-        if (id != null) {
-            writeString(id, bb);
+    public static void writeBlockEntity(@NotNull ByteBuf bb, @NotNull PolarChunk.BlockEntity blockEntity) {
+        bb.writeInt(blockEntity.index());
+        bb.writeByte(blockEntity.id() == null ? 0 : 1);
+        if (blockEntity.id() != null) {
+            writeString(blockEntity.id(), bb);
         }
 
-        bb.write(compoundTag == null ? 0 : 1);
-        if (compoundTag != null) {
+        bb.writeByte(blockEntity.data() == null ? 0 : 1);
+        if (blockEntity.data() != null) {
             try {
-                NbtIo.writeAnyTag(compoundTag, bb);
+                ByteBufOutputStream byteBufOutputStream = new ByteBufOutputStream(bb);
+                NbtIo.writeAnyTag(blockEntity.data(), byteBufOutputStream);
+                byteBufOutputStream.close();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
     }
 
-    public static void writeVarInt(int v, ByteArrayDataOutput bb) {
+    public static void writeVarInt(int v, ByteBuf bb) {
         while (true) {
             int bits = v & 0x7f;
             v >>>= 7;
             if (v == 0) {
-                bb.write((byte) bits);
+                bb.writeByte((byte) bits);
                 return;
             }
-            bb.write((byte) (bits | 0x80));
+            bb.writeByte((byte) (bits | 0x80));
         }
     }
 
-    public static void writeString(String s, ByteArrayDataOutput bb) {
+    public static void writeString(String s, ByteBuf bb) {
         byte[] bytes = s.getBytes(StandardCharsets.UTF_8);
         writeVarInt(bytes.length, bb);
-        bb.write(bytes);
+        bb.writeBytes(bytes);
     }
 
-    public static void writeByteArray(byte[] bytes, ByteArrayDataOutput bb) {
+    public static void writeByteArray(byte[] bytes, ByteBuf bb) {
         writeVarInt(bytes.length, bb);
-        bb.write(bytes);
+        bb.writeBytes(bytes);
     }
 
-    public static void writeLongArray(long[] longs, ByteArrayDataOutput bb) {
+    public static void writeLongArray(long[] longs, ByteBuf bb) {
         writeVarInt(longs.length, bb);
         for (long aLong : longs) {
             bb.writeLong(aLong);
         }
     }
 
-    public static void writeStringList(Collection<String> strings, ByteArrayDataOutput bb) {
-        writeVarInt(strings.size(), bb);
+    public static void writeStringArray(String[] strings, ByteBuf bb) {
+        writeVarInt(strings.length, bb);
         for (String aString : strings) {
             writeString(aString, bb);
         }
