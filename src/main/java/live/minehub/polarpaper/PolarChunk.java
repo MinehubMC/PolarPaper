@@ -8,6 +8,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.util.ByteArrayUtil;
 import live.minehub.polarpaper.util.CoordConversion;
+import live.minehub.polarpaper.util.PaletteUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
@@ -182,7 +183,6 @@ public record PolarChunk(
                 Object[] palette = chunkPalette.moonrise$getRawPalette(blockPaletteData);
                 if (palette != null) {
                     for (Object p : palette) {
-                        if (p == null) continue;
                         if (!(p instanceof BlockState blockState)) continue;
                         blockPaletteStrings.add(blockState.toString()
                                 .replace("Block{", "").replace("}", "")); // e.g. Block{minecraft:oak_fence}[...] to minecraft:oak_fence[...]
@@ -204,11 +204,14 @@ public record PolarChunk(
                 blockBitStorage.set(index, airIndex);
             }
 
-            blockData = blockBitStorage.getRaw();
-
-            // TODO: trim the palette (needed?)
-//                // remove unused blocks from the palette
-//                blockPaletteStrings = Arrays.stream(blockData).distinct().mapToObj(blockPaletteStrings::get).toList();
+            int bitsPerEntry = (int) Math.ceil(Math.log(blockPaletteStrings.size()) / Math.log(2));
+            if (4 < bitsPerEntry) {
+                int[] ints = new int[blockBitStorage.getSize()];
+                blockBitStorage.unpack(ints);
+                blockData = PaletteUtil.pack(ints, blockBitStorage.getBits());
+            } else {
+                blockData = blockBitStorage.getRaw();
+            }
         } else {
             blockPaletteStrings.add(Blocks.AIR.defaultBlockState().toString()
                     .replace("Block{", "").replace("}", ""));
