@@ -7,6 +7,7 @@ default:
   spawn: 0.0, 64.0, 0.0, 0.0, 0.0
   difficulty: NORMAL
   async: false
+  saveLight: false
   worldType: FLAT # One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES
   environment: NORMAL # One of: NORMAL, NETHER, THE_END, CUSTOM
   gamerules: # Custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath

@@ -24,6 +24,8 @@ import java.util.*;
  * @param async whether to create the world asynchronously. Can cause issues with other plugins
  * @param removeChunks whether chunks are removed from the PolarWorld once fully generated to save memory.
  * Should be disabled if reusing the PolarWorld object between multiple worlds
+ * @param saveLight whether chunks are saved with light data.
+ * Reduces CPU usage when loading the world but increases world size significantly
  * @param worldType Prefer WorldType.FLAT if possible as it skips unnecessary vanilla biome generation
  * @param environment
  * @param gamerules map of gamerules - custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath
@@ -37,6 +39,7 @@ public record Config(
         @NotNull Difficulty difficulty,
         boolean async,
         boolean removeChunks,
+        boolean saveLight,
         @NotNull WorldType worldType,
         @NotNull World.Environment environment,
         @NotNull Map<String, Object> gamerules
@@ -69,6 +72,7 @@ public record Config(
             Difficulty.NORMAL,
             false,
             true,
+            false,
             WorldType.FLAT,
             World.Environment.NORMAL,
             DEFAULT_GAMERULES
@@ -134,6 +138,7 @@ public record Config(
             Difficulty difficulty = Difficulty.valueOf(config.getString(prefix + "difficulty", defaultConfig.difficulty.name()));
             boolean async = config.getBoolean(prefix + "async", defaultConfig.async);
             boolean removeChunks = config.getBoolean(prefix + "removeChunks", defaultConfig.removeChunks);
+            boolean saveLight = config.getBoolean(prefix + "saveLight", defaultConfig.saveLight);
             WorldType worldType = WorldType.valueOf(config.getString(prefix + "worldType", defaultConfig.worldType.name()));
             World.Environment environment = World.Environment.valueOf(config.getString(prefix + "environment", defaultConfig.environment.name()));
 
@@ -154,6 +159,7 @@ public record Config(
                     difficulty,
                     async,
                     removeChunks,
+                    saveLight,
                     worldType,
                     environment,
                     gamerulesMap
@@ -187,6 +193,8 @@ public record Config(
         fileConfig.setInlineComments(prefix + "async", List.of("Very experimental"));
         writeProperty(fileConfig, prefix + "removeChunks", config.removeChunks, defaultConfig.removeChunks);
         fileConfig.setInlineComments(prefix + "removeChunks", List.of("Whether chunks are removed from the PolarWorld once fully generated to save memory"));
+        writeProperty(fileConfig, prefix + "saveLight", config.saveLight, defaultConfig.saveLight);
+        fileConfig.setInlineComments(prefix + "saveLight", List.of("Whether chunks are saved with light data. Reduces CPU usage when loading the world but increases world size significantly"));
         writeProperty(fileConfig, prefix + "worldType", config.worldType.name(), defaultConfig.worldType.name());
         fileConfig.setInlineComments(prefix + "worldType", List.of("One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES"));
         writeProperty(fileConfig, prefix + "environment", config.environment.name(), defaultConfig.environment.name());
@@ -277,6 +285,7 @@ public record Config(
         private @NotNull Difficulty difficulty;
         private boolean async;
         private boolean removeChunks;
+        private boolean saveLight;
         private @NotNull WorldType worldType;
         private @NotNull World.Environment environment;
         private @NotNull Map<String, Object> gamerules;
@@ -290,6 +299,7 @@ public record Config(
             this.difficulty = record.difficulty;
             this.async = record.async;
             this.removeChunks = record.removeChunks;
+            this.saveLight = record.saveLight;
             this.worldType = record.worldType;
             this.environment = record.environment;
             this.gamerules = record.gamerules;
@@ -355,6 +365,15 @@ public record Config(
         }
 
         /**
+         * Whether chunks are saved with light data.
+         * Reduces CPU usage when loading the world but increases world size significantly
+         */
+        public Builder saveLight(boolean saveLight) {
+            this.saveLight = saveLight;
+            return this;
+        }
+
+        /**
          * Prefer WorldType.FLAT if possible as it skips unnecessary vanilla biome generation
          */
         public Builder worldType(@NotNull WorldType worldType) {
@@ -384,7 +403,7 @@ public record Config(
 
         public Config build() {
             return new Config(this.autoSaveIntervalTicks, this.time, this.saveOnStop, this.loadOnStartup,
-                    this.spawn, this.difficulty, this.async, this.removeChunks, this.worldType,
+                    this.spawn, this.difficulty, this.async, this.removeChunks, this.saveLight, this.worldType,
                     this.environment, this.gamerules);
         }
     }

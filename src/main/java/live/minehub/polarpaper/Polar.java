@@ -324,7 +324,7 @@ public class Polar {
         if (polarWorld == null) return;
         PolarGenerator generator = PolarGenerator.fromWorld(world);
         if (generator == null) return;
-        saveWorld(world, polarWorld, polarSource, generator.getWorldAccess(), BlockSelector.ALL);
+        saveWorld(world, polarWorld, polarSource, generator.getWorldAccess(), BlockSelector.ALL, generator.getConfig().saveLight());
     }
 
     /**
@@ -336,11 +336,12 @@ public class Polar {
      * @param polarSource The source to use to save the polar world (e.g. FilePolarSource)
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
+     * @param saveLight Whether chunks are saved with light data. Reduces CPU usage when loading the world but increases world size significantly
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      * @see BlockSelector#ALL
      */
-    public static void saveWorld(World world, PolarWorld polarWorld, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
-        PolarWorld newPolarWorld = polarWorld.updateChunks(world, polarWorldAccess, blockSelector);
+    public static void saveWorld(World world, PolarWorld polarWorld, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight) {
+        PolarWorld newPolarWorld = polarWorld.updateChunks(world, polarWorldAccess, blockSelector, saveLight);
         byte[] worldBytes = PolarWriter.write(newPolarWorld);
         polarSource.saveBytes(worldBytes);
     }

@@ -1,11 +1,11 @@
 package live.minehub.polarpaper;
 
-import ca.spottedleaf.moonrise.patches.chunk_system.level.ChunkSystemServerLevel;
 import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.CoordConversion;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -188,7 +188,21 @@ public class PolarWorld {
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
     public PolarWorld updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
-        return convert(world, polarWorldAccess, blockSelector, this.nonEmptyChunks());
+        return convert(world, polarWorldAccess, blockSelector, false, this.nonEmptyChunks());
+    }
+
+    /**
+     * Creates a new PolarWorld by converting chunks from the supplied bukkit world
+     * <p>
+     * Includes chunks already in this PolarWorld
+     *
+     * @param world The bukkit world to retrieve the updated chunks from
+     * @see Polar#saveWorld(World, PolarSource)
+     * @see BlockSelector#ALL
+     * @see PolarWorldAccess#POLAR_PAPER_FEATURES
+     */
+    public PolarWorld updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight) {
+        return convert(world, polarWorldAccess, blockSelector, saveLight, this.nonEmptyChunks());
     }
 
     /**
@@ -202,7 +216,22 @@ public class PolarWorld {
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
     public static PolarWorld convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
-        return convert(world, polarWorldAccess, blockSelector, List.of());
+        return convert(world, polarWorldAccess, blockSelector, false);
+    }
+
+    /**
+     * Creates a new PolarWorld by converting chunks from the supplied bukkit world
+     *
+     * @param world The bukkit world to retrieve the updated chunks from
+     * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
+     * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
+     * @param saveLight Whether to save light data
+     * @see Polar#saveWorld(World, PolarSource)
+     * @see BlockSelector#ALL
+     * @see PolarWorldAccess#POLAR_PAPER_FEATURES
+     */
+    public static PolarWorld convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight) {
+        return convert(world, polarWorldAccess, blockSelector, saveLight, List.of());
     }
 
     /**
@@ -211,12 +240,13 @@ public class PolarWorld {
      * @param world The bukkit world to retrieve the updated chunks from
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
+     * @param saveLight Whether to save light data
      * @param includedChunks PolarChunks to add to the world
      * @see Polar#saveWorld(World, PolarSource)
      * @see BlockSelector#ALL
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public static PolarWorld convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Collection<PolarChunk> includedChunks) {
+    public static PolarWorld convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight, Collection<PolarChunk> includedChunks) {
         // TODO: consider offsets
         // TODO: chunk holders should probably be eventually released/removed (config option?)
 
@@ -227,8 +257,8 @@ public class PolarWorld {
                 (byte) CoordConversion.sectionIndex(maxHeight)
         );
 
-        ChunkSystemServerLevel chunkSystemServerLevel = ((CraftWorld) world).getHandle();
-        ChunkHolderManager chunkHolderManager = chunkSystemServerLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
+        ServerLevel serverLevel = ((CraftWorld) world).getHandle();
+        ChunkHolderManager chunkHolderManager = serverLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
 
         for (PolarChunk chunk : includedChunks) {
             if (!blockSelector.testChunk(chunk.x(), chunk.z())) continue;
@@ -271,7 +301,7 @@ public class PolarWorld {
                 }
             }
 
-            PolarChunk polarChunk = PolarChunk.convert(chunkHolder, polarWorldAccess, blockSelector);
+            PolarChunk polarChunk = PolarChunk.convert(chunkHolder, polarWorldAccess, blockSelector, saveLight ? serverLevel.getLightEngine() : null);
             newPolarWorld.updateChunkAt(chunkX, chunkZ, polarChunk);
         }
 

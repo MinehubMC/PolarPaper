@@ -1,6 +1,5 @@
 package live.minehub.polarpaper;
 
-import ca.spottedleaf.moonrise.patches.chunk_system.level.ChunkSystemServerLevel;
 import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
@@ -12,15 +11,19 @@ import live.minehub.polarpaper.util.PaletteUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
+import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.BitStorage;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.*;
+import net.minecraft.world.level.lighting.LevelLightEngine;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftServer;
@@ -87,7 +90,7 @@ public record PolarChunk(
     }
 
     /**
-     * Converts a bukkit world chunk to a polar chunk
+     * Converts a bukkit world chunk to a polar chunk without light data
      * @param world The bukkit world
      * @param chunkX The X coordinate of the chunk in the bukkit world
      * @param chunkZ The Z coordinate of the chunk in the bukkit world
@@ -95,13 +98,26 @@ public record PolarChunk(
      * @return The new PolarChunk
      */
     public static PolarChunk convert(World world, int chunkX, int chunkZ, PolarWorldAccess worldAccess, BlockSelector blockSelector) {
-        ChunkSystemServerLevel chunkSystemServerLevel = ((CraftWorld) world).getHandle();
+        return convert(world, chunkX, chunkZ, worldAccess, blockSelector, false);
+    }
+
+    /**
+     * Converts a bukkit world chunk to a polar chunk
+     * @param world The bukkit world
+     * @param chunkX The X coordinate of the chunk in the bukkit world
+     * @param chunkZ The Z coordinate of the chunk in the bukkit world
+     * @param blockSelector Used to filter which blocks are converted
+     * @param saveLight Whether to save light data
+     * @return The new PolarChunk
+     */
+    public static PolarChunk convert(World world, int chunkX, int chunkZ, PolarWorldAccess worldAccess, BlockSelector blockSelector, boolean saveLight) {
+        ServerLevel chunkSystemServerLevel = ((CraftWorld) world).getHandle();
         ChunkHolderManager chunkHolderManager = chunkSystemServerLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
-        return convert(chunkHolderManager.getChunkHolder(chunkX, chunkZ), worldAccess, blockSelector);
+        return convert(chunkHolderManager.getChunkHolder(chunkX, chunkZ), worldAccess, blockSelector, saveLight ? chunkSystemServerLevel.getLightEngine() : null);
     }
 
 
-    public static PolarChunk convert(NewChunkHolder chunkHolder, PolarWorldAccess worldAccess, BlockSelector blockSelector) {
+    public static PolarChunk convert(NewChunkHolder chunkHolder, PolarWorldAccess worldAccess, BlockSelector blockSelector, @Nullable LevelLightEngine lightEngine) {
         ChunkAccess chunkAccess = chunkHolder.getCurrentChunk();
         ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
         int chunkX = chunkHolder.chunkX;
@@ -115,7 +131,7 @@ public record PolarChunk(
         PolarSection[] sections = new PolarSection[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
             LevelChunkSection chunkAccessSection = chunkAccess.getSection(i);
-            sections[i] = convertSection(chunkX, chunkZ, chunkAccessSection, biomeRegistry, blockSelector, minSection, i);
+            sections[i] = convertSection(chunkX, chunkZ, chunkAccessSection, biomeRegistry, blockSelector, minSection, i, lightEngine);
         }
 
         var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
@@ -164,7 +180,7 @@ public record PolarChunk(
         );
     }
 
-    private static PolarSection convertSection(int chunkX, int chunkZ, LevelChunkSection chunkAccessSection, Registry<Biome> biomeRegistry, BlockSelector blockSelector, int minSection, int sectionI) {
+    private static PolarSection convertSection(int chunkX, int chunkZ, LevelChunkSection chunkAccessSection, Registry<Biome> biomeRegistry, BlockSelector blockSelector, int minSection, int sectionI, @Nullable LevelLightEngine lightEngine) {
         long[] blockData = null;
         long[] biomeData;
 
@@ -231,11 +247,30 @@ public record PolarChunk(
         BitStorage biomeBitStorage = biomePaletteData.storage();
         biomeData = biomeBitStorage.getRaw();
 
+        PolarSection.LightContent blockLightContent = PolarSection.LightContent.MISSING;
+        PolarSection.LightContent skyLightContent = PolarSection.LightContent.MISSING;
+        byte[] blockLight = new byte[2048];
+        byte[] skyLight = new byte[2048];
+
+        if (lightEngine != null) {
+            DataLayer skyLightArray = lightEngine.getLayerListener(LightLayer.SKY).getDataLayerData(SectionPos.of(chunkX, minSection + sectionI, chunkZ));
+            DataLayer blockLightArray = lightEngine.getLayerListener(LightLayer.BLOCK).getDataLayerData(SectionPos.of(chunkX, minSection + sectionI, chunkZ));
+
+            if (skyLightArray != null) {
+                skyLight = skyLightArray.getData();
+                skyLightContent = PolarSection.LightContent.PRESENT;
+            }
+            if (blockLightArray != null) {
+                blockLight = blockLightArray.getData();
+                blockLightContent = PolarSection.LightContent.PRESENT;
+            }
+        }
+
         return new PolarSection(
                 blockPaletteStrings.toArray(new String[0]), blockData,
                 biomePaletteStrings.toArray(new String[0]), biomeData,
-                PolarSection.LightContent.MISSING, null, // TODO: Provide block light
-                PolarSection.LightContent.MISSING, null
+                blockLightContent, blockLight,
+                skyLightContent, skyLight
         );
     }
 

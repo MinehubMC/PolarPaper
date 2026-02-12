@@ -101,10 +101,10 @@ public class ConvertCommand {
                             .append(Component.text("'...", NamedTextColor.GRAY))
             );
 
-            Polar.updateConfig(bukkitWorld, newWorldName);
+            Config config = Polar.updateConfig(bukkitWorld, newWorldName);
 
             Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-                PolarWorld newPolarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.square(offsetX, offsetZ, chunkRadius));
+                PolarWorld newPolarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.square(offsetX, offsetZ, chunkRadius), config.saveLight());
                 byte[] polarBytes = PolarWriter.write(newPolarWorld);
                 FilePolarSource.defaultFolder(newWorldName).saveBytes(polarBytes);
 
