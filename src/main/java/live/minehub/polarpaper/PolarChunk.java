@@ -221,7 +221,7 @@ public record PolarChunk(
             }
 
             int bitsPerEntry = (int) Math.ceil(Math.log(blockPaletteStrings.size()) / Math.log(2));
-            if (4 > bitsPerEntry) {
+            if (4 > bitsPerEntry && blockBitStorage.getBits() != 0) {
                 int[] ints = new int[blockBitStorage.getSize()];
                 PaletteUtil.unpack(ints, blockBitStorage.getRaw(), blockBitStorage.getBits());
                 blockData = PaletteUtil.pack(ints, bitsPerEntry);
