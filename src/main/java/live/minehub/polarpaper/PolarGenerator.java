@@ -127,9 +127,9 @@ public class PolarGenerator extends ChunkGenerator {
             }
         }
 
-        if (blockData != null && blockData.length == 1024) {
-            return;
-        }
+//        if (blockData != null && blockData.length == 1024) {
+//            return;
+//        }
 
         if (blockData == null || bitsPerEntry == 0) {
             states.data = new PalettedContainer.Data<>(
