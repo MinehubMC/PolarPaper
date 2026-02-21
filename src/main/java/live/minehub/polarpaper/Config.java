@@ -16,6 +16,7 @@ import java.util.*;
  * @see Config#BLANK_DEFAULT
  * @see Config#toBuilder() 
  * @param autoSaveIntervalTicks the time between each autosave in ticks (20 ticks = 1 second), -1 to disable autosaving
+ * @param announceAutosave whether to send autosave messages regardless of "polar.notifications" permission
  * @param time the daytime of the world
  * @param saveOnStop whether to save on shutdown or when using /polar unload
  * @param loadOnStartup whether to load the world when the plugin is enabled
@@ -32,6 +33,7 @@ import java.util.*;
  */
 public record Config(
         int autoSaveIntervalTicks,
+        boolean announceAutosave,
         long time,
         boolean saveOnStop,
         boolean loadOnStartup,
@@ -65,6 +67,7 @@ public record Config(
 
     public static final Config BLANK_DEFAULT = new Config(
             -1,
+            true,
             1000L,
             false,
             true,
@@ -131,6 +134,7 @@ public record Config(
     private static @NotNull Config readPrefix(FileConfiguration config, String prefix, Config defaultConfig) {
         try {
             int autoSaveIntervalTicks = config.getInt(prefix + "autosaveIntervalTicks", defaultConfig.autoSaveIntervalTicks);
+            boolean announceAutosave = config.getBoolean(prefix + "announceAutosave", defaultConfig.announceAutosave);
             long time = config.getLong(prefix + "time", defaultConfig.time);
             boolean saveOnStop = config.getBoolean(prefix + "saveOnStop", defaultConfig.saveOnStop);
             boolean loadOnStartup = config.getBoolean(prefix + "loadOnStartup", defaultConfig.loadOnStartup);
@@ -152,6 +156,7 @@ public record Config(
 
             return new Config(
                     autoSaveIntervalTicks,
+                    announceAutosave,
                     time,
                     saveOnStop,
                     loadOnStartup,
@@ -184,6 +189,7 @@ public record Config(
         // only save if the config differs from the default
         writeProperty(fileConfig, prefix + "time", config.time, defaultConfig.time);
         writeProperty(fileConfig, prefix + "autosaveIntervalTicks", config.autoSaveIntervalTicks, defaultConfig.autoSaveIntervalTicks);
+        writeProperty(fileConfig, prefix + "announceAutosave", config.announceAutosave, defaultConfig.announceAutosave);
         fileConfig.setInlineComments(prefix + "autosaveIntervalTicks", List.of("-1 to disable"));
         writeProperty(fileConfig, prefix + "saveOnStop", config.saveOnStop, defaultConfig.saveOnStop);
         writeProperty(fileConfig, prefix + "loadOnStartup", config.loadOnStartup, defaultConfig.loadOnStartup);
@@ -278,6 +284,7 @@ public record Config(
     @SuppressWarnings("unused")
     public static final class Builder {
         private int autoSaveIntervalTicks;
+        private boolean announceAutosave;
         private long time;
         private boolean saveOnStop;
         private boolean loadOnStartup;
@@ -292,6 +299,7 @@ public record Config(
 
         private Builder(Config record) {
             this.autoSaveIntervalTicks = record.autoSaveIntervalTicks;
+            this.announceAutosave = record.announceAutosave;
             this.time = record.time;
             this.saveOnStop = record.saveOnStop;
             this.loadOnStartup = record.loadOnStartup;
@@ -312,6 +320,11 @@ public record Config(
          */
         public Builder autoSaveIntervalTicks(int autoSaveIntervalTicks) {
             this.autoSaveIntervalTicks = autoSaveIntervalTicks;
+            return this;
+        }
+
+        public Builder announceAutosave(boolean announceAutosave) {
+            this.announceAutosave = announceAutosave;
             return this;
         }
 
@@ -402,7 +415,7 @@ public record Config(
         }
 
         public Config build() {
-            return new Config(this.autoSaveIntervalTicks, this.time, this.saveOnStop, this.loadOnStartup,
+            return new Config(this.autoSaveIntervalTicks, this.announceAutosave, this.time, this.saveOnStop, this.loadOnStartup,
                     this.spawn, this.difficulty, this.async, this.removeChunks, this.saveLight, this.worldType,
                     this.environment, this.gamerules);
         }

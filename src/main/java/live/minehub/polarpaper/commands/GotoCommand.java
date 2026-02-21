@@ -7,12 +7,18 @@ import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class GotoCommand {
 
@@ -25,12 +31,31 @@ public class GotoCommand {
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld == null) {
-            sender.sendMessage(
-                    Component.text()
-                            .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
-                            .append(Component.text("' does not exist!", NamedTextColor.RED))
-            );
+            Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+            Path worldsFolder = pluginFolder.resolve("worlds");
+            Path path = worldsFolder.resolve(worldName + ".polar");
+
+            if (Files.exists(path)) { // world exists, just isn't loaded
+                sender.sendMessage(Component.text()
+                        .append(Component.text("World '", NamedTextColor.RED))
+                        .append(Component.text(worldName, NamedTextColor.RED))
+                        .append(Component.text("' is not loaded.", NamedTextColor.RED))
+                        .appendNewline()
+                        .append(Component.text("Use ", NamedTextColor.AQUA))
+                        .append(Component.text()
+                                        .append(Component.text("/polar load ", NamedTextColor.WHITE))
+                                        .append(Component.text(worldName, NamedTextColor.WHITE))
+                                        .clickEvent(ClickEvent.runCommand("/polar load " + worldName))
+                                        .hoverEvent(HoverEvent.showText(Component.text("Click to load world")))
+                                        .decorate(TextDecoration.UNDERLINED))
+                        .append(Component.text(" to load it now", NamedTextColor.AQUA)));
+            } else {
+                sender.sendMessage(Component.text()
+                        .append(Component.text("World '", NamedTextColor.RED))
+                        .append(Component.text(worldName, NamedTextColor.RED))
+                        .append(Component.text("' does not exist!", NamedTextColor.RED)));
+            }
+
             return Command.SINGLE_SUCCESS;
         }
 

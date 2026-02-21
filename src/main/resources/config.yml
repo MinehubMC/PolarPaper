@@ -1,6 +1,7 @@
 # Config for polar worlds
 default:
   autosaveIntervalTicks: -1 # -1 to disable
+  announceAutosave: true
   time: 1000
   saveOnStop: false
   loadOnStartup: true

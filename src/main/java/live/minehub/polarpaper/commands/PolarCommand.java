@@ -5,7 +5,6 @@ import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
-import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarWorld;
 import live.minehub.polarpaper.schematic.Rotation;
 import live.minehub.polarpaper.schematic.Schematic;
@@ -20,14 +19,7 @@ public class PolarCommand {
         registrar.register(
                 Commands.literal("polar")
                         .requires(source -> source.getSender().hasPermission("polarpaper.version"))
-                        .executes(ctx -> {
-                            ctx.getSource().getSender().sendMessage(
-                                    Component.text()
-                                            .append(Component.text("Polar for Paper v", NamedTextColor.AQUA))
-                                            .append(Component.text(PolarPaper.getPlugin().getPluginMeta().getVersion(), NamedTextColor.AQUA))
-                            );
-                            return Command.SINGLE_SUCCESS;
-                        })
+                        .executes(VersionCommand::run)
 //                        .then(Commands.literal("gc") // TODO: remove
 //                                .executes(GCCommand::run))
                         .then(Commands.literal("help")
@@ -156,6 +148,8 @@ public class PolarCommand {
                         .then(Commands.literal("list")
                                 .requires(source -> source.getSender().hasPermission("polarpaper.list"))
                                 .executes(ListCommand::run)
+                                .then(Commands.argument("page", IntegerArgumentType.integer(1))
+                                        .executes(ListCommand::runPaged))
                         )
                         .then(Commands.literal("convert")
                                     .requires(source -> source.getSender().hasPermission("polarpaper.convert"))

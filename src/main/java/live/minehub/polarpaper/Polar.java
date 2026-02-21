@@ -234,7 +234,7 @@ public class Polar {
             long before = System.nanoTime();
             String savingMsg = String.format("Autosaving '%s'...", world.getName());
             PolarPaper.logger().info(savingMsg);
-            for (Player plr : Bukkit.getOnlinePlayers()) {
+            if (config.announceAutosave()) for (Player plr : Bukkit.getOnlinePlayers()) {
                 if (!plr.hasPermission("polar.notifications")) continue;
                 plr.sendMessage(Component.text(savingMsg, NamedTextColor.AQUA));
             }
@@ -257,7 +257,7 @@ public class Polar {
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             String savedMsg = String.format("Saved '%s' in %sms", world.getName(), ms);
             PolarPaper.logger().info(savedMsg);
-            for (Player plr : Bukkit.getOnlinePlayers()) {
+            if (config.announceAutosave()) for (Player plr : Bukkit.getOnlinePlayers()) {
                 if (!plr.hasPermission("polar.notifications")) continue;
                 plr.sendMessage(Component.text(savedMsg, NamedTextColor.AQUA));
             }
