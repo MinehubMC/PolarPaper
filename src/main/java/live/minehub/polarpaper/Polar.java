@@ -242,7 +242,17 @@ public class Polar {
             Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
                 updateConfig(world, world.getName()); // config should only be updated synchronously
             });
-            saveWorldToFile(world);
+            try {
+                saveWorldToFile(world);
+            } catch (Exception e) {
+                String errorMsg = String.format("Failed to save '%s', please check logs for error", world.getName());
+                PolarPaper.logger().severe(errorMsg);
+                for (Player plr : Bukkit.getOnlinePlayers()) {
+                    if (!plr.hasPermission("polar.notifications")) continue;
+                    plr.sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                }
+                return;
+            }
 
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             String savedMsg = String.format("Saved '%s' in %sms", world.getName(), ms);

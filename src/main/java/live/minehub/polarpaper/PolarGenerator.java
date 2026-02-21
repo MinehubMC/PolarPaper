@@ -54,7 +54,12 @@ public class PolarGenerator extends ChunkGenerator {
             // TODO: switching world to nether environment causes out of bounds here
             LevelChunkSection chunkAccessSection = chunkAccess.getSection(i++);
 
-            loadSection(section, chunkAccessSection);
+            // Would put catch here but if a section does not load, the user may not know about it and may save causing the section to be permanently lost
+//            try {
+                loadSection(section, chunkAccessSection);
+//            } catch (Exception e) {
+//                PolarPaper.logger().warning("Failed to load section in '%s' at: chunk: %s, %s, section: %s".formatted(worldInfo.getName(), chunkX, chunkZ, i));
+//            }
         }
 
         // TODO: load light
@@ -120,6 +125,10 @@ public class PolarGenerator extends ChunkGenerator {
                 BlockState first = materialPalette[0];
                 if (first.isAir()) return;
             }
+        }
+
+        if (blockData != null && blockData.length == 1024) {
+            return;
         }
 
         if (blockData == null || bitsPerEntry == 0) {

@@ -118,7 +118,14 @@ public class PasteCommand {
 
         BlockModifier modifier = new BlockModifier.PosRot(player.getLocation().toVector().toVector3i(), rotation);
 
-        Schematic.paste(polarWorld, player.getWorld(), modifier, ignoreAir);
+        try {
+            Schematic.paste(polarWorld, player.getWorld(), modifier, ignoreAir);
+        } catch (Exception e) {
+            String errorMsg = "Failed to paste schematic, please check logs for error";
+            PolarPaper.logger().severe(errorMsg);
+            ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+            return Command.SINGLE_SUCCESS;
+        }
 
         int ms = (int) ((System.nanoTime() - before) / 1_000_000);
         ctx.getSource().getSender().sendMessage(

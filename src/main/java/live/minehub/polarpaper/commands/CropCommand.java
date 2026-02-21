@@ -67,10 +67,17 @@ public class CropCommand {
         Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            PolarWorld newPolarWorld = polarWorld.updateChunks(bukkitWorld, polarGenerator.getWorldAccess(), blockSelector);
-            newPolarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
-            byte[] worldBytes = PolarWriter.write(newPolarWorld);
-            FilePolarSource.defaultFolder(bukkitWorld.getName()).saveBytes(worldBytes);
+            try {
+                PolarWorld newPolarWorld = polarWorld.updateChunks(bukkitWorld, polarGenerator.getWorldAccess(), blockSelector);
+                newPolarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
+                byte[] worldBytes = PolarWriter.write(newPolarWorld);
+                FilePolarSource.defaultFolder(bukkitWorld.getName()).saveBytes(worldBytes);
+            } catch (Exception e) {
+                String errorMsg = String.format("Failed to crop '%s', please check logs for error", bukkitWorld.getName());
+                PolarPaper.logger().severe(errorMsg);
+                ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                return;
+            }
 
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             ctx.getSource().getSender().sendMessage(

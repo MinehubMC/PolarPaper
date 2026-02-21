@@ -55,7 +55,14 @@ public class SaveCommand {
         });
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            Polar.saveWorldToFile(bukkitWorld);
+            try {
+                Polar.saveWorldToFile(bukkitWorld);
+            } catch (Exception e) {
+                String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getName());
+                PolarPaper.logger().severe(errorMsg);
+                ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                return;
+            }
 
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             ctx.getSource().getSender().sendMessage(

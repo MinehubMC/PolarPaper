@@ -60,10 +60,17 @@ public class CreateFromRegionCommand {
         // TODO: center the world
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            PolarWorld polarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, blockSelector);
-            polarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
-            byte[] worldBytes = PolarWriter.write(polarWorld);
-            FilePolarSource.defaultFolder(newWorldName).saveBytes(worldBytes);
+            try {
+                PolarWorld polarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, blockSelector);
+                polarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
+                byte[] worldBytes = PolarWriter.write(polarWorld);
+                FilePolarSource.defaultFolder(newWorldName).saveBytes(worldBytes);
+            } catch (Exception e) {
+                String errorMsg = String.format("Failed to create '%s', please check logs for error", newWorldName);
+                PolarPaper.logger().severe(errorMsg);
+                ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                return;
+            }
 
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             ctx.getSource().getSender().sendMessage(
