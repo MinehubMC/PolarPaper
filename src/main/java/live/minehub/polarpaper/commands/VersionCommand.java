@@ -96,30 +96,35 @@ public class VersionCommand {
     }
 
     private static CompletableFuture<@Nullable GithubRelease> getLatestRelease() {
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://api.github.com/repos/MinehubMC/PolarPaper/releases?per_page=2"))
-                .build();
-        return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(HttpResponse::body)
-                .thenApply(body -> {
-                    System.out.println(body );
-                    Gson gson = new Gson();
-                    Type listOfGithubRelease = new TypeToken<List<GithubRelease>>() {}.getType();
-                    List<GithubRelease> releases = gson.fromJson(body, listOfGithubRelease);
-                    for (GithubRelease release : releases) {
-                        if (!release.prerelease) {
-                            release.updated_at_relative = toRelative(release.updated_at);
-                            CACHED_RELEASE = release;
-                            LAST_UPDATED = System.currentTimeMillis();
-                            return release;
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.github.com/repos/MinehubMC/PolarPaper/releases?per_page=2"))
+                    .build();
+            return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(HttpResponse::body)
+                    .thenApply(body -> {
+                        System.out.println(body);
+                        Gson gson = new Gson();
+                        Type listOfGithubRelease = new TypeToken<List<GithubRelease>>() {
+                        }.getType();
+                        List<GithubRelease> releases = gson.fromJson(body, listOfGithubRelease);
+                        for (GithubRelease release : releases) {
+                            if (!release.prerelease) {
+                                release.updated_at_relative = toRelative(release.updated_at);
+                                CACHED_RELEASE = release;
+                                LAST_UPDATED = System.currentTimeMillis();
+                                return release;
+                            }
                         }
-                    }
-                    return null;
-                }).exceptionally(e -> {
-                    ExceptionUtil.log(e);
-                    return null;
-                });
+                        return null;
+                    }).exceptionally(e -> {
+                        ExceptionUtil.log(e);
+                        return null;
+                    });
+        } catch (Exception e) {
+            ExceptionUtil.log(e);
+            return null;
+        }
     }
 
     private static class GithubRelease {
