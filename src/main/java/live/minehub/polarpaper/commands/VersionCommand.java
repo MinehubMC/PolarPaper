@@ -33,7 +33,7 @@ public class VersionCommand {
     private static @Nullable GithubRelease CACHED_RELEASE = null;
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
-        String currentVersion = PolarPaper.getPlugin().getPluginMeta().getVersion() + "a";
+        String currentVersion = PolarPaper.getPlugin().getPluginMeta().getVersion();
 
         ctx.getSource().getSender().sendMessage(
                 Component.text()
@@ -77,8 +77,9 @@ public class VersionCommand {
         ZonedDateTime now = nowInstant.atZone(zone);
 
         ChronoUnit[] values = ChronoUnit.values();
-        for (int i = values.length - 2; i >= 0; i--) {
+        for (int i = values.length - 1; i >= 0; i--) {
             ChronoUnit unit = values[i];
+            if (unit == ChronoUnit.HALF_DAYS || unit == ChronoUnit.FOREVER) continue;
             long amount = unit.between(past, now);
             if (amount > 0) return amount + " " + unit.toString().toLowerCase() + " ago";
         }
@@ -88,8 +89,6 @@ public class VersionCommand {
 
     private static CompletableFuture<@Nullable GithubRelease> getLatestReleaseCached() {
         long lastCheck = System.currentTimeMillis() - LAST_UPDATED;
-        System.out.println("Cached release: " + CACHED_RELEASE);
-        System.out.println("last check: " + lastCheck);
         if (CACHED_RELEASE == null || lastCheck > CHECK_INTERVAL) {
             return getLatestRelease();
         }
