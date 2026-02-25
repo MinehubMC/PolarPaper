@@ -18,7 +18,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 public class ListCommand {
@@ -39,7 +41,7 @@ public class ListCommand {
         TextComponent.Builder builder = Component.text();
         Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
         Path worldsFolder = pluginFolder.resolve("worlds");
-        List<String> worlds = new ArrayList<>();
+        Set<String> worlds = new HashSet<>();
 
         for (World world : Bukkit.getWorlds()) {
             if (world == null) continue;
@@ -64,7 +66,7 @@ public class ListCommand {
         builder.append(Component.text(totalPages, NamedTextColor.GRAY));
         builder.append(Component.text(")", NamedTextColor.GRAY));
 
-        for (String world : getPagedWorlds(worlds, page, ITEMS_PER_PAGE)) {
+        for (String world : getPagedWorlds(new ArrayList<>(worlds), page, ITEMS_PER_PAGE)) {
             World bukkitWorld = Bukkit.getWorld(world);
             PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
 
