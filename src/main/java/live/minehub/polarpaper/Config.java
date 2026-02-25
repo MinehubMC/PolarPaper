@@ -1,5 +1,6 @@
 package live.minehub.polarpaper;
 
+import com.github.luben.zstd.Zstd;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.key.Key;
 import org.bukkit.*;
@@ -42,6 +43,8 @@ public record Config(
         boolean async,
         boolean removeChunks,
         boolean saveLight,
+        PolarWorld.CompressionType compression,
+        int compressionLevel,
         @NotNull WorldType worldType,
         @NotNull World.Environment environment,
         @NotNull Map<String, Object> gamerules
@@ -76,6 +79,8 @@ public record Config(
             false,
             true,
             false,
+            PolarWorld.DEFAULT_COMPRESSION,
+            PolarWorld.DEFAULT_COMPRESSION_LEVEL,
             WorldType.FLAT,
             World.Environment.NORMAL,
             DEFAULT_GAMERULES
@@ -143,6 +148,8 @@ public record Config(
             boolean async = config.getBoolean(prefix + "async", defaultConfig.async);
             boolean removeChunks = config.getBoolean(prefix + "removeChunks", defaultConfig.removeChunks);
             boolean saveLight = config.getBoolean(prefix + "saveLight", defaultConfig.saveLight);
+            PolarWorld.CompressionType compression = PolarWorld.CompressionType.valueOf(config.getString(prefix + "compression", defaultConfig.compression.name()));
+            int compressionLevel = config.getInt(prefix + "compressionLevel", defaultConfig.compressionLevel);
             WorldType worldType = WorldType.valueOf(config.getString(prefix + "worldType", defaultConfig.worldType.name()));
             World.Environment environment = World.Environment.valueOf(config.getString(prefix + "environment", defaultConfig.environment.name()));
 
@@ -165,6 +172,8 @@ public record Config(
                     async,
                     removeChunks,
                     saveLight,
+                    compression,
+                    compressionLevel,
                     worldType,
                     environment,
                     gamerulesMap
@@ -201,6 +210,11 @@ public record Config(
         fileConfig.setInlineComments(prefix + "removeChunks", List.of("Whether chunks are removed from the PolarWorld once fully generated to save memory"));
         writeProperty(fileConfig, prefix + "saveLight", config.saveLight, defaultConfig.saveLight);
         fileConfig.setInlineComments(prefix + "saveLight", List.of("Whether chunks are saved with light data. Reduces CPU usage when loading the world but increases world size significantly"));
+        writeProperty(fileConfig, prefix + "compression", config.compression.name(), defaultConfig.compression.name());
+        fileConfig.setInlineComments(prefix + "compression", List.of("One of: ZSTD, NONE"));
+        writeProperty(fileConfig, prefix + "compressionLevel", config.compressionLevel, defaultConfig.compressionLevel);
+        fileConfig.setInlineComments(prefix + "compressionLevel", List.of("ZSTD compression level, higher means smaller file size but longer save times. Max %s, default %s".formatted(Zstd.maxCompressionLevel(), PolarWorld.DEFAULT_COMPRESSION_LEVEL)));
+
         writeProperty(fileConfig, prefix + "worldType", config.worldType.name(), defaultConfig.worldType.name());
         fileConfig.setInlineComments(prefix + "worldType", List.of("One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES"));
         writeProperty(fileConfig, prefix + "environment", config.environment.name(), defaultConfig.environment.name());
@@ -293,6 +307,8 @@ public record Config(
         private boolean async;
         private boolean removeChunks;
         private boolean saveLight;
+        private PolarWorld.CompressionType compression;
+        private int compressionLevel;
         private @NotNull WorldType worldType;
         private @NotNull World.Environment environment;
         private @NotNull Map<String, Object> gamerules;
@@ -308,6 +324,8 @@ public record Config(
             this.async = record.async;
             this.removeChunks = record.removeChunks;
             this.saveLight = record.saveLight;
+            this.compression = record.compression;
+            this.compressionLevel = record.compressionLevel;
             this.worldType = record.worldType;
             this.environment = record.environment;
             this.gamerules = record.gamerules;
@@ -386,6 +404,22 @@ public record Config(
             return this;
         }
 
+        public Builder compression(PolarWorld.CompressionType compression) {
+            this.compression = compression;
+            return this;
+        }
+
+        /**
+         * Set the ZSTD compression level, higher means smaller file size but longer save times.
+         * @see Zstd#maxCompressionLevel()
+         * @see Zstd#minCompressionLevel()
+         * @see Zstd#defaultCompressionLevel()
+         */
+        public Builder compressionLevel(int compressionLevel) {
+            this.compressionLevel = compressionLevel;
+            return this;
+        }
+
         /**
          * Prefer WorldType.FLAT if possible as it skips unnecessary vanilla biome generation
          */
@@ -416,8 +450,8 @@ public record Config(
 
         public Config build() {
             return new Config(this.autoSaveIntervalTicks, this.announceAutosave, this.time, this.saveOnStop, this.loadOnStartup,
-                    this.spawn, this.difficulty, this.async, this.removeChunks, this.saveLight, this.worldType,
-                    this.environment, this.gamerules);
+                    this.spawn, this.difficulty, this.async, this.removeChunks, this.saveLight, this.compression, this.compressionLevel,
+                    this.worldType, this.environment, this.gamerules);
         }
     }
 }

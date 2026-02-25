@@ -82,6 +82,30 @@ public class PolarCommand {
                                             return builder.buildFuture();
                                         })
                                         .executes(SaveCommand::run)))
+//                        .then(Commands.literal("savezstd")
+//                                .requires(source -> source.getSender().hasPermission("polarpaper.savezstd"))
+//                                .executes(ctx -> {
+//                                    ctx.getSource().getSender().sendMessage(
+//                                            Component.text()
+//                                                    .append(Component.text("Usage: /polar savezstd <worldname>", NamedTextColor.RED))
+//                                    );
+//                                    return Command.SINGLE_SUCCESS;
+//                                })
+//                                .then(Commands.argument("worldname", StringArgumentType.string())
+//                                        .suggests((ctx, builder) -> {
+//                                            for (World world : Bukkit.getWorlds()) {
+//                                                PolarWorld polarWorld = PolarWorld.fromWorld(world);
+//                                                if (polarWorld == null) continue;
+//
+//                                                if (world.getName().contains(" ")) {
+//                                                    builder.suggest("\"" + world.getName() + "\"");
+//                                                } else {
+//                                                    builder.suggest(world.getName());
+//                                                }
+//                                            }
+//                                            return builder.buildFuture();
+//                                        })
+//                                        .executes(SaveZSTDCommand::run)))
                         .then(Commands.literal("load")
                                 .requires(source -> source.getSender().hasPermission("polarpaper.load"))
                                 .executes(ctx -> {

@@ -32,11 +32,12 @@ public class CreateBlankCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        PolarWorld newPolarWorld = new PolarWorld((byte)-4, (byte)19);
 
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config defaultConfig = Config.getDefaultConfig(fileConfig);
         Config.writeToConfig(fileConfig, worldName, defaultConfig);
+
+        PolarWorld newPolarWorld = new PolarWorld((byte)-4, (byte)19, defaultConfig);
 
         Polar.createWorld(newPolarWorld, worldName, defaultConfig);
         ctx.getSource().getSender().sendMessage(

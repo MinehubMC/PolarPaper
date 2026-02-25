@@ -40,11 +40,13 @@ public class PolarWorld {
     static final short VERSION_DEPRECATED_ENTITIES = 8;
 
     public static CompressionType DEFAULT_COMPRESSION = CompressionType.ZSTD;
+    public static int DEFAULT_COMPRESSION_LEVEL = 9;
 
     // Polar metadata
     private final short version;
     private final int dataVersion;
     private CompressionType compression;
+    private int compressionLevel = DEFAULT_COMPRESSION_LEVEL;
 
     // World metadata
     private final byte minSection;
@@ -54,8 +56,10 @@ public class PolarWorld {
     // Chunk data
     private final Map<Long, PolarChunk> chunks = new ConcurrentHashMap<>();
 
-    public PolarWorld(byte minSection, byte maxSection) {
+    public PolarWorld(byte minSection, byte maxSection, Config config) {
         this(LATEST_VERSION, Bukkit.getUnsafe().getDataVersion(), DEFAULT_COMPRESSION, minSection, maxSection, new byte[0], List.of());
+        this.compression = config.compression();
+        this.compressionLevel = config.compressionLevel();
     }
 
     public PolarWorld(
@@ -106,6 +110,14 @@ public class PolarWorld {
 
     public void compression(@NotNull CompressionType compression) {
         this.compression = compression;
+    }
+
+    public int compressionLevel() {
+        return compressionLevel;
+    }
+
+    public void compressionLevel(int compressionLevel) {
+        this.compressionLevel = compressionLevel;
     }
 
     public byte minSection() {
@@ -188,7 +200,7 @@ public class PolarWorld {
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
     public PolarWorld updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
-        return convert(world, polarWorldAccess, blockSelector, false, this.nonEmptyChunks());
+        return convert(world, polarWorldAccess, blockSelector, Config.BLANK_DEFAULT, this.nonEmptyChunks());
     }
 
     /**
@@ -201,8 +213,8 @@ public class PolarWorld {
      * @see BlockSelector#ALL
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public PolarWorld updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight) {
-        return convert(world, polarWorldAccess, blockSelector, saveLight, this.nonEmptyChunks());
+    public PolarWorld updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config) {
+        return convert(world, polarWorldAccess, blockSelector, config, this.nonEmptyChunks());
     }
 
     /**
@@ -216,7 +228,7 @@ public class PolarWorld {
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
     public static PolarWorld convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
-        return convert(world, polarWorldAccess, blockSelector, false);
+        return convert(world, polarWorldAccess, blockSelector, Config.BLANK_DEFAULT);
     }
 
     /**
@@ -225,13 +237,13 @@ public class PolarWorld {
      * @param world The bukkit world to retrieve the updated chunks from
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
-     * @param saveLight Whether to save light data
+     * @param config Custom config for the polar world
      * @see Polar#saveWorld(World, PolarSource)
      * @see BlockSelector#ALL
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public static PolarWorld convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight) {
-        return convert(world, polarWorldAccess, blockSelector, saveLight, List.of());
+    public static PolarWorld convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config) {
+        return convert(world, polarWorldAccess, blockSelector, config, List.of());
     }
 
     /**
@@ -240,13 +252,13 @@ public class PolarWorld {
      * @param world The bukkit world to retrieve the updated chunks from
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
-     * @param saveLight Whether to save light data
+     * @param config Custom config for the polar world
      * @param includedChunks PolarChunks to add to the world
      * @see Polar#saveWorld(World, PolarSource)
      * @see BlockSelector#ALL
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public static PolarWorld convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight, Collection<PolarChunk> includedChunks) {
+    public static PolarWorld convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config, Collection<PolarChunk> includedChunks) {
         // TODO: consider offsets
         // TODO: chunk holders should probably be eventually released/removed (config option?)
 
@@ -254,7 +266,8 @@ public class PolarWorld {
         int maxHeight = world.getMaxHeight() - 1;
         PolarWorld newPolarWorld = new PolarWorld(
                 (byte) CoordConversion.sectionIndex(minHeight),
-                (byte) CoordConversion.sectionIndex(maxHeight)
+                (byte) CoordConversion.sectionIndex(maxHeight),
+                config
         );
 
         ServerLevel serverLevel = ((CraftWorld) world).getHandle();
@@ -301,7 +314,7 @@ public class PolarWorld {
                 }
             }
 
-            PolarChunk polarChunk = PolarChunk.convert(chunkHolder, polarWorldAccess, blockSelector, saveLight ? serverLevel.getLightEngine() : null);
+            PolarChunk polarChunk = PolarChunk.convert(chunkHolder, polarWorldAccess, blockSelector, config.saveLight() ? serverLevel.getLightEngine() : null);
             newPolarWorld.updateChunkAt(chunkX, chunkZ, polarChunk);
         }
 

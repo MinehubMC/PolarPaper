@@ -52,7 +52,7 @@ public class PolarWriter {
             }
             case ZSTD -> {
                 writeVarInt(contentBytes.length, finalBB);
-                finalBB.writeBytes(Zstd.compress(contentBytes));
+                finalBB.writeBytes(Zstd.compress(contentBytes, world.compressionLevel()));
             }
         }
 
