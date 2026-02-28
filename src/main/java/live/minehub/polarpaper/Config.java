@@ -227,7 +227,7 @@ public record Config(
 
         fileConfig.setInlineComments(prefix + "gamerules", List.of("Custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath"));
 
-        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path configFile = pluginFolder.resolve("config.yml");
         try {
             fileConfig.save(configFile.toFile());

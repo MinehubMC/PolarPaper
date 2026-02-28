@@ -51,15 +51,13 @@ public class PolarGenerator extends ChunkGenerator {
         ChunkAccess chunkAccess = ((CraftChunkData) chunkData).getHandle();
         int i = 0;
         for (PolarSection section : chunk.sections()) {
-            // TODO: switching world to nether environment causes out of bounds here
-            LevelChunkSection chunkAccessSection = chunkAccess.getSection(i++);
-
-            // Would put catch here but if a section does not load, the user may not know about it and may save causing the section to be permanently lost
-//            try {
+            try {
+                // TODO: switching world to nether environment causes out of bounds here
+                LevelChunkSection chunkAccessSection = chunkAccess.getSection(i++);
                 loadSection(section, chunkAccessSection);
-//            } catch (Exception e) {
-//                PolarPaper.logger().warning("Failed to load section in '%s' at: chunk: %s, %s, section: %s".formatted(worldInfo.getName(), chunkX, chunkZ, i));
-//            }
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to load section in '%s' at: chunk: %s, %s, section: %s".formatted(worldInfo.getName(), chunkX, chunkZ, i - 1), e);
+            }
         }
 
         // TODO: load light
@@ -131,6 +129,8 @@ public class PolarGenerator extends ChunkGenerator {
 //            return;
 //        }
 
+//        System.out.println(bitsPerEntry + ", " + longBitsPerEntry + ", " + (blockData == null ? 0 : blockData.length));
+
         if (blockData == null || bitsPerEntry == 0) {
             states.data = new PalettedContainer.Data<>(
                     PaletteUtil.getConfigurationForBitCount(0),
@@ -138,7 +138,17 @@ public class PolarGenerator extends ChunkGenerator {
                     PaletteUtil.createPalette(0, Arrays.asList(materialPalette))
             );
         } else {
-            if (4 > longBitsPerEntry) {
+            if (bitsPerEntry > longBitsPerEntry) {
+                int[] unpacked = new int[PolarSection.BLOCK_PALETTE_SIZE];
+                PaletteUtil.unpack(unpacked, blockData, longBitsPerEntry);
+                long[] newLongs = PaletteUtil.pack(unpacked, bitsPerEntry);
+
+                states.data = new PalettedContainer.Data<>(
+                        PaletteUtil.getConfigurationForBitCount(bitsPerEntry),
+                        new SimpleBitStorage(bitsPerEntry, PolarSection.BLOCK_PALETTE_SIZE, newLongs),
+                        PaletteUtil.createPalette(bitsPerEntry, Arrays.asList(materialPalette))
+                );
+            } else if (4 > longBitsPerEntry) {
                 int[] unpacked = new int[PolarSection.BLOCK_PALETTE_SIZE];
                 PaletteUtil.unpack(unpacked, blockData, bitsPerEntry);
                 long[] newLongs = PaletteUtil.pack(unpacked, 4);
@@ -150,9 +160,9 @@ public class PolarGenerator extends ChunkGenerator {
                 );
             } else {
                 states.data = new PalettedContainer.Data<>(
-                        PaletteUtil.getConfigurationForBitCount(bitsPerEntry),
+                        PaletteUtil.getConfigurationForBitCount(longBitsPerEntry),
                         new SimpleBitStorage(Math.max(4, longBitsPerEntry), PolarSection.BLOCK_PALETTE_SIZE, blockData),
-                        PaletteUtil.createPalette(bitsPerEntry, Arrays.asList(materialPalette))
+                        PaletteUtil.createPalette(longBitsPerEntry, Arrays.asList(materialPalette))
                 );
             }
         }

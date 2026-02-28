@@ -91,7 +91,7 @@ public class PasteCommand {
 
         String worldName = ctx.getArgument("worldname", String.class);
 
-        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
         Path path = worldsFolder.resolve(worldName + ".polar");
 

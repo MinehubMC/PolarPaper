@@ -39,7 +39,7 @@ public class ListCommand {
 
     public static int run(CommandContext<CommandSourceStack> ctx, int page) {
         TextComponent.Builder builder = Component.text();
-        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
         Set<String> worlds = new HashSet<>();
 

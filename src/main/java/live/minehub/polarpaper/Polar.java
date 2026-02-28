@@ -203,13 +203,17 @@ public class Polar {
         CompletableFuture<@Nullable World> future = new CompletableFuture<>();
 
         Runnable worldCreateRunnable = () -> {
-            World newWorld = createWorld(worldCreator, config.difficulty(), config.gamerules(), config.time());
+            World newWorld = createPolarLevel(worldCreator, config.difficulty(), config.gamerules(), config.time());
 
             if (newWorld == null) {
                 PolarPaper.logger().warning("An error occurred loading polar world '" + worldName + "', skipping.");
                 future.complete(null);
                 return;
             }
+
+            // Since autosave is disabled in the PolarServerLevel anyway, setAutoSave is now essentially setting whether
+            // chunks should be allowed to unload and be removed from memory
+            newWorld.setAutoSave(false);
 
             startAutoSaveTask(newWorld, config);
             future.complete(newWorld);
@@ -357,7 +361,7 @@ public class Polar {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    private static @Nullable World createWorld(WorldCreator creator, Difficulty difficulty, Map<String, Object> gamerules, long time) {
+    public static @Nullable World createPolarLevel(WorldCreator creator, Difficulty difficulty, Map<String, Object> gamerules, long time) {
         CraftServer craftServer = (CraftServer) Bukkit.getServer();
 
         boolean async = !craftServer.isPrimaryThread();
@@ -407,7 +411,7 @@ public class Polar {
 
         LevelStorageSource.LevelStorageAccess levelStorageAccess;
         try {
-            Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+            Path pluginFolder = PolarPaper.getPlugin().getDataPath();
             Path tempFolder = pluginFolder.resolve("temp");
 
             levelStorageAccess = LevelStorageSource.createDefault(tempFolder).validateAndCreateAccess(name, actualDimension);

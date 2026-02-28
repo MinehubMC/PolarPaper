@@ -31,7 +31,7 @@ public class GotoCommand {
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld == null) {
-            Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+            Path pluginFolder = PolarPaper.getPlugin().getDataPath();
             Path worldsFolder = pluginFolder.resolve("worlds");
             Path path = worldsFolder.resolve(worldName + ".polar");
 

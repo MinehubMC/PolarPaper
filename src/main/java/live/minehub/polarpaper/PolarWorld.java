@@ -1,10 +1,15 @@
 package live.minehub.polarpaper;
 
+import ca.spottedleaf.moonrise.patches.chunk_system.level.ChunkSystemServerLevel;
 import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import live.minehub.polarpaper.source.PolarSource;
+import live.minehub.polarpaper.userdata.WorldUserData;
 import live.minehub.polarpaper.util.CoordConversion;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
@@ -17,6 +22,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.generator.ChunkGenerator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Vector3i;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -152,6 +158,10 @@ public class PolarWorld {
         chunks.put(CoordConversion.chunkIndex(x, z), chunk);
     }
 
+    public int numChunks() {
+        return chunks.size();
+    }
+
     public @NotNull Collection<PolarChunk> chunks() {
         return chunks.values();
     }
@@ -163,6 +173,46 @@ public class PolarWorld {
             nonEmptyChunks.add(chunk);
         }
         return nonEmptyChunks;
+    }
+
+    public Component getInfoComponent(World world) {
+        Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), world);
+
+        byte[] userData = userData();
+        Vector3i offset = WorldUserData.readSchematicOffset(userData);
+
+        List<NewChunkHolder> chunkHolders = ((ChunkSystemServerLevel) ((CraftWorld) world).getHandle()).moonrise$getChunkTaskScheduler().chunkHolderManager.getChunkHolders();
+
+        TextComponent.Builder builder = Component.text()
+                .append(Component.text("Info for ", NamedTextColor.AQUA))
+                .append(Component.text(world.getName(), NamedTextColor.AQUA))
+                .append(Component.text(":", NamedTextColor.AQUA))
+                .append(Component.newline())
+                .append(Component.text(" Version: ", NamedTextColor.AQUA))
+                .append(Component.text(version(), NamedTextColor.AQUA))
+                .append(Component.text(" (", NamedTextColor.AQUA))
+                .append(Component.text(dataVersion(), NamedTextColor.AQUA))
+                .append(Component.text(")", NamedTextColor.AQUA))
+                .append(Component.newline())
+                .append(Component.text(" Compression: ", NamedTextColor.AQUA))
+                .append(Component.text(compression().name(), NamedTextColor.AQUA))
+                .append(Component.newline())
+                .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
+                .append(Component.text(config.spawnString(), NamedTextColor.AQUA))
+                .append(Component.newline())
+                .append(Component.text(" Held Polar Chunks: ", NamedTextColor.AQUA))
+                .append(Component.text(numChunks(), NamedTextColor.AQUA))
+                .append(Component.newline())
+                .append(Component.text(" Chunk Holders: ", NamedTextColor.AQUA))
+                .append(Component.text(chunkHolders.size(), NamedTextColor.AQUA));
+
+        if (offset != null) {
+            builder.appendNewline();
+            builder.append(Component.text(" Schematic center: ", NamedTextColor.AQUA));
+            builder.append(Component.text(offset.x + ", " + offset.y + ", " + offset.z, NamedTextColor.AQUA));
+        }
+
+        return builder.build();
     }
 
     /**
@@ -279,46 +329,47 @@ public class PolarWorld {
         }
 
         for (NewChunkHolder chunkHolder : chunkHolderManager.getChunkHolders()) {
-            if (chunkHolder == null) continue;
-            int chunkX = chunkHolder.chunkX;
-            int chunkZ = chunkHolder.chunkZ;
-            if (!blockSelector.testChunk(chunkX, chunkZ)) continue;
             ChunkAccess currentChunk = chunkHolder.getCurrentChunk();
             if (currentChunk == null) continue;
-            if (currentChunk.getPersistedStatus().isBefore(ChunkStatus.FULL)) continue;
+            convertChunk(currentChunk, chunkHolder.getEntityChunk(), newPolarWorld, blockSelector, polarWorldAccess, config, serverLevel);
+        }
 
-            ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
+        return newPolarWorld;
+    }
 
-            boolean onlyPlayers = true;
-            if (entityChunk != null) {
-                for (net.minecraft.world.entity.Entity nmsEntity : entityChunk.getAllEntities()) {
-                    Entity entity = nmsEntity.getBukkitEntity();
-                    if (entity.getType() == EntityType.PLAYER) continue;
-                    onlyPlayers = false;
+    public static void convertChunk(ChunkAccess chunkAccess, ChunkEntitySlices entityChunk, PolarWorld newPolarWorld, BlockSelector blockSelector, PolarWorldAccess polarWorldAccess, Config config, ServerLevel serverLevel) {
+        int chunkX = chunkAccess.locX;
+        int chunkZ = chunkAccess.locZ;
+        if (!blockSelector.testChunk(chunkX, chunkZ)) return;
+        if (chunkAccess.getPersistedStatus().isBefore(ChunkStatus.FULL)) return;
+
+        boolean onlyPlayers = true;
+        if (entityChunk != null) {
+            for (net.minecraft.world.entity.Entity nmsEntity : entityChunk.getAllEntities()) {
+                Entity entity = nmsEntity.getBukkitEntity();
+                if (entity.getType() == EntityType.PLAYER) continue;
+                onlyPlayers = false;
+                break;
+            }
+        }
+
+        if (onlyPlayers) { // if contains no entities or the entities are all players (only difference is blocks)
+            boolean allEmpty = true;
+            for (LevelChunkSection section : chunkAccess.getSections()) {
+                if (!section.hasOnlyAir()) {
+                    allEmpty = false;
                     break;
                 }
             }
 
-            if (onlyPlayers) { // if contains no entities or the entities are all players (only difference is blocks)
-                boolean allEmpty = true;
-                for (LevelChunkSection section : currentChunk.getSections()) {
-                    if (!section.hasOnlyAir()) {
-                        allEmpty = false;
-                        break;
-                    }
-                }
-
-                if (allEmpty) {
-                    newPolarWorld.removeChunkAt(chunkX, chunkZ);
-                    continue;
-                }
+            if (allEmpty) {
+                newPolarWorld.removeChunkAt(chunkX, chunkZ);
+                return;
             }
-
-            PolarChunk polarChunk = PolarChunk.convert(chunkHolder, polarWorldAccess, blockSelector, config.saveLight() ? serverLevel.getLightEngine() : null);
-            newPolarWorld.updateChunkAt(chunkX, chunkZ, polarChunk);
         }
 
-        return newPolarWorld;
+        PolarChunk polarChunk = PolarChunk.convert(chunkAccess, entityChunk, polarWorldAccess, blockSelector, config.saveLight() ? serverLevel.getLightEngine() : null);
+        newPolarWorld.updateChunkAt(chunkX, chunkZ, polarChunk);
     }
 
 }

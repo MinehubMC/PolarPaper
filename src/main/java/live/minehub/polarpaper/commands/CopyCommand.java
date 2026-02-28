@@ -27,7 +27,7 @@ public class CopyCommand {
         String worldName = ctx.getArgument("worldname", String.class);
         String newWorldName = ctx.getArgument("newworldname", String.class);
 
-        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
         Path path = worldsFolder.resolve(worldName + ".polar");
 

@@ -113,15 +113,16 @@ public record PolarChunk(
     public static PolarChunk convert(World world, int chunkX, int chunkZ, PolarWorldAccess worldAccess, BlockSelector blockSelector, boolean saveLight) {
         ServerLevel chunkSystemServerLevel = ((CraftWorld) world).getHandle();
         ChunkHolderManager chunkHolderManager = chunkSystemServerLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
-        return convert(chunkHolderManager.getChunkHolder(chunkX, chunkZ), worldAccess, blockSelector, saveLight ? chunkSystemServerLevel.getLightEngine() : null);
+        NewChunkHolder chunkHolder = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
+        ChunkAccess chunkAccess = chunkHolder.getCurrentChunk();
+        ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
+        return convert(chunkAccess, entityChunk, worldAccess, blockSelector, saveLight ? chunkSystemServerLevel.getLightEngine() : null);
     }
 
 
-    public static PolarChunk convert(NewChunkHolder chunkHolder, PolarWorldAccess worldAccess, BlockSelector blockSelector, @Nullable LevelLightEngine lightEngine) {
-        ChunkAccess chunkAccess = chunkHolder.getCurrentChunk();
-        ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
-        int chunkX = chunkHolder.chunkX;
-        int chunkZ = chunkHolder.chunkZ;
+    public static PolarChunk convert(ChunkAccess chunkAccess, ChunkEntitySlices entityChunk, PolarWorldAccess worldAccess, BlockSelector blockSelector, @Nullable LevelLightEngine lightEngine) {
+        int chunkX = chunkAccess.locX;
+        int chunkZ = chunkAccess.locZ;
 
         Registry<Biome> biomeRegistry = MinecraftServer.getServer().registryAccess().lookupOrThrow(Registries.BIOME);
 
