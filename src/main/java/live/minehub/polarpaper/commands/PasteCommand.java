@@ -6,14 +6,15 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarReader;
 import live.minehub.polarpaper.PolarWorld;
-import live.minehub.polarpaper.schematic.BlockModifier;
 import live.minehub.polarpaper.schematic.Rotation;
 import live.minehub.polarpaper.schematic.Schematic;
+import live.minehub.polarpaper.schematic.Setter;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.joml.Vector3i;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -116,10 +117,11 @@ public class PasteCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        BlockModifier modifier = new BlockModifier.PosRot(player.getLocation().toVector().toVector3i(), rotation);
+        Vector3i pasteOffset = player.getLocation().toVector().toVector3i();
 
         try {
-            Schematic.paste(polarWorld, player.getWorld(), modifier, ignoreAir);
+            Setter setter = new Setter.World(player.getWorld());
+            Schematic.paste(polarWorld, setter, pasteOffset, rotation, ignoreAir);
         } catch (Exception e) {
             String errorMsg = "Failed to paste schematic, please check logs for error";
             PolarPaper.logger().severe(errorMsg);
