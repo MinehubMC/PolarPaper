@@ -59,6 +59,7 @@ public class Schematic {
             Vector3i chunkOffset = new Vector3i(chunk.x() * 16, 0, chunk.z() * 16)
                     .sub(offset);
             BlockUtil.rotatePos(chunkOffset, rotation);
+            chunkOffset.add(pasteOffset.x, 0, pasteOffset.z);
 
             int cX = (int)Math.floor(chunkOffset.x / 16.0);
             int cZ = (int)Math.floor(chunkOffset.z / 16.0);
