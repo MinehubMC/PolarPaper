@@ -103,7 +103,6 @@ public class VersionCommand {
             return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .thenApply(HttpResponse::body)
                     .thenApply(body -> {
-                        System.out.println(body);
                         Gson gson = new Gson();
                         Type listOfGithubRelease = new TypeToken<List<GithubRelease>>() {
                         }.getType();
