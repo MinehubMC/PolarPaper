@@ -24,6 +24,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 public class PolarGenerator extends ChunkGenerator {
@@ -56,6 +57,7 @@ public class PolarGenerator extends ChunkGenerator {
                 LevelChunkSection chunkAccessSection = chunkAccess.getSection(i++);
                 loadSection(section, chunkAccessSection);
             } catch (Exception e) {
+//                System.out.printf("Failed to load section in '%s' at: chunk: %s, %s, section: %s%n", worldInfo.getName(), chunkX, chunkZ, i - 1);
                 throw new RuntimeException("Failed to load section in '%s' at: chunk: %s, %s, section: %s".formatted(worldInfo.getName(), chunkX, chunkZ, i - 1), e);
             }
         }
@@ -129,13 +131,17 @@ public class PolarGenerator extends ChunkGenerator {
 //            return;
 //        }
 
-//        System.out.println(bitsPerEntry + ", " + longBitsPerEntry + ", " + (blockData == null ? 0 : blockData.length));
 
-        if (blockData == null || bitsPerEntry == 0) {
+        if (blockData == null || bitsPerEntry == 0 || longBitsPerEntry == 0) {
+//            System.out.println(bitsPerEntry + ", " + longBitsPerEntry + ", " + (blockData == null ? 0 : blockData.length) + ", " + Arrays.toString(materialPalette));
+            List<BlockState> materialsList = Arrays.asList(materialPalette);
+            if (materialsList.size() > 1) {
+                materialsList = List.of(materialPalette[0]);
+            }
             states.data = new PalettedContainer.Data<>(
                     PaletteUtil.getConfigurationForBitCount(0),
                     new ZeroBitStorage(PolarSection.BLOCK_PALETTE_SIZE),
-                    PaletteUtil.createPalette(0, Arrays.asList(materialPalette))
+                    PaletteUtil.createPalette(0, materialsList)
             );
         } else {
             if (bitsPerEntry > longBitsPerEntry) {
