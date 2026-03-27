@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Config;
@@ -15,19 +16,24 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class GotoCommand {
+public class GotoCommand extends PolarCmd {
 
-    protected static int run(CommandContext<CommandSourceStack> ctx) {
+    public GotoCommand() {
+        super("goto", "Teleport to a world");
+    }
+
+    private static int run(CommandContext<CommandSourceStack> ctx) {
         String worldName = ctx.getArgument("worldname", String.class);
 
         CommandSender sender = ctx.getSource().getSender();
-        // Being ran from console
-        if (!(sender instanceof Player player)) return Command.SINGLE_SUCCESS;
+        Entity executor = ctx.getSource().getExecutor();
+        if (!(executor instanceof Player player)) return Command.SINGLE_SUCCESS;
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld == null) {
@@ -83,4 +89,18 @@ public class GotoCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Usage: /polar goto <worldname>", NamedTextColor.RED))
+        );
+        return Command.SINGLE_SUCCESS;
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(createWorldNameArgument(true, false)
+            .executes(GotoCommand::run));
+    }
 }

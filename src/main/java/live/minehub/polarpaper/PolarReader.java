@@ -10,9 +10,7 @@ import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.util.ByteArrayUtil;
 import live.minehub.polarpaper.util.PaletteUtil;
 import net.kyori.adventure.key.Key;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.*;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -208,6 +206,24 @@ public class PolarReader {
         );
     }
 
+    private static void fixSignNBT(CompoundTag nbt) {
+        CompoundTag frontCompound = nbt.getCompound("front_text").orElse(null);
+        CompoundTag backCompound = nbt.getCompound("back_text").orElse(null);
+        if (frontCompound == null || backCompound == null) return;
+        fixSignMessages(frontCompound.getListOrEmpty("messages"));
+        fixSignMessages(backCompound.getListOrEmpty("messages"));
+    }
+
+    private static void fixSignMessages(ListTag messages) {
+        for (Tag message : messages) {
+            String string = message.asString().orElse(null);
+            if (!"\"\"".equalsIgnoreCase(string)) return;
+        }
+        for (int i = 0; i < messages.size(); i++) {
+            messages.set(i, StringTag.valueOf(""));
+        }
+    }
+
     private static @NotNull PolarChunk.BlockEntity readBlockEntity(@NotNull PolarDataConverter dataConverter, int version, int dataVersion, @NotNull ByteBuf bb) {
         int posIndex = bb.readInt();
         String id = getStringOptional(bb);
@@ -218,6 +234,7 @@ public class PolarReader {
         if (bb.readByte() == 1) {
             try {
                 nbt = (CompoundTag) NbtIo.readAnyTag(bbis, NbtAccounter.unlimitedHeap());
+                fixSignNBT(nbt);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

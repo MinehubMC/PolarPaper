@@ -1,8 +1,11 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarReader;
 import live.minehub.polarpaper.PolarWorld;
@@ -20,9 +23,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class PasteCommand {
+public class PasteCommand extends PolarCmd {
 
-    protected static int run(CommandContext<CommandSourceStack> ctx) {
+    public PasteCommand() {
+        super("paste", "Place a polar world like a schematic");
+    }
+
+    private static int run(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         if (!(sender instanceof Player)) {
             ctx.getSource().getSender().sendMessage(
@@ -142,4 +149,34 @@ public class PasteCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Usage: /polar paste <worldname> [rotation] [air ignore] (While in a world) to place a polar world at your current position", NamedTextColor.RED))
+        );
+        return Command.SINGLE_SUCCESS;
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(Commands.argument("worldname", StringArgumentType.string())
+                .executes(PasteCommand::run)
+                .then(Commands.argument("rotation", StringArgumentType.string())
+                        .suggests((ctx, s) -> {
+                            for (Rotation rotation : Rotation.values()) {
+                                s.suggest(rotation.getFriendlyName());
+                            }
+                            return s.buildFuture();
+                        })
+                        .executes(PasteCommand::runWithRotation)
+                        .then(Commands.argument("ignoreair", StringArgumentType.string())
+                                .suggests((ctx, s) -> {
+                                    for (Schematic.IgnoreAir ignoreAir : Schematic.IgnoreAir.values()) {
+                                        s.suggest(ignoreAir.name().toLowerCase());
+                                    }
+                                    return s.buildFuture();
+                                })
+                                .executes(PasteCommand::runWithRotationAndAirIgnore))));
+    }
 }

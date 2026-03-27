@@ -2,8 +2,12 @@ package live.minehub.polarpaper.commands;
 
 import ca.spottedleaf.concurrentutil.util.Priority;
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.source.FilePolarSource;
 import net.kyori.adventure.text.Component;
@@ -24,13 +28,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class ConvertCommand {
+public class ConvertCommand extends PolarCmd {
 
-    protected static int run(CommandContext<CommandSourceStack> ctx) {
-        return convert(ctx);
+    public ConvertCommand() {
+        super("convert", "Convert the current world to polar");
     }
 
-    private static int convert(CommandContext<CommandSourceStack> ctx) {
+    private int execute(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         // Being ran from console
         if (!(sender instanceof Player player)) return Command.SINGLE_SUCCESS;
@@ -132,4 +136,19 @@ public class ConvertCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Usage: /polar convert <new worldname> <chunk radius> (While in a non-polar world) to convert the chunks around you", NamedTextColor.RED))
+        );
+        return Command.SINGLE_SUCCESS;
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(Commands.argument("newworldname", StringArgumentType.string())
+                .then(Commands.argument("chunkradius", IntegerArgumentType.integer(1))
+                        .executes(this::execute)));
+    }
 }

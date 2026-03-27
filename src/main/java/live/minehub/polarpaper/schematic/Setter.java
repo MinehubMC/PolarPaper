@@ -2,12 +2,14 @@ package live.minehub.polarpaper.schematic;
 
 import live.minehub.polarpaper.PolarChunk;
 import live.minehub.polarpaper.PolarEntity;
+import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.util.BlockUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.state.BlockState;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.entity.Entity;
@@ -43,11 +45,13 @@ public interface Setter {
             Entity entity = polarEntity.toBukkitEntity(world, spawnLocation, true);
             if (entity == null) return;
 
-            PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, true);
-            event.callEvent();
-            if (!event.isCancelled()) {
-                EntityUtil.spawnEntity(entity, world);
-            }
+            Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
+                PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, true);
+                event.callEvent();
+                if (!event.isCancelled()) {
+                    EntityUtil.spawnEntity(entity, world);
+                }
+            });
         }
 
         public void refreshChunks(Set<ChunkPos> chunksToRefresh) {

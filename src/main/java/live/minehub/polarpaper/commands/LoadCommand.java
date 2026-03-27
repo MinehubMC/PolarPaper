@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Polar;
@@ -17,11 +18,21 @@ import org.bukkit.World;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class LoadCommand {
+public class LoadCommand extends PolarCmd {
 
-    protected static int run(CommandContext<CommandSourceStack> ctx) {
+    public LoadCommand() {
+        super("load", "Load a polar world from the worlds folder");
+    }
+
+    private static int run(CommandContext<CommandSourceStack> ctx) {
         String worldName = ctx.getArgument("worldname", String.class);
 
+        loadWorld(ctx, worldName);
+
+        return Command.SINGLE_SUCCESS;
+    }
+
+    protected static void loadWorld(CommandContext<CommandSourceStack> ctx, String worldName) {
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld != null) {
             PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
@@ -40,7 +51,7 @@ public class LoadCommand {
                                 .append(Component.text("' already loaded!", NamedTextColor.RED))
                 );
             }
-            return Command.SINGLE_SUCCESS;
+            return;
         }
 
         Path pluginFolder = PolarPaper.getPlugin().getDataPath();
@@ -49,7 +60,7 @@ public class LoadCommand {
 
         if (!Files.exists(path)) {
             ctx.getSource().getSender().sendMessage(Component.text("Couldn't find file '" + worldName + ".polar' in the worlds folder", NamedTextColor.RED));
-            return Command.SINGLE_SUCCESS;
+            return;
         }
 
         ctx.getSource().getSender().sendMessage(
@@ -86,8 +97,20 @@ public class LoadCommand {
                 );
             }
         });
+    }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Usage: /polar load <worldname>", NamedTextColor.RED))
+        );
         return Command.SINGLE_SUCCESS;
     }
 
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(createFileWorldNameArgument(true)
+                .executes(LoadCommand::run));
+    }
 }

@@ -3,7 +3,7 @@ package live.minehub.polarpaper;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import live.minehub.polarpaper.commands.PolarCommand;
+import live.minehub.polarpaper.commands.CommandManager;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
@@ -26,7 +26,7 @@ public final class PolarPaper extends JavaPlugin {
         LifecycleEventManager<@NotNull Plugin> manager = this.getLifecycleManager();
         manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             Commands commands = event.registrar();
-            PolarCommand.register(commands);
+            new CommandManager().register(commands);
         });
 
         registerEvents();

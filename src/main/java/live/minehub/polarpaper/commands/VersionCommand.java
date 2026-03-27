@@ -3,6 +3,7 @@ package live.minehub.polarpaper.commands;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.PolarPaper;
@@ -26,11 +27,20 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class VersionCommand {
+public class VersionCommand extends PolarCmd {
 
     private static final long CHECK_INTERVAL = 3 * 3_600_000L; // 3 hour in millis
     private static long LAST_UPDATED = -1L;
     private static @Nullable GithubRelease CACHED_RELEASE = null;
+
+    public VersionCommand() {
+        super("version", "Display the plugin version");
+    }
+
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        return run(ctx);
+    }
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
         String currentVersion = PolarPaper.getPlugin().getPluginMeta().getVersion();
@@ -124,6 +134,11 @@ public class VersionCommand {
             ExceptionUtil.log(e);
             return null;
         }
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+
     }
 
     private static class GithubRelease {

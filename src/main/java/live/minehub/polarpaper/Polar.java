@@ -11,6 +11,7 @@ import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
@@ -30,6 +31,7 @@ import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.levelgen.WorldDimensions;
 import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.LevelDataAndDimensions;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.PrimaryLevelData;
@@ -203,7 +205,7 @@ public class Polar {
         CompletableFuture<@Nullable World> future = new CompletableFuture<>();
 
         Runnable worldCreateRunnable = () -> {
-            World newWorld = createPolarLevel(worldCreator, config.difficulty(), config.gamerules(), config.time());
+            World newWorld = createPolarLevel(worldCreator, config.spawn(), config.difficulty(), config.gamerules(), config.time());
 
             if (newWorld == null) {
                 PolarPaper.logger().warning("An error occurred loading polar world '" + worldName + "', skipping.");
@@ -228,9 +230,13 @@ public class Polar {
         return future;
     }
 
-    private static void startAutoSaveTask(World world, Config config) {
-        ScheduledTask prevTask = AUTOSAVE_TASK_MAP.get(world.getName());
+    public static void stopAutoSaveTask(String worldName) {
+        ScheduledTask prevTask = AUTOSAVE_TASK_MAP.get(worldName);
         if (prevTask != null) prevTask.cancel();
+    }
+
+    public static void startAutoSaveTask(World world, Config config) {
+        stopAutoSaveTask(world.getName());
 
         if (config.autoSaveIntervalTicks() == -1) return;
 
@@ -361,7 +367,7 @@ public class Polar {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    public static @Nullable World createPolarLevel(WorldCreator creator, Difficulty difficulty, Map<String, Object> gamerules, long time) {
+    public static @Nullable World createPolarLevel(WorldCreator creator, Location spawnPos, Difficulty difficulty, Map<String, Object> gamerules, long time) {
         CraftServer craftServer = (CraftServer) Bukkit.getServer();
 
         boolean async = !craftServer.isPrimaryThread();
@@ -542,6 +548,10 @@ public class Polar {
             // Paper - Put world into worldlist before initing the world; move up
 
             craftServer.getServer().prepareLevel(serverLevel);
+
+            serverLevel.serverLevelData.setSpawn(LevelData.RespawnData.of(serverLevel.dimension(), new BlockPos(spawnPos.getBlockX(), spawnPos.getBlockY(), spawnPos.getBlockZ()), spawnPos.getYaw(), spawnPos.getPitch()));
+
+            craftServer.getServer().updateEffectiveRespawnData();
         };
         if (async) {
             Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), initRunnable);

@@ -1,8 +1,11 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.util.FoliaUtil;
 import net.kyori.adventure.text.Component;
@@ -10,26 +13,34 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
-public class UnloadCommand {
+import java.util.concurrent.CompletableFuture;
+
+public class UnloadCommand extends PolarCmd {
+
+    public UnloadCommand() {
+        super("unload", "Unload a polar world");
+    }
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
-        return unload(ctx, false, false);
+        String worldName = ctx.getArgument("worldname", String.class);
+        unload(ctx, worldName, false, false);
+        return Command.SINGLE_SUCCESS;
     }
 
     protected static int runOverrided(CommandContext<CommandSourceStack> ctx) {
+        String worldName = ctx.getArgument("worldname", String.class);
         Boolean override = ctx.getArgument("save", Boolean.class);
-        return unload(ctx, true, override);
+        unload(ctx, worldName, true, override);
+        return Command.SINGLE_SUCCESS;
     }
 
-    protected static int unload(CommandContext<CommandSourceStack> ctx, boolean saveOverrided, boolean save) {
-        String worldName = ctx.getArgument("worldname", String.class);
-
+    protected static CompletableFuture<Boolean> unload(CommandContext<CommandSourceStack> ctx, String worldName, boolean saveOverrided, boolean save) {
         if (FoliaUtil.isFolia()) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("Unloading worlds is not supported on Folia!", NamedTextColor.RED))
             );
-            return Command.SINGLE_SUCCESS;
+            return CompletableFuture.completedFuture(false);
         }
 
         World bukkitWorld = Bukkit.getWorld(worldName);
@@ -41,7 +52,7 @@ public class UnloadCommand {
                             .append(Component.text(worldName, NamedTextColor.RED))
                             .append(Component.text("' already not loaded!", NamedTextColor.RED))
             );
-            return Command.SINGLE_SUCCESS;
+            return CompletableFuture.completedFuture(false);
         }
         if (polarWorld == null) {
             ctx.getSource().getSender().sendMessage(
@@ -50,7 +61,7 @@ public class UnloadCommand {
                             .append(Component.text(worldName, NamedTextColor.RED))
                             .append(Component.text("' is not a polar world!", NamedTextColor.RED))
             );
-            return Command.SINGLE_SUCCESS;
+            return CompletableFuture.completedFuture(false);
         }
 
         PolarGenerator generator = PolarGenerator.fromWorld(bukkitWorld);
@@ -61,7 +72,7 @@ public class UnloadCommand {
                             .append(Component.text(worldName, NamedTextColor.RED))
                             .append(Component.text("' is not a polar world!", NamedTextColor.RED))
             );
-            return Command.SINGLE_SUCCESS;
+            return CompletableFuture.completedFuture(false);
         }
         Config config = generator.getConfig();
 
@@ -80,12 +91,15 @@ public class UnloadCommand {
                             .append(Component.text("'...", NamedTextColor.GRAY))
             );
 
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
+
             Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
             Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
                 Polar.saveWorldToFile(bukkitWorld);
-                bukkitUnload(ctx, bukkitWorld);
+                bukkitUnload(ctx, bukkitWorld).thenAccept(future::complete);
             });
 
+            return future;
         } else {
             if (saveOverrided) {
                 ctx.getSource().getSender().sendMessage(Component.text("Save force disabled, world will not be saved before unload", NamedTextColor.AQUA));
@@ -93,13 +107,12 @@ public class UnloadCommand {
                 ctx.getSource().getSender().sendMessage(Component.text("Autosave is disabled, world will not be saved before unload", NamedTextColor.AQUA));
             }
 
-            bukkitUnload(ctx, bukkitWorld);
+            return bukkitUnload(ctx, bukkitWorld);
         }
-
-        return Command.SINGLE_SUCCESS;
     }
 
-    private static void bukkitUnload(CommandContext<CommandSourceStack> ctx, World bukkitWorld) {
+    protected static CompletableFuture<Boolean> bukkitUnload(CommandContext<CommandSourceStack> ctx, World bukkitWorld) {
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
         Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
             String worldName = bukkitWorld.getName();
             boolean successful = Bukkit.unloadWorld(bukkitWorld, false);
@@ -128,7 +141,28 @@ public class UnloadCommand {
                     );
                 }
             }
+
+            future.complete(successful);
         });
+
+        return future;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Usage: /polar unload <worldname> [save]", NamedTextColor.RED))
+                        .append(Component.text("Setting save will override config", NamedTextColor.RED))
+        );
+        return Command.SINGLE_SUCCESS;
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(createWorldNameArgument(false, true)
+                .executes(UnloadCommand::run)
+                .then(Commands.argument("save", BoolArgumentType.bool())
+                        .executes(UnloadCommand::runOverrided)));
+    }
 }

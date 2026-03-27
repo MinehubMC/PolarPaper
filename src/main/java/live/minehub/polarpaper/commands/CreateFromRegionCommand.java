@@ -1,8 +1,11 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.schematic.Schematic;
 import live.minehub.polarpaper.source.FilePolarSource;
@@ -20,13 +23,13 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.joml.Vector3i;
 
-public class CreateFromRegionCommand {
+public class CreateFromRegionCommand extends PolarCmd {
 
-    protected static int run(CommandContext<CommandSourceStack> ctx) {
-        return convert(ctx);
+    public CreateFromRegionCommand() {
+        super("createfromregion", "Create a polar world from the selected region");
     }
 
-    private static int convert(CommandContext<CommandSourceStack> ctx) {
+    private static int run(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         // Being ran from console
         if (!(sender instanceof Player player)) return Command.SINGLE_SUCCESS;
@@ -104,4 +107,18 @@ public class CreateFromRegionCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Usage: /polar createfromregion <new worldname> (While in a world) to create a new polar world from the selected region", NamedTextColor.RED))
+        );
+        return Command.SINGLE_SUCCESS;
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(Commands.argument("newworldname", StringArgumentType.string())
+                .executes(CreateFromRegionCommand::run));
+    }
 }

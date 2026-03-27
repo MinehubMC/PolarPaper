@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.PolarPaper;
@@ -12,24 +13,10 @@ import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-public class InfoCommand {
+public class InfoCommand extends PolarCmd {
 
-    protected static int run(CommandContext<CommandSourceStack> ctx) {
-        CommandSender sender = ctx.getSource().getSender();
-        if (!(sender instanceof Player player)) {
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("Usage: /polar info (while in a polar world)", NamedTextColor.RED))
-            );
-            return Command.SINGLE_SUCCESS;
-        }
-
-        return printInfo(ctx, player.getWorld().getName());
-    }
-
-    protected static int runArg(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
-        return printInfo(ctx, worldName);
+    public InfoCommand() {
+        super("info", "Get info for a polar world");
     }
 
     protected static int printInfo(CommandContext<CommandSourceStack> ctx, String worldName) {
@@ -63,4 +50,28 @@ public class InfoCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            ctx.getSource().getSender().sendMessage(
+                    Component.text()
+                            .append(Component.text("Usage: /polar info (while in a polar world)", NamedTextColor.RED))
+            );
+            return Command.SINGLE_SUCCESS;
+        }
+
+        return printInfo(ctx, player.getWorld().getName());
+    }
+
+    private static int executeArgument(CommandContext<CommandSourceStack> ctx) {
+        String worldName = ctx.getArgument("worldname", String.class);
+        return printInfo(ctx, worldName);
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(createWorldNameArgument(true, true)
+                .executes(InfoCommand::executeArgument));
+    }
 }

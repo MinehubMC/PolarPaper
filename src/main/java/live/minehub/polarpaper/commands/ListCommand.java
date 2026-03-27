@@ -1,8 +1,11 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
@@ -23,21 +26,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
-public class ListCommand {
+public class ListCommand extends PolarCmd {
 
     private static final int ITEMS_PER_PAGE = 10;
 
-    public static int run(CommandContext<CommandSourceStack> ctx) {
-        return run(ctx, 1);
+    public ListCommand() {
+        super("list", "List all polar worlds");
     }
 
-    public static int runPaged(CommandContext<CommandSourceStack> ctx) {
-        Integer page = ctx.getArgument("page", Integer.class);
-        if (page == null) page = 1;
-        return run(ctx, page);
-    }
-
-    public static int run(CommandContext<CommandSourceStack> ctx, int page) {
+    public int execute(CommandContext<CommandSourceStack> ctx, int page) {
         TextComponent.Builder builder = Component.text();
         Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
@@ -116,4 +113,18 @@ public class ListCommand {
         return worlds;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        return execute(ctx, 1);
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(Commands.argument("page", IntegerArgumentType.integer(1))
+                .executes(ctx -> {
+                    Integer page = ctx.getArgument("page", Integer.class);
+                    if (page == null) page = 1;
+                    return execute(ctx, page);
+                }));
+    }
 }
