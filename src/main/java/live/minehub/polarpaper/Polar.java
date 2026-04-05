@@ -11,6 +11,7 @@ import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
@@ -30,6 +31,7 @@ import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.levelgen.WorldDimensions;
 import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.LevelDataAndDimensions;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.PrimaryLevelData;
@@ -191,13 +193,17 @@ public class Polar {
         CompletableFuture<@Nullable World> future = new CompletableFuture<>();
 
         Runnable worldCreateRunnable = () -> {
-            World newWorld = createWorld(worldCreator, config.difficulty(), config.gamerules(), config.time());
+            World newWorld = createPolarLevel(worldCreator, config.spawn(), config.difficulty(), config.gamerules(), config.time());
 
             if (newWorld == null) {
                 PolarPaper.logger().warning("An error occurred loading polar world '" + worldName + "', skipping.");
                 future.complete(null);
                 return;
             }
+
+            // Since autosave is disabled in the PolarServerLevel anyway, setAutoSave is now essentially setting whether
+            // chunks should be allowed to unload and be removed from memory
+            newWorld.setAutoSave(false);
 
             if (worldBytes != null && worldBytes.length > 0) {
                 long before = System.nanoTime(); // TODO: remove logs
@@ -218,9 +224,13 @@ public class Polar {
         return future;
     }
 
-    private static void startAutoSaveTask(World world, Config config) {
-        ScheduledTask prevTask = AUTOSAVE_TASK_MAP.get(world.getName());
+    public static void stopAutoSaveTask(String worldName) {
+        ScheduledTask prevTask = AUTOSAVE_TASK_MAP.get(worldName);
         if (prevTask != null) prevTask.cancel();
+    }
+
+    public static void startAutoSaveTask(World world, Config config) {
+        stopAutoSaveTask(world.getName());
 
         if (config.autoSaveIntervalTicks() == -1) return;
 
@@ -228,7 +238,7 @@ public class Polar {
             long before = System.nanoTime();
             String savingMsg = String.format("Autosaving '%s'...", world.getName());
             PolarPaper.logger().info(savingMsg);
-            for (Player plr : Bukkit.getOnlinePlayers()) {
+            if (config.announceAutosave()) for (Player plr : Bukkit.getOnlinePlayers()) {
                 if (!plr.hasPermission("polar.notifications")) continue;
                 plr.sendMessage(Component.text(savingMsg, NamedTextColor.AQUA));
             }
@@ -236,12 +246,22 @@ public class Polar {
             Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
                 updateConfig(world, world.getName()); // config should only be updated synchronously
             });
-            saveWorldToFile(world);
+            try {
+                saveWorldToFile(world);
+            } catch (Exception e) {
+                String errorMsg = String.format("Failed to save '%s', please check logs for error", world.getName());
+                PolarPaper.logger().severe(errorMsg);
+                for (Player plr : Bukkit.getOnlinePlayers()) {
+                    if (!plr.hasPermission("polar.notifications")) continue;
+                    plr.sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                }
+                return;
+            }
 
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             String savedMsg = String.format("Saved '%s' in %sms", world.getName(), ms);
             PolarPaper.logger().info(savedMsg);
-            for (Player plr : Bukkit.getOnlinePlayers()) {
+            if (config.announceAutosave()) for (Player plr : Bukkit.getOnlinePlayers()) {
                 if (!plr.hasPermission("polar.notifications")) continue;
                 plr.sendMessage(Component.text(savedMsg, NamedTextColor.AQUA));
             }
@@ -337,7 +357,7 @@ public class Polar {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    private static @Nullable World createWorld(WorldCreator creator, Difficulty difficulty, Map<String, Object> gamerules, long time) {
+    public static @Nullable World createPolarLevel(WorldCreator creator, Location spawnPos, Difficulty difficulty, Map<String, Object> gamerules, long time) {
         CraftServer craftServer = (CraftServer) Bukkit.getServer();
 
         boolean async = !craftServer.isPrimaryThread();
@@ -387,7 +407,7 @@ public class Polar {
 
         LevelStorageSource.LevelStorageAccess levelStorageAccess;
         try {
-            Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+            Path pluginFolder = PolarPaper.getPlugin().getDataPath();
             Path tempFolder = pluginFolder.resolve("temp");
 
             levelStorageAccess = LevelStorageSource.createDefault(tempFolder).validateAndCreateAccess(name, actualDimension);
@@ -518,6 +538,10 @@ public class Polar {
             // Paper - Put world into worldlist before initing the world; move up
 
             craftServer.getServer().prepareLevel(serverLevel);
+
+            serverLevel.serverLevelData.setSpawn(LevelData.RespawnData.of(serverLevel.dimension(), new BlockPos(spawnPos.getBlockX(), spawnPos.getBlockY(), spawnPos.getBlockZ()), spawnPos.getYaw(), spawnPos.getPitch()));
+
+            craftServer.getServer().updateEffectiveRespawnData();
         };
         if (async) {
             Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), initRunnable);

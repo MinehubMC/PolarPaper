@@ -1,6 +1,6 @@
 package live.minehub.polarpaper;
 
-import live.minehub.polarpaper.util.CompressionType;
+import com.github.luben.zstd.Zstd;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.key.Key;
 import org.bukkit.*;
@@ -13,10 +13,11 @@ import java.nio.file.Path;
 import java.util.*;
 
 /**
- * @see Config#getDefaultConfig(FileConfiguration)
+ * @see Config#getDefaultConfig(FileConfiguration) 
  * @see Config#BLANK_DEFAULT
- * @see Config#toBuilder()
+ * @see Config#toBuilder() 
  * @param autoSaveIntervalTicks the time between each autosave in ticks (20 ticks = 1 second), -1 to disable autosaving
+ * @param announceAutosave whether to send autosave messages regardless of "polar.notifications" permission
  * @param time the daytime of the world
  * @param saveOnStop whether to save on shutdown or when using /polar unload
  * @param loadOnStartup whether to load the world when the plugin is enabled
@@ -25,19 +26,25 @@ import java.util.*;
  * @param async whether to create the world asynchronously. Can cause issues with other plugins
  * @param removeChunks whether chunks are removed from the PolarWorld once fully generated to save memory.
  * Should be disabled if reusing the PolarWorld object between multiple worlds
- * @param worldType
+ * @param saveLight whether chunks are saved with light data.
+ * Reduces CPU usage when loading the world but increases world size significantly
+ * @param worldType Prefer WorldType.FLAT if possible as it skips unnecessary vanilla biome generation
  * @param environment
  * @param gamerules map of gamerules - custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath
  */
 public record Config(
         int autoSaveIntervalTicks,
+        boolean announceAutosave,
         long time,
         boolean saveOnStop,
         boolean loadOnStartup,
         @NotNull Location spawn,
         @NotNull Difficulty difficulty,
         boolean async,
-        CompressionType compression,
+        boolean removeChunks,
+        boolean saveLight,
+        PolarWorld.CompressionType compression,
+        int compressionLevel,
         @NotNull WorldType worldType,
         @NotNull World.Environment environment,
         @NotNull Map<String, Object> gamerules
@@ -63,14 +70,18 @@ public record Config(
 
     public static final Config BLANK_DEFAULT = new Config(
             -1,
+            true,
             1000L,
             false,
             true,
             new Location(null, 0, 64, 0),
             Difficulty.NORMAL,
             false,
-            CompressionType.ZSTD,
-            WorldType.NORMAL,
+            true,
+            false,
+            PolarWorld.DEFAULT_COMPRESSION,
+            PolarWorld.DEFAULT_COMPRESSION_LEVEL,
+            WorldType.FLAT,
             World.Environment.NORMAL,
             DEFAULT_GAMERULES
     );
@@ -128,13 +139,17 @@ public record Config(
     private static @NotNull Config readPrefix(FileConfiguration config, String prefix, Config defaultConfig) {
         try {
             int autoSaveIntervalTicks = config.getInt(prefix + "autosaveIntervalTicks", defaultConfig.autoSaveIntervalTicks);
+            boolean announceAutosave = config.getBoolean(prefix + "announceAutosave", defaultConfig.announceAutosave);
             long time = config.getLong(prefix + "time", defaultConfig.time);
             boolean saveOnStop = config.getBoolean(prefix + "saveOnStop", defaultConfig.saveOnStop);
             boolean loadOnStartup = config.getBoolean(prefix + "loadOnStartup", defaultConfig.loadOnStartup);
             String spawn = config.getString(prefix + "spawn", locationToString(defaultConfig.spawn));
             Difficulty difficulty = Difficulty.valueOf(config.getString(prefix + "difficulty", defaultConfig.difficulty.name()));
             boolean async = config.getBoolean(prefix + "async", defaultConfig.async);
-            CompressionType compression = CompressionType.valueOf(config.getString(prefix + "compression", defaultConfig.compression.name()));
+            boolean removeChunks = config.getBoolean(prefix + "removeChunks", defaultConfig.removeChunks);
+            boolean saveLight = config.getBoolean(prefix + "saveLight", defaultConfig.saveLight);
+            PolarWorld.CompressionType compression = PolarWorld.CompressionType.valueOf(config.getString(prefix + "compression", defaultConfig.compression.name()));
+            int compressionLevel = config.getInt(prefix + "compressionLevel", defaultConfig.compressionLevel);
             WorldType worldType = WorldType.valueOf(config.getString(prefix + "worldType", defaultConfig.worldType.name()));
             World.Environment environment = World.Environment.valueOf(config.getString(prefix + "environment", defaultConfig.environment.name()));
 
@@ -148,13 +163,17 @@ public record Config(
 
             return new Config(
                     autoSaveIntervalTicks,
+                    announceAutosave,
                     time,
                     saveOnStop,
                     loadOnStartup,
                     stringToLocation(spawn),
                     difficulty,
                     async,
+                    removeChunks,
+                    saveLight,
                     compression,
+                    compressionLevel,
                     worldType,
                     environment,
                     gamerulesMap
@@ -179,6 +198,7 @@ public record Config(
         // only save if the config differs from the default
         writeProperty(fileConfig, prefix + "time", config.time, defaultConfig.time);
         writeProperty(fileConfig, prefix + "autosaveIntervalTicks", config.autoSaveIntervalTicks, defaultConfig.autoSaveIntervalTicks);
+        writeProperty(fileConfig, prefix + "announceAutosave", config.announceAutosave, defaultConfig.announceAutosave);
         fileConfig.setInlineComments(prefix + "autosaveIntervalTicks", List.of("-1 to disable"));
         writeProperty(fileConfig, prefix + "saveOnStop", config.saveOnStop, defaultConfig.saveOnStop);
         writeProperty(fileConfig, prefix + "loadOnStartup", config.loadOnStartup, defaultConfig.loadOnStartup);
@@ -186,8 +206,15 @@ public record Config(
         writeProperty(fileConfig, prefix + "difficulty", config.difficulty.name(), defaultConfig.difficulty.name());
         writeProperty(fileConfig, prefix + "async", config.async, defaultConfig.async);
         fileConfig.setInlineComments(prefix + "async", List.of("Very experimental"));
-        writeProperty(fileConfig, prefix + "compression", config.compression, defaultConfig.compression);
+        writeProperty(fileConfig, prefix + "removeChunks", config.removeChunks, defaultConfig.removeChunks);
+        fileConfig.setInlineComments(prefix + "removeChunks", List.of("Whether chunks are removed from the PolarWorld once fully generated to save memory"));
+        writeProperty(fileConfig, prefix + "saveLight", config.saveLight, defaultConfig.saveLight);
+        fileConfig.setInlineComments(prefix + "saveLight", List.of("Whether chunks are saved with light data. Reduces CPU usage when loading the world but increases world size significantly"));
+        writeProperty(fileConfig, prefix + "compression", config.compression.name(), defaultConfig.compression.name());
         fileConfig.setInlineComments(prefix + "compression", List.of("One of: ZSTD, NONE"));
+        writeProperty(fileConfig, prefix + "compressionLevel", config.compressionLevel, defaultConfig.compressionLevel);
+        fileConfig.setInlineComments(prefix + "compressionLevel", List.of("ZSTD compression level, higher means smaller file size but longer save times. Max %s, default %s".formatted(Zstd.maxCompressionLevel(), PolarWorld.DEFAULT_COMPRESSION_LEVEL)));
+
         writeProperty(fileConfig, prefix + "worldType", config.worldType.name(), defaultConfig.worldType.name());
         fileConfig.setInlineComments(prefix + "worldType", List.of("One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES"));
         writeProperty(fileConfig, prefix + "environment", config.environment.name(), defaultConfig.environment.name());
@@ -200,7 +227,7 @@ public record Config(
 
         fileConfig.setInlineComments(prefix + "gamerules", List.of("Custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath"));
 
-        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path configFile = pluginFolder.resolve("config.yml");
         try {
             fileConfig.save(configFile.toFile());
@@ -271,26 +298,34 @@ public record Config(
     @SuppressWarnings("unused")
     public static final class Builder {
         private int autoSaveIntervalTicks;
+        private boolean announceAutosave;
         private long time;
         private boolean saveOnStop;
         private boolean loadOnStartup;
         private @NotNull Location spawn;
         private @NotNull Difficulty difficulty;
         private boolean async;
-        private CompressionType compression;
+        private boolean removeChunks;
+        private boolean saveLight;
+        private PolarWorld.CompressionType compression;
+        private int compressionLevel;
         private @NotNull WorldType worldType;
         private @NotNull World.Environment environment;
         private @NotNull Map<String, Object> gamerules;
 
         private Builder(Config record) {
             this.autoSaveIntervalTicks = record.autoSaveIntervalTicks;
+            this.announceAutosave = record.announceAutosave;
             this.time = record.time;
             this.saveOnStop = record.saveOnStop;
             this.loadOnStartup = record.loadOnStartup;
             this.spawn = record.spawn;
             this.difficulty = record.difficulty;
             this.async = record.async;
+            this.removeChunks = record.removeChunks;
+            this.saveLight = record.saveLight;
             this.compression = record.compression;
+            this.compressionLevel = record.compressionLevel;
             this.worldType = record.worldType;
             this.environment = record.environment;
             this.gamerules = record.gamerules;
@@ -303,6 +338,11 @@ public record Config(
          */
         public Builder autoSaveIntervalTicks(int autoSaveIntervalTicks) {
             this.autoSaveIntervalTicks = autoSaveIntervalTicks;
+            return this;
+        }
+
+        public Builder announceAutosave(boolean announceAutosave) {
+            this.announceAutosave = announceAutosave;
             return this;
         }
 
@@ -346,11 +386,43 @@ public record Config(
             return this;
         }
 
-        public Builder compression(CompressionType compression) {
+        /**
+         * Whether chunks are removed from the PolarWorld once fully generated to save memory.
+         * Should be disabled if reusing the PolarWorld object between multiple worlds
+         */
+        public Builder removeChunks(boolean removeChunks) {
+            this.removeChunks = removeChunks;
+            return this;
+        }
+
+        /**
+         * Whether chunks are saved with light data.
+         * Reduces CPU usage when loading the world but increases world size significantly
+         */
+        public Builder saveLight(boolean saveLight) {
+            this.saveLight = saveLight;
+            return this;
+        }
+
+        public Builder compression(PolarWorld.CompressionType compression) {
             this.compression = compression;
             return this;
         }
 
+        /**
+         * Set the ZSTD compression level, higher means smaller file size but longer save times.
+         * @see Zstd#maxCompressionLevel()
+         * @see Zstd#minCompressionLevel()
+         * @see Zstd#defaultCompressionLevel()
+         */
+        public Builder compressionLevel(int compressionLevel) {
+            this.compressionLevel = compressionLevel;
+            return this;
+        }
+
+        /**
+         * Prefer WorldType.FLAT if possible as it skips unnecessary vanilla biome generation
+         */
         public Builder worldType(@NotNull WorldType worldType) {
             this.worldType = Objects.requireNonNull(worldType, "Null worldType");
             return this;
@@ -377,9 +449,9 @@ public record Config(
         }
 
         public Config build() {
-            return new Config(this.autoSaveIntervalTicks, this.time, this.saveOnStop, this.loadOnStartup,
-                    this.spawn, this.difficulty, this.async, this.compression, this.worldType,
-                    this.environment, this.gamerules);
+            return new Config(this.autoSaveIntervalTicks, this.announceAutosave, this.time, this.saveOnStop, this.loadOnStartup,
+                    this.spawn, this.difficulty, this.async, this.removeChunks, this.saveLight, this.compression, this.compressionLevel,
+                    this.worldType, this.environment, this.gamerules);
         }
     }
 }

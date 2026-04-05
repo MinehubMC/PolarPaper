@@ -1,24 +1,35 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.schematic.BlockModifier;
+import live.minehub.polarpaper.PolarReader;
+import live.minehub.polarpaper.PolarWorld;
 import live.minehub.polarpaper.schematic.Rotation;
 import live.minehub.polarpaper.schematic.Schematic;
+import live.minehub.polarpaper.schematic.Setter;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.joml.Vector3i;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class PasteCommand {
+public class PasteCommand extends PolarCmd {
 
-    protected static int run(CommandContext<CommandSourceStack> ctx) {
+    public PasteCommand() {
+        super("paste", "Place a polar world like a schematic");
+    }
+
+    private static int run(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         if (!(sender instanceof Player)) {
             ctx.getSource().getSender().sendMessage(
@@ -88,7 +99,7 @@ public class PasteCommand {
 
         String worldName = ctx.getArgument("worldname", String.class);
 
-        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
         Path path = worldsFolder.resolve(worldName + ".polar");
 
@@ -97,9 +108,15 @@ public class PasteCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        byte[] polarBytes;
+        PolarWorld polarWorld;
         try {
-            polarBytes = Files.readAllBytes(path);
+            byte[] polarBytes;
+            try {
+                polarBytes = Files.readAllBytes(path);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            polarWorld = PolarReader.read(polarBytes);
         } catch (Exception e) {
             PolarPaper.logger().warning("Failed to load world '" + worldName + ".polar'");
             player.sendMessage(Component.text("Failed to load world '" + worldName + ".polar'", NamedTextColor.RED));
@@ -107,9 +124,17 @@ public class PasteCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        BlockModifier modifier = new BlockModifier.PosRot(player.getLocation().toVector().toVector3i(), rotation);
+        Vector3i pasteOffset = player.getLocation().toVector().toVector3i();
 
-        Schematic.paste(polarBytes, player.getWorld(), modifier, ignoreAir);
+        try {
+            Setter setter = new Setter.World(player.getWorld());
+            Schematic.paste(polarWorld, setter, pasteOffset, rotation, ignoreAir);
+        } catch (Exception e) {
+            String errorMsg = "Failed to paste schematic, please check logs for error";
+            PolarPaper.logger().severe(errorMsg);
+            ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+            return Command.SINGLE_SUCCESS;
+        }
 
         int ms = (int) ((System.nanoTime() - before) / 1_000_000);
         ctx.getSource().getSender().sendMessage(
@@ -124,4 +149,34 @@ public class PasteCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Usage: /polar paste <worldname> [rotation] [air ignore] (While in a world) to place a polar world at your current position", NamedTextColor.RED))
+        );
+        return Command.SINGLE_SUCCESS;
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(Commands.argument("worldname", StringArgumentType.string())
+                .executes(PasteCommand::run)
+                .then(Commands.argument("rotation", StringArgumentType.string())
+                        .suggests((ctx, s) -> {
+                            for (Rotation rotation : Rotation.values()) {
+                                s.suggest(rotation.getFriendlyName());
+                            }
+                            return s.buildFuture();
+                        })
+                        .executes(PasteCommand::runWithRotation)
+                        .then(Commands.argument("ignoreair", StringArgumentType.string())
+                                .suggests((ctx, s) -> {
+                                    for (Schematic.IgnoreAir ignoreAir : Schematic.IgnoreAir.values()) {
+                                        s.suggest(ignoreAir.name().toLowerCase());
+                                    }
+                                    return s.buildFuture();
+                                })
+                                .executes(PasteCommand::runWithRotationAndAirIgnore))));
+    }
 }

@@ -72,7 +72,7 @@ public class EntityUtil {
         return polarEntities;
     }
 
-    public static void writeEntities(List<PolarEntity> entities, @NotNull ByteBuf data) {
+    public static void writeEntities(List<@NotNull PolarEntity> entities, @NotNull ByteBuf data) {
         writeVarInt(entities.size(), data);
         for (@NotNull PolarEntity entity : entities) {
             data.writeDouble(entity.x());

@@ -7,18 +7,20 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarGenerator;
 import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.source.BytesPolarSource;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
-public class SaveCommand extends PolarCmd {
+public class SaveZSTDCommand extends PolarCmd {
 
-    public SaveCommand() {
-        super("save", "Save the polar world");
+    public SaveZSTDCommand() {
+        super("savezstd", "Save with every levels of ZSTD");
     }
 
-    private static int run(CommandContext<CommandSourceStack> ctx) {
+    protected static int run(CommandContext<CommandSourceStack> ctx) {
         String worldName = ctx.getArgument("worldname", String.class);
 
         World bukkitWorld = Bukkit.getWorld(worldName);
@@ -32,8 +34,8 @@ public class SaveCommand extends PolarCmd {
             return Command.SINGLE_SUCCESS;
         }
 
-        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
-        if (polarGenerator == null) {
+        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
+        if (polarWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
@@ -42,6 +44,8 @@ public class SaveCommand extends PolarCmd {
             );
             return Command.SINGLE_SUCCESS;
         }
+        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
+        if (polarGenerator == null) return Command.SINGLE_SUCCESS;
 
         ctx.getSource().getSender().sendMessage(
                 Component.text()
@@ -50,31 +54,35 @@ public class SaveCommand extends PolarCmd {
                         .append(Component.text("'...", NamedTextColor.GRAY))
         );
 
-        long before = System.nanoTime();
+
 
         Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
             Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
         });
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            try {
-                Polar.saveWorldToFile(bukkitWorld);
-            } catch (Exception e) {
-                String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getName());
-                PolarPaper.logger().severe(errorMsg);
-                ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
-                return;
+
+            for (int i = 0; i <= 22; i++) {
+                long before = System.nanoTime();
+
+                PolarGenerator generator = PolarGenerator.fromWorld(bukkitWorld);
+                generator.setConfig(generator.getConfig().toBuilder().compressionLevel(i).build());
+
+                BytesPolarSource source = new BytesPolarSource();
+                try {
+                    Polar.saveWorld(bukkitWorld, source);
+                } catch (Exception e) {
+                    String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getName());
+                    PolarPaper.logger().severe(errorMsg);
+                    ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                    return;
+                }
+
+                double ms = ((int) ((System.nanoTime() - before) / 1_000_0)) / 100.0;
+                PolarPaper.logger().info("level: %s, %s bytes, %sms".formatted(i, source.bytes().length, ms));
             }
 
-            int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("Saved '", NamedTextColor.AQUA))
-                            .append(Component.text(worldName, NamedTextColor.AQUA))
-                            .append(Component.text("' in ", NamedTextColor.AQUA))
-                            .append(Component.text(ms, NamedTextColor.AQUA))
-                            .append(Component.text("ms", NamedTextColor.AQUA))
-            );
+
         });
 
         return Command.SINGLE_SUCCESS;
@@ -84,7 +92,7 @@ public class SaveCommand extends PolarCmd {
     protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
         ctx.getSource().getSender().sendMessage(
                 Component.text()
-                        .append(Component.text("Usage: /polar save <worldname>", NamedTextColor.RED))
+                        .append(Component.text("Usage: /polar savezstd <worldname>", NamedTextColor.RED))
         );
         return Command.SINGLE_SUCCESS;
     }
@@ -92,6 +100,6 @@ public class SaveCommand extends PolarCmd {
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
         builder.then(createWorldNameArgument(true, true)
-                .executes(SaveCommand::run));
+                .executes(SaveZSTDCommand::run));
     }
 }

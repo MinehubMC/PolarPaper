@@ -13,6 +13,9 @@ import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.world.ChunkPopulateEvent;
+import org.bukkit.event.world.WorldUnloadEvent;
+import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -62,6 +65,11 @@ public class PolarListener implements Listener {
         Object enabled = config.gamerules().getOrDefault("blockGravity", true);
         if (!(enabled instanceof Boolean enabledBool)) return;
         event.setCancelled(!enabledBool);
+    }
+
+    @EventHandler
+    public void onWorldUnload(WorldUnloadEvent event) {
+        Polar.stopAutoSaveTask(event.getWorld().getName());
     }
 
 

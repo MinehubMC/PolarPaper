@@ -26,7 +26,7 @@ public record FilePolarSource(Path path) implements PolarSource {
     }
 
     public static FilePolarSource defaultFolder(String worldName) {
-        Path pluginFolder = Path.of(PolarPaper.getPlugin().getDataFolder().getAbsolutePath());
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
         Path path = worldsFolder.resolve(worldName + ".polar");
         return new FilePolarSource(path);

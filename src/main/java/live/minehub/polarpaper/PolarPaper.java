@@ -3,7 +3,7 @@ package live.minehub.polarpaper;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import live.minehub.polarpaper.commands.PolarCommand;
+import live.minehub.polarpaper.commands.CommandManager;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
@@ -26,12 +26,12 @@ public final class PolarPaper extends JavaPlugin {
         LifecycleEventManager<@NotNull Plugin> manager = this.getLifecycleManager();
         manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             Commands commands = event.registrar();
-            PolarCommand.register(commands);
+            new CommandManager().register(commands);
         });
 
         registerEvents();
 
-        Path pluginFolder = Path.of(getDataFolder().getAbsolutePath());
+        Path pluginFolder = getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
 
         worldsFolder.toFile().mkdirs();
@@ -50,26 +50,26 @@ public final class PolarPaper extends JavaPlugin {
 
                 if (!config.loadOnStartup()) return;
 
-                getLogger().info("Loading polar world: " + worldName);
+                logger().info("Loading polar world: " + worldName);
 
                 Polar.loadWorldFromFile(worldName);
             });
         } catch (IOException e) {
-            getLogger().warning("Failed to load world on startup");
+            logger().warning("Failed to load world on startup");
             ExceptionUtil.log(e);
         }
     }
 
     @Override
     public void onDisable() {
-        Path pluginFolder = Path.of(getDataFolder().getAbsolutePath());
+        Path pluginFolder = getDataPath();
         Path tempFolder = pluginFolder.resolve("temp");
         if (Files.exists(tempFolder)) {
-            getLogger().info("Clearing temp directory");
+            logger().info("Clearing temp directory");
             try (Stream<Path> paths = Files.walk(tempFolder)) {
                 paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
             } catch (IOException e) {
-                getLogger().warning("Failed to delete temp directory");
+                logger().warning("Failed to delete temp directory");
                 ExceptionUtil.log(e);
             }
         }
@@ -79,17 +79,17 @@ public final class PolarPaper extends JavaPlugin {
             if (generator == null) continue;
 
             if (!generator.getConfig().saveOnStop()) {
-                PolarPaper.logger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getName()));
+                logger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getName()));
                 continue;
             }
 
-            getLogger().info("Saving '" + world.getName() + "'...");
+            logger().info("Saving '" + world.getName() + "'...");
 
             long before = System.nanoTime();
             Polar.updateConfig(world, world.getName());
             Polar.saveWorldToFile(world);
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-            PolarPaper.logger().info(String.format("Saved '%s' in %sms", world.getName(), ms));
+            logger().info(String.format("Saved '%s' in %sms", world.getName(), ms));
         }
     }
 

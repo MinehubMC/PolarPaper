@@ -1,13 +1,17 @@
 # Config for polar worlds
 default:
   autosaveIntervalTicks: -1 # -1 to disable
+  announceAutosave: true
   time: 1000
   saveOnStop: false
   loadOnStartup: true
   spawn: 0.0, 64.0, 0.0, 0.0, 0.0
   difficulty: NORMAL
   async: false
-  worldType: NORMAL # One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES
+  saveLight: false
+  compression: ZSTD # One of: ZSTD, NONE
+  compressionLevel: 9 # ZSTD compression level, higher means smaller file size but longer save times. Max 22, default 9
+  worldType: FLAT # One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES
   environment: NORMAL # One of: NORMAL, NETHER, THE_END, CUSTOM
   gamerules: # Custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath
     - spawn_mobs: false

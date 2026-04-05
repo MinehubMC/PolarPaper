@@ -98,8 +98,8 @@ Path worldPath = Path.of("./epic/world.polar");
 byte[] polarBytes = Files.readAllBytes(worldPath);
 PolarWorld polarWorld = PolarReader.read(polarBytes);
 Vector3i offset = new Vector3i(x, y, z);
-BlockModifier modifier = new BlockModifier.PosRot(offset, Rotation.CLOCKWISE_90);
-Schematic.paste(polarWorld, player.getWorld(), modifier, Schematic.IgnoreAir.EMPTY_SECTION);
+Setter setter = new Setter.World(player.getWorld());
+Schematic.paste(polarWorld, setter, offset, Rotation.CLOCKWISE_90, Schematic.IgnoreAir.EMPTY_SECTION);
 ```
 
 Register events

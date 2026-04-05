@@ -1,13 +1,15 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.schematic.Schematic;
 import live.minehub.polarpaper.source.FilePolarSource;
 import live.minehub.polarpaper.userdata.WorldUserData;
-import live.minehub.polarpaper.util.CompressionType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -21,13 +23,13 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.joml.Vector3i;
 
-public class CreateFromRegionCommand {
+public class CreateFromRegionCommand extends PolarCmd {
 
-    protected static int run(CommandContext<CommandSourceStack> ctx) {
-        return convert(ctx);
+    public CreateFromRegionCommand() {
+        super("createfromregion", "Create a polar world from the selected region");
     }
 
-    private static int convert(CommandContext<CommandSourceStack> ctx) {
+    private static int run(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         // Being ran from console
         if (!(sender instanceof Player player)) return Command.SINGLE_SUCCESS;
@@ -61,10 +63,17 @@ public class CreateFromRegionCommand {
         // TODO: center the world
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
-            byte[] userData = WorldUserData.writeSchematicOffset(schemOffset);
-
-            byte[] bytes = PolarStreamWriter.write(bukkitWorld, userData, blockSelector, false, CompressionType.ZSTD, PolarDataConverter.DEFAULT, PolarWorldAccess.POLAR_PAPER_FEATURES);
-            FilePolarSource.defaultFolder(newWorldName).saveBytes(bytes);
+            try {
+                PolarWorld polarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, blockSelector);
+                polarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
+                byte[] worldBytes = PolarWriter.write(polarWorld);
+                FilePolarSource.defaultFolder(newWorldName).saveBytes(worldBytes);
+            } catch (Exception e) {
+                String errorMsg = String.format("Failed to create '%s', please check logs for error", newWorldName);
+                PolarPaper.logger().severe(errorMsg);
+                ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                return;
+            }
 
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             ctx.getSource().getSender().sendMessage(
@@ -98,4 +107,18 @@ public class CreateFromRegionCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Usage: /polar createfromregion <new worldname> (While in a world) to create a new polar world from the selected region", NamedTextColor.RED))
+        );
+        return Command.SINGLE_SUCCESS;
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(Commands.argument("newworldname", StringArgumentType.string())
+                .executes(CreateFromRegionCommand::run));
+    }
 }

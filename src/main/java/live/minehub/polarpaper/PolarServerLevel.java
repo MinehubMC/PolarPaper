@@ -24,21 +24,12 @@ public class PolarServerLevel extends ServerLevel {
     }
 
     @Override
-    public void save(@Nullable ProgressListener progressListener, boolean flush, boolean savingDisabled) {
-    }
-
-    @Override
     public void save(@Nullable ProgressListener progressListener, boolean flush, boolean savingDisabled, boolean close) {
     }
 
     @Override
     public void saveIncrementally(boolean doFull) {
 //        System.out.println("Save incrementally: " + doFull);
-    }
-
-    @Override
-    public boolean noSave() {
-        return true;
     }
 
 }

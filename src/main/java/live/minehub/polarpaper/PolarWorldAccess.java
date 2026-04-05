@@ -91,17 +91,18 @@ public interface PolarWorldAccess {
         public void saveChunkData(@NotNull ChunkAccess chunk,
                                   @NotNull Set<Map.Entry<BlockPos, BlockEntity>> blockEntities,
                                   @NotNull Entity[] entities, @NotNull ByteBuf userData) {
-            List<CompletableFuture<PolarEntity>> entityFutures = new ArrayList<>();
-            List<PolarEntity> polarEntities = new ArrayList<>();
+            List<CompletableFuture<@Nullable PolarEntity>> entityFutures = new ArrayList<>();
+            List<@NotNull PolarEntity> polarEntities = new ArrayList<>();
 
             for (@NotNull Entity entity : entities) {
                 if (entity.getType() == EntityType.PLAYER) continue;
-                CompletableFuture<PolarEntity> entityFuture = EntityUtil.entityToPolarEntity(entity);
+                CompletableFuture<@Nullable PolarEntity> entityFuture = EntityUtil.entityToPolarEntity(entity);
                 entityFutures.add(entityFuture);
             }
 
-            for (CompletableFuture<PolarEntity> entityFuture : entityFutures) {
+            for (CompletableFuture<@Nullable PolarEntity> entityFuture : entityFutures) {
                 PolarEntity polarEntity = entityFuture.join();
+                if (polarEntity == null) continue;
                 polarEntities.add(polarEntity);
             }
 
@@ -115,6 +116,7 @@ public interface PolarWorldAccess {
             } catch (IOException e) {
                 PolarPaper.logger().warning("Failed to deserialize persistent data container");
                 ExceptionUtil.log(e);
+                ByteArrayUtil.writeByteArray(new byte[0], userData);
             }
         }
 

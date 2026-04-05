@@ -1,41 +1,22 @@
 package live.minehub.polarpaper.commands;
 
-import ca.spottedleaf.moonrise.patches.chunk_system.level.ChunkSystemServerLevel;
-import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-import live.minehub.polarpaper.Config;
-import live.minehub.polarpaper.PolarGenerator;
 import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
-import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.entity.Player;
 
-import java.util.List;
+public class InfoCommand extends PolarCmd {
 
-public class InfoCommand {
-
-    protected static int run(CommandContext<CommandSourceStack> ctx) {
-        CommandSender sender = ctx.getSource().getSender();
-        if (!(sender instanceof Player player)) {
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("Usage: /polar info (while in a polar world)", NamedTextColor.RED))
-            );
-            return Command.SINGLE_SUCCESS;
-        }
-
-        return printInfo(ctx, player.getWorld().getName());
-    }
-
-    protected static int runArg(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
-        return printInfo(ctx, worldName);
+    public InfoCommand() {
+        super("info", "Get info for a polar world");
     }
 
     protected static int printInfo(CommandContext<CommandSourceStack> ctx, String worldName) {
@@ -50,8 +31,8 @@ public class InfoCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
-        if (polarGenerator == null) {
+        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
+        if (polarWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("'", NamedTextColor.RED))
@@ -62,34 +43,35 @@ public class InfoCommand {
         }
 
         Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
-            Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld);
-
-            List<NewChunkHolder> chunkHolders = ((ChunkSystemServerLevel) ((CraftWorld) bukkitWorld).getHandle()).moonrise$getChunkTaskScheduler().chunkHolderManager.getChunkHolders();
-
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("Info for ", NamedTextColor.AQUA))
-                            .append(Component.text(bukkitWorld.getName(), NamedTextColor.AQUA))
-                            .append(Component.text(":", NamedTextColor.AQUA))
-                            .append(Component.newline())
-                            .append(Component.text(" Version: ", NamedTextColor.AQUA))
-                            .append(Component.text(polarGenerator.getVersion(), NamedTextColor.AQUA))
-                            .append(Component.text(" (", NamedTextColor.AQUA))
-                            .append(Component.text(polarGenerator.getDataVersion(), NamedTextColor.AQUA))
-                            .append(Component.text(")", NamedTextColor.AQUA))
-                            .append(Component.newline())
-                            .append(Component.text(" Compression: ", NamedTextColor.AQUA))
-                            .append(Component.text(polarGenerator.getConfig().compression().name(), NamedTextColor.AQUA))
-                            .append(Component.newline())
-                            .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
-                            .append(Component.text(config.spawnString(), NamedTextColor.AQUA))
-                            .append(Component.newline())
-                            .append(Component.text(" Chunk Holders: ", NamedTextColor.AQUA))
-                            .append(Component.text(chunkHolders.size(), NamedTextColor.AQUA))
-            );
+            Component infoComponent = polarWorld.getInfoComponent(bukkitWorld);
+            ctx.getSource().getSender().sendMessage(infoComponent);
         });
 
         return Command.SINGLE_SUCCESS;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            ctx.getSource().getSender().sendMessage(
+                    Component.text()
+                            .append(Component.text("Usage: /polar info (while in a polar world)", NamedTextColor.RED))
+            );
+            return Command.SINGLE_SUCCESS;
+        }
+
+        return printInfo(ctx, player.getWorld().getName());
+    }
+
+    private static int executeArgument(CommandContext<CommandSourceStack> ctx) {
+        String worldName = ctx.getArgument("worldname", String.class);
+        return printInfo(ctx, worldName);
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(createWorldNameArgument(true, true)
+                .executes(InfoCommand::executeArgument));
+    }
 }

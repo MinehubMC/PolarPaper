@@ -1,8 +1,11 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
@@ -15,10 +18,14 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 
-public class CreateBlankCommand {
+public class CreateBlankCommand extends PolarCmd {
 
-    protected static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
+    public CreateBlankCommand() {
+        super("createblank", "Create a blank world");
+    }
+
+    private static int run(CommandContext<CommandSourceStack> ctx) {
+        String worldName = ctx.getArgument("newworldname", String.class);
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld != null) {
@@ -56,4 +63,18 @@ public class CreateBlankCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        ctx.getSource().getSender().sendMessage(
+                Component.text()
+                        .append(Component.text("Usage: /polar createblank <worldname>", NamedTextColor.RED))
+        );
+        return Command.SINGLE_SUCCESS;
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(Commands.argument("newworldname", StringArgumentType.greedyString())
+                .executes(CreateBlankCommand::run));
+    }
 }

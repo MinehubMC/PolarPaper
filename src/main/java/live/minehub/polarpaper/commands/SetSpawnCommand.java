@@ -1,8 +1,10 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.PolarGenerator;
 import live.minehub.polarpaper.PolarPaper;
@@ -15,9 +17,13 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 
-public class SetSpawnCommand {
+public class SetSpawnCommand extends PolarCmd {
 
-    protected static int run(CommandContext<CommandSourceStack> ctx, boolean rounded) {
+    public SetSpawnCommand() {
+        super("setspawn", "Set the spawn of the current polar world");
+    }
+
+    private int execute(CommandContext<CommandSourceStack> ctx, boolean rounded) {
         CommandSender sender = ctx.getSource().getSender();
         if (!(sender instanceof Player player)) {
             ctx.getSource().getSender().sendMessage(
@@ -55,6 +61,8 @@ public class SetSpawnCommand {
 
             Config.writeToConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName(), newConfig);
 
+            bukkitWorld.setSpawnLocation(spawnPos);
+
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("Set spawn for ", NamedTextColor.AQUA))
@@ -67,4 +75,14 @@ public class SetSpawnCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    @Override
+    protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        return execute(ctx, false);
+    }
+
+    @Override
+    protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
+        builder.then(Commands.literal("rounded")
+                .executes(ctx -> execute(ctx, true)));
+    }
 }
