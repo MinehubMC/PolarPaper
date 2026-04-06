@@ -142,7 +142,19 @@ public class Polar {
     }
 
     /**
-     * Creates a polar world with config read from config.yml using the streaming loader
+     * Creates a polar world with config read from config.yml and with the default PolarWorldAccess
+     *
+     * @param worldName The name for the polar world
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     */
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName) {
+        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
+        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
+        return createWorld(polarWorld, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
+    }
+
+    /**
+     * Creates a polar world with config read from config.yml
      *
      * @param worldName The name for the polar world
      * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
@@ -156,7 +168,21 @@ public class Polar {
     }
 
     /**
-     * Creates a polar world with a custom config
+     * Creates a polar world with config read from config.yml
+     *
+     * @param worldName The name for the polar world
+     * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     * @see PolarWorldAccess#POLAR_PAPER_FEATURES
+     */
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
+        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
+        return createWorld(polarWorld, worldName, config, worldAccess);
+    }
+
+    /**
+     * Creates a polar world with the default PolarWorldAccess
      *
      * @param worldName The name for the polar world
      * @param config Custom config for the polar world
@@ -167,8 +193,20 @@ public class Polar {
     }
 
     /**
-     * Creates a polar world with a custom config
+     * Creates a polar world with the default PolarWorldAccess
      *
+     * @param worldName The name for the polar world
+     * @param config Custom config for the polar world
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     */
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config) {
+        return createWorld(polarWorld, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
+    }
+
+    /**
+     * Creates a polar world
+     *
+     * @param worldBytes The byte array of the polar world. Null to load a blank world
      * @param worldName The name for the polar world
      * @param config Custom config for the polar world
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
@@ -184,7 +222,7 @@ public class Polar {
     }
 
     /**
-     * Creates a polar world with a custom config
+     * Creates a polar world
      *
      * @param worldName The name for the polar world
      * @param config Custom config for the polar world
