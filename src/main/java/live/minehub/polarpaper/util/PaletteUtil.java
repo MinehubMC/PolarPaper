@@ -1,6 +1,5 @@
 package live.minehub.polarpaper.util;
 
-import ca.spottedleaf.concurrentutil.util.IntegerUtil;
 import live.minehub.polarpaper.PolarSection;
 import net.minecraft.world.level.chunk.*;
 
@@ -101,26 +100,6 @@ public final class PaletteUtil {
                 value >>>= bitsPerEntry;
             }
         }
-    }
-
-    private static final int[] BETTER_MAGIC = new int[33];
-    static {
-        for(int bits = 1; bits < BETTER_MAGIC.length; ++bits) {
-            BETTER_MAGIC[bits] = (int) IntegerUtil.getUnsignedDivisorMagic(64L / (long)bits, 20);
-        }
-    }
-
-    /**
-     * Gets the uncompressed int from a compressed/packed long array
-     */
-    public static int getFromPalette(long[] data, int index, int bits) {
-        int mulBits = 64 / bits * bits;
-        long mask = (1L << bits) - 1L;
-        int magic = BETTER_MAGIC[bits];
-        int full = magic * index;
-        int divQ = full >>> 20;
-        int divR = (full & 1048575) * mulBits >>> 20;
-        return (int)(data[divQ] >>> divR & mask);
     }
 
     public static int getBitsForLongLength(int longLength) {

@@ -136,17 +136,19 @@ public class PolarSection {
         return skyLight;
     }
 
-    public LevelChunkSection createLevelChunkSection(RegistryAccess registryAccess) {
-        if (empty) {
-            Registry<Biome> registry = registryAccess.lookupOrThrow(Registries.BIOME);
-            Strategy<BlockState> blockStrategy = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
-            PalettedContainer<BlockState> states = new PalettedContainer<>(Blocks.AIR.defaultBlockState(), blockStrategy, null);
+    public LevelChunkSection createEmptyLevelChunkSection(RegistryAccess registryAccess) {
+        Registry<Biome> registry = registryAccess.lookupOrThrow(Registries.BIOME);
+        Strategy<BlockState> blockStrategy = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
+        PalettedContainer<BlockState> states = new PalettedContainer<>(Blocks.AIR.defaultBlockState(), blockStrategy, null);
 
-            Strategy<Holder<Biome>> biomeStrategy = Strategy.createForBiomes(registry.asHolderIdMap());
-            Holder.Reference<Biome> orThrow = registry.getOrThrow(Biomes.PLAINS);
-            PalettedContainer<Holder<Biome>> biomes = new PalettedContainer<>(orThrow, biomeStrategy, null);
-            return new LevelChunkSection(states, biomes);
-        }
+        Strategy<Holder<Biome>> biomeStrategy = Strategy.createForBiomes(registry.asHolderIdMap());
+        Holder.Reference<Biome> orThrow = registry.getOrThrow(Biomes.PLAINS);
+        PalettedContainer<Holder<Biome>> biomes = new PalettedContainer<>(orThrow, biomeStrategy, null);
+        return new LevelChunkSection(states, biomes);
+    }
+
+    public LevelChunkSection createLevelChunkSection(RegistryAccess registryAccess) {
+        if (empty) return createEmptyLevelChunkSection(registryAccess);
 
         // Blocks
         BlockState[] materialPalette = new BlockState[blockPalette.length];

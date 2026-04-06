@@ -24,8 +24,6 @@ import java.util.*;
  * @param spawn the spawn location
  * @param difficulty the difficulty
  * @param async whether to create the world asynchronously. Can cause issues with other plugins
- * @param removeChunks whether chunks are removed from the PolarWorld once fully generated to save memory.
- * Should be disabled if reusing the PolarWorld object between multiple worlds
  * @param saveLight whether chunks are saved with light data.
  * Reduces CPU usage when loading the world but increases world size significantly
  * @param worldType Prefer WorldType.FLAT if possible as it skips unnecessary vanilla biome generation
@@ -41,7 +39,6 @@ public record Config(
         @NotNull Location spawn,
         @NotNull Difficulty difficulty,
         boolean async,
-        boolean removeChunks,
         boolean saveLight,
         PolarWorld.CompressionType compression,
         int compressionLevel,
@@ -77,7 +74,6 @@ public record Config(
             new Location(null, 0, 64, 0),
             Difficulty.NORMAL,
             false,
-            true,
             false,
             PolarWorld.DEFAULT_COMPRESSION,
             PolarWorld.DEFAULT_COMPRESSION_LEVEL,
@@ -146,7 +142,6 @@ public record Config(
             String spawn = config.getString(prefix + "spawn", locationToString(defaultConfig.spawn));
             Difficulty difficulty = Difficulty.valueOf(config.getString(prefix + "difficulty", defaultConfig.difficulty.name()));
             boolean async = config.getBoolean(prefix + "async", defaultConfig.async);
-            boolean removeChunks = config.getBoolean(prefix + "removeChunks", defaultConfig.removeChunks);
             boolean saveLight = config.getBoolean(prefix + "saveLight", defaultConfig.saveLight);
             PolarWorld.CompressionType compression = PolarWorld.CompressionType.valueOf(config.getString(prefix + "compression", defaultConfig.compression.name()));
             int compressionLevel = config.getInt(prefix + "compressionLevel", defaultConfig.compressionLevel);
@@ -170,7 +165,6 @@ public record Config(
                     stringToLocation(spawn),
                     difficulty,
                     async,
-                    removeChunks,
                     saveLight,
                     compression,
                     compressionLevel,
@@ -206,7 +200,6 @@ public record Config(
         writeProperty(fileConfig, prefix + "difficulty", config.difficulty.name(), defaultConfig.difficulty.name());
         writeProperty(fileConfig, prefix + "async", config.async, defaultConfig.async);
         fileConfig.setInlineComments(prefix + "async", List.of("Very experimental"));
-        writeProperty(fileConfig, prefix + "removeChunks", config.removeChunks, defaultConfig.removeChunks);
         fileConfig.setInlineComments(prefix + "removeChunks", List.of("Whether chunks are removed from the PolarWorld once fully generated to save memory"));
         writeProperty(fileConfig, prefix + "saveLight", config.saveLight, defaultConfig.saveLight);
         fileConfig.setInlineComments(prefix + "saveLight", List.of("Whether chunks are saved with light data. Reduces load time and CPU usage while loading but increases save time and world size"));
@@ -305,7 +298,6 @@ public record Config(
         private @NotNull Location spawn;
         private @NotNull Difficulty difficulty;
         private boolean async;
-        private boolean removeChunks;
         private boolean saveLight;
         private PolarWorld.CompressionType compression;
         private int compressionLevel;
@@ -322,7 +314,6 @@ public record Config(
             this.spawn = record.spawn;
             this.difficulty = record.difficulty;
             this.async = record.async;
-            this.removeChunks = record.removeChunks;
             this.saveLight = record.saveLight;
             this.compression = record.compression;
             this.compressionLevel = record.compressionLevel;
@@ -387,15 +378,6 @@ public record Config(
         }
 
         /**
-         * Whether chunks are removed from the PolarWorld once fully generated to save memory.
-         * Should be disabled if reusing the PolarWorld object between multiple worlds
-         */
-        public Builder removeChunks(boolean removeChunks) {
-            this.removeChunks = removeChunks;
-            return this;
-        }
-
-        /**
          * Whether chunks are saved with light data.
          * Reduces CPU usage when loading the world but increases world size significantly
          */
@@ -450,7 +432,7 @@ public record Config(
 
         public Config build() {
             return new Config(this.autoSaveIntervalTicks, this.announceAutosave, this.time, this.saveOnStop, this.loadOnStartup,
-                    this.spawn, this.difficulty, this.async, this.removeChunks, this.saveLight, this.compression, this.compressionLevel,
+                    this.spawn, this.difficulty, this.async, this.saveLight, this.compression, this.compressionLevel,
                     this.worldType, this.environment, this.gamerules);
         }
     }
