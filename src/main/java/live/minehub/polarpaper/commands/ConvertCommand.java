@@ -9,6 +9,7 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.*;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.source.FilePolarSource;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;

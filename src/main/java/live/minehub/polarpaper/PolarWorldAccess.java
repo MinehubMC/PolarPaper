@@ -7,11 +7,14 @@ import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.util.ByteArrayUtil;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.craftbukkit.CraftWorld;
+import org.bukkit.craftbukkit.entity.CraftEntity;
 import org.bukkit.craftbukkit.persistence.DirtyCraftPersistentDataContainer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -51,10 +54,10 @@ public interface PolarWorldAccess {
         private static final byte PERSISTENT_DATA_CONTAINER_VERSION = 2;
 
         @Override
-        public void populateChunkData(@NotNull final Chunk chunk, final byte @Nullable [] userData) {
+        public void loadChunkData(@NotNull World world, @NotNull ChunkAccess chunk, final byte @Nullable [] userData) {
             if (userData == null) return;
 
-            World world = chunk.getWorld();
+            ServerLevel level = ((CraftWorld) world).getHandle();
 
             final var bb = Unpooled.wrappedBuffer(userData);
 
@@ -63,20 +66,21 @@ public interface PolarWorldAccess {
             List<PolarEntity> entities = EntityUtil.getEntities(bb);
 
             for (PolarEntity polarEntity : entities) {
-                Entity entity = polarEntity.toBukkitEntity(world, polarEntity.getLocation(chunk), true);
+                net.minecraft.world.entity.Entity entity = polarEntity.toNMSEntity(world, polarEntity.getLocation(world, chunk.locX, chunk.locZ), true);
                 if (entity == null) continue;
 
-                Location spawnLocation = entity.getLocation();
+                CraftEntity bukkitEntity = entity.getBukkitEntity();
+                Location spawnLocation = bukkitEntity.getLocation();
 
-                PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, false);
+                PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, bukkitEntity, spawnLocation, false);
                 event.callEvent();
                 if (!event.isCancelled()) {
-                    EntityUtil.spawnEntity(entity, world);
+                    level.moonrise$getEntityLookup().addNewEntity(entity);
                 }
             }
 
             if (version >= PERSISTENT_DATA_CONTAINER_VERSION) {
-                PersistentDataContainer persistentDataContainer = chunk.getPersistentDataContainer();
+                PersistentDataContainer persistentDataContainer = chunk.persistentDataContainer;
                 try {
                     byte[] bytes = ByteArrayUtil.getByteArray(bb);
                     persistentDataContainer.readFromBytes(bytes);
@@ -150,10 +154,9 @@ public interface PolarWorldAccess {
      * <br/><br/>
      * Can be used to initialize the chunk based on saved user data in the world.
      *
-     * @param chunkData The ChunkData being created
      * @param userData The saved user data, or null if none is present
      */
-    default void loadChunkData(@NotNull ChunkGenerator.ChunkData chunkData, byte @Nullable [] userData) {
+    default void loadChunkData(@NotNull World world, @NotNull ChunkAccess chunk, byte @Nullable [] userData) {
     }
 
     /**

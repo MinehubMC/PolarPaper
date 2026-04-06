@@ -1,15 +1,10 @@
 package live.minehub.polarpaper;
 
-import ca.spottedleaf.moonrise.patches.chunk_system.level.ChunkSystemServerLevel;
 import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import live.minehub.polarpaper.source.PolarSource;
-import live.minehub.polarpaper.userdata.WorldUserData;
 import live.minehub.polarpaper.util.CoordConversion;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
@@ -19,10 +14,8 @@ import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
-import org.bukkit.generator.ChunkGenerator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3i;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -173,58 +166,6 @@ public class PolarWorld {
             nonEmptyChunks.add(chunk);
         }
         return nonEmptyChunks;
-    }
-
-    public Component getInfoComponent(World world) {
-        Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), world);
-
-        byte[] userData = userData();
-        Vector3i offset = WorldUserData.readSchematicOffset(userData);
-
-        List<NewChunkHolder> chunkHolders = ((ChunkSystemServerLevel) ((CraftWorld) world).getHandle()).moonrise$getChunkTaskScheduler().chunkHolderManager.getChunkHolders();
-
-        TextComponent.Builder builder = Component.text()
-                .append(Component.text("Info for ", NamedTextColor.AQUA))
-                .append(Component.text(world.getName(), NamedTextColor.AQUA))
-                .append(Component.text(":", NamedTextColor.AQUA))
-                .append(Component.newline())
-                .append(Component.text(" Version: ", NamedTextColor.AQUA))
-                .append(Component.text(version(), NamedTextColor.AQUA))
-                .append(Component.text(" (", NamedTextColor.AQUA))
-                .append(Component.text(dataVersion(), NamedTextColor.AQUA))
-                .append(Component.text(")", NamedTextColor.AQUA))
-                .append(Component.newline())
-                .append(Component.text(" Compression: ", NamedTextColor.AQUA))
-                .append(Component.text(compression().name(), NamedTextColor.AQUA))
-                .append(Component.newline())
-                .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
-                .append(Component.text(config.spawnString(), NamedTextColor.AQUA))
-                .append(Component.newline())
-                .append(Component.text(" Held Polar Chunks: ", NamedTextColor.AQUA))
-                .append(Component.text(numChunks(), NamedTextColor.AQUA))
-                .append(Component.newline())
-                .append(Component.text(" Chunk Holders: ", NamedTextColor.AQUA))
-                .append(Component.text(chunkHolders.size(), NamedTextColor.AQUA));
-
-        if (offset != null) {
-            builder.appendNewline();
-            builder.append(Component.text(" Schematic center: ", NamedTextColor.AQUA));
-            builder.append(Component.text(offset.x + ", " + offset.y + ", " + offset.z, NamedTextColor.AQUA));
-        }
-
-        return builder.build();
-    }
-
-    /**
-     * Get a polar world from a Bukkit world
-     * @param world The bukkit world
-     * @return The PolarWorld or null if the world is not from polar
-     */
-    public static @Nullable PolarWorld fromWorld(World world) {
-        if (world == null) return null;
-        ChunkGenerator generator = world.getGenerator();
-        if (!(generator instanceof PolarGenerator polarGenerator)) return null;
-        return polarGenerator.getPolarWorld();
     }
 
     /**

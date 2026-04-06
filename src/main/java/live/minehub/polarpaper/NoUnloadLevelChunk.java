@@ -28,7 +28,12 @@ public class NoUnloadLevelChunk extends LevelChunk {
     }
 
     @Override
+    public void loadCallback() {
+
+    }
+
+    @Override
     public void unloadCallback() {
-        System.out.println("unload attempt");
+
     }
 }

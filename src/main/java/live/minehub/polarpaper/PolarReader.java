@@ -1,5 +1,5 @@
 package live.minehub.polarpaper;
-/*
+
 import com.github.luben.zstd.Zstd;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
@@ -86,7 +86,7 @@ public class PolarReader {
         return new PolarWorld(version, dataVersion, compression, minSection, maxSection, userData, chunks);
     }
 
-    private static @NotNull PolarChunk readChunk(@NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb, int sectionCount) {
+    protected static @NotNull PolarChunk readChunk(@NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb, int sectionCount) {
         var chunkX = getVarInt(bb);
         var chunkZ = getVarInt(bb);
 
@@ -98,7 +98,7 @@ public class PolarReader {
         int blockEntityCount = getVarInt(bb);
         PolarChunk.BlockEntity[] blockEntities = new PolarChunk.BlockEntity[blockEntityCount];
         for (int i = 0; i < blockEntityCount; i++) {
-            blockEntities[i] = readBlockEntity(dataConverter, version, dataVersion, bb);
+            blockEntities[i] = readBlockEntity(dataConverter, dataVersion, bb);
         }
 
         // If the version is set to 8 copy the contents over to the beginning of userdata
@@ -118,21 +118,7 @@ public class PolarReader {
             }
         }
 
-        var heightmaps = new int[PolarChunk.MAX_HEIGHTMAPS][];
-        int heightmapMask = bb.readInt();
-        for (int i = 0; i < PolarChunk.MAX_HEIGHTMAPS; i++) {
-            if ((heightmapMask & (1 << i)) == 0)
-                continue;
-
-            long[] packed = getLongArray(bb);
-            if (packed.length == 0) {
-                heightmaps[i] = new int[0];
-            } else {
-                var bitsPerEntry = packed.length * 64 / PolarChunk.HEIGHTMAP_SIZE;
-                heightmaps[i] = new int[PolarChunk.HEIGHTMAP_SIZE];
-                PaletteUtil.unpack(heightmaps[i], packed, bitsPerEntry);
-            }
-        }
+        var heightmaps = readHeightmaps(bb);
 
         // Objects
         int userDataLength = getVarInt(bb);
@@ -156,7 +142,26 @@ public class PolarReader {
         );
     }
 
-    private static @NotNull PolarSection readSection(@NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb) {
+    protected static int @NotNull [][] readHeightmaps(ByteBuf bb) {
+        int[][] heightmaps = new int[PolarChunk.MAX_HEIGHTMAPS][];
+        int heightmapMask = bb.readInt();
+        for (int i = 0; i < PolarChunk.MAX_HEIGHTMAPS; i++) {
+            if ((heightmapMask & (1 << i)) == 0)
+                continue;
+
+            long[] packed = getLongArray(bb);
+            if (packed.length == 0) {
+                heightmaps[i] = new int[0];
+            } else {
+                int bitsPerEntry = packed.length * 64 / PolarChunk.HEIGHTMAP_SIZE;
+                heightmaps[i] = new int[PolarChunk.HEIGHTMAP_SIZE];
+                PaletteUtil.unpack(heightmaps[i], packed, bitsPerEntry);
+            }
+        }
+        return heightmaps;
+    }
+
+    protected static @NotNull PolarSection readSection(@NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb) {
         // If section is empty exit immediately
         if (bb.readByte() == 1) return new PolarSection();
 
@@ -224,7 +229,7 @@ public class PolarReader {
         }
     }
 
-    private static @NotNull PolarChunk.BlockEntity readBlockEntity(@NotNull PolarDataConverter dataConverter, int version, int dataVersion, @NotNull ByteBuf bb) {
+    protected static @NotNull PolarChunk.BlockEntity readBlockEntity(@NotNull PolarDataConverter dataConverter, int dataVersion, @NotNull ByteBuf bb) {
         int posIndex = bb.readInt();
         String id = getStringOptional(bb);
 
@@ -254,14 +259,14 @@ public class PolarReader {
         );
     }
 
-    private static void validateVersion(int version) {
+    protected static void validateVersion(int version) {
         var invalidVersionError = String.format("Unsupported Polar version. Versions %d - %d are supported, found %d.",
                 PolarWorld.LATEST_VERSION, PolarWorld.MIN_VERSION, version);
         assertThat((version <= PolarWorld.LATEST_VERSION && version >= PolarWorld.MIN_VERSION) || version == PolarWorld.VERSION_DEPRECATED_ENTITIES,
                 invalidVersionError);
     }
 
-    private static @NotNull ByteBuf decompressBuffer(@NotNull ByteBuf buffer, @NotNull PolarWorld.CompressionType compression, int compressedLength) {
+    protected static @NotNull ByteBuf decompressBuffer(@NotNull ByteBuf buffer, @NotNull PolarWorld.CompressionType compression, int compressedLength) {
         return switch (compression) {
             case NONE -> Unpooled.wrappedBuffer(buffer);
             case ZSTD -> {
@@ -287,4 +292,3 @@ public class PolarReader {
 
 
 }
-*/

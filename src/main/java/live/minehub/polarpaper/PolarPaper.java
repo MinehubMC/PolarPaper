@@ -4,6 +4,7 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import live.minehub.polarpaper.commands.CommandManager;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;

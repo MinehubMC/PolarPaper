@@ -2,6 +2,7 @@ package live.minehub.polarpaper;
 
 import io.papermc.paper.persistence.PersistentDataContainerView;
 import live.minehub.polarpaper.commands.WandCommand;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.schematic.Schematic;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -13,9 +14,7 @@ import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.world.ChunkPopulateEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
-import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;

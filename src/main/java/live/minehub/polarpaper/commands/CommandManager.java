@@ -55,10 +55,7 @@ public class CommandManager {
                         .executes(WandCommand::pos1))
                 .then(Commands.literal("pos2")
                         .requires(source -> source.getSender().hasPermission("polarpaper.wand"))
-                        .executes(WandCommand::pos2))
-                .then(Commands.literal("crop")
-                        .requires(source -> source.getSender().hasPermission("polarpaper.crop"))
-                        .executes(CropCommand::run));
+                        .executes(WandCommand::pos2));
 
         LiteralCommandNode<CommandSourceStack> build = rootCmd.build();
 

@@ -60,7 +60,7 @@ public class CreateFromRegionCommand extends PolarCmd {
 
         Vector3i schemOffset = player.getLocation().toVector().toVector3i();
 
-        // TODO: center the world
+        // TODO: option to center the world
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
             try {

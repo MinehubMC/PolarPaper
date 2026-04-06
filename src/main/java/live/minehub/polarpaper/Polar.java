@@ -2,10 +2,15 @@ package live.minehub.polarpaper;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.Lifecycle;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import io.papermc.paper.world.PaperWorldLoader;
+import live.minehub.polarpaper.generator.PolarGenerator;
+import live.minehub.polarpaper.generator.PolarStreamingGenerator;
 import live.minehub.polarpaper.source.FilePolarSource;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.ExceptionUtil;
@@ -40,6 +45,7 @@ import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.craftbukkit.CraftGameRule;
 import org.bukkit.craftbukkit.CraftServer;
+import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.generator.CraftWorldInfo;
 import org.bukkit.entity.Player;
 import org.bukkit.generator.BiomeProvider;
@@ -51,10 +57,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -107,12 +110,6 @@ public class Polar {
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), task -> {
             try {
                 byte[] bytes = source.readBytes();
-//                PolarWorld polarWorld = PolarReader.read(bytes);
-//                if (polarWorld.version() == PolarWorld.VERSION_DEPRECATED_ENTITIES) {
-//                    PolarPaper.logger().info("Re-saving world to update legacy entities");
-//                    byte[] worldBytes = PolarWriter.write(polarWorld);
-//                    source.saveBytes(worldBytes);
-//                }
 
                 Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
                     createWorld(bytes, worldName, config, worldAccess)
@@ -145,18 +142,7 @@ public class Polar {
     }
 
     /**
-     * Creates a polar world with a custom config
-     *
-     * @param worldName The name for the polar world
-     * @param config Custom config for the polar world
-     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
-     */
-    public static CompletableFuture<@Nullable World> createWorld(byte[] worldBytes, @NotNull String worldName, @NotNull Config config) {
-        return createWorld(worldBytes, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
-    }
-
-    /**
-     * Creates a polar world with config read from config.yml
+     * Creates a polar world with config read from config.yml using the streaming loader
      *
      * @param worldName The name for the polar world
      * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
@@ -170,25 +156,78 @@ public class Polar {
     }
 
     /**
-     * Creates a polar world
+     * Creates a polar world with a custom config
      *
-     * @param worldBytes byte[] of the world, null or length 0 results in a blank world
      * @param worldName The name for the polar world
      * @param config Custom config for the polar world
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     */
+    public static CompletableFuture<@Nullable World> createWorld(byte[] worldBytes, @NotNull String worldName, @NotNull Config config) {
+        return createWorld(worldBytes, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
+    }
+
+    /**
+     * Creates a polar world with a custom config
+     *
+     * @param worldName The name for the polar world
+     * @param config Custom config for the polar world
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     */
+    public static CompletableFuture<@Nullable World> createWorld(byte[] worldBytes, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
+        return createWorld(new PolarStreamingGenerator(config, worldAccess), worldName, worldAccess).thenApplyAsync(world -> {
+            if (world == null) return null;
+            if (worldBytes != null && worldBytes.length > 0) {
+                PolarStreamLoader.stream(worldBytes, world, worldAccess);
+            }
+            return world;
+        });
+    }
+
+    /**
+     * Creates a polar world with a custom config
+     *
+     * @param worldName The name for the polar world
+     * @param config Custom config for the polar world
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     */
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
+        return createWorld(new PolarStreamingGenerator(config, worldAccess), worldName, worldAccess).thenApplyAsync(world -> {
+            if (world == null) return null;
+            ServerLevel level = ((CraftWorld) world).getHandle();
+            for (PolarChunk chunk : polarWorld.chunks()) {
+                NoUnloadLevelChunk levelChunk = chunk.createLevelChunk(level);
+                Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
+                    worldAccess.loadChunkData(world, levelChunk, polarWorld.userData());
+                });
+
+                PolarStreamLoader.insertChunk(level, levelChunk);
+            }
+            return world;
+        });
+    }
+
+    /**
+     * Creates a polar world
+     *
+     * @param generator Generator for the world
+     * @param worldName The name for the polar world
      * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
+     * @see PolarStreamingGenerator
      */
-    public static CompletableFuture<@Nullable World> createWorld(byte @Nullable [] worldBytes, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
+    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarGenerator generator, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
         if (Bukkit.getWorld(worldName) != null) {
             PolarPaper.logger().warning("A world with the name '" + worldName + "' already exists, skipping.");
             return CompletableFuture.completedFuture(null);
         }
 
+        Config config = generator.getConfig();
+
         WorldCreator worldCreator = WorldCreator.name(worldName)
                 .type(config.worldType())
                 .environment(config.environment())
-                .generator(new PolarGenerator(config));
+                .generator(generator);
 
         CompletableFuture<@Nullable World> future = new CompletableFuture<>();
 
@@ -204,12 +243,6 @@ public class Polar {
             // Since autosave is disabled in the PolarServerLevel anyway, setAutoSave is now essentially setting whether
             // chunks should be allowed to unload and be removed from memory
             newWorld.setAutoSave(false);
-
-            if (worldBytes != null && worldBytes.length > 0) {
-                long before = System.nanoTime(); // TODO: remove logs
-                PolarStreamLoader.read(worldBytes, newWorld, worldAccess);
-                System.out.println("Took " + ((System.nanoTime() - before) / 1_000_000) + "ms to load");
-            }
 
             startAutoSaveTask(newWorld, config);
             future.complete(newWorld);
@@ -334,7 +367,8 @@ public class Polar {
     public static void saveWorld(World world, PolarSource polarSource) {
         PolarGenerator generator = PolarGenerator.fromWorld(world);
         if (generator == null) return;
-        saveWorld(world, polarSource, generator.getWorldAccess(), BlockSelector.ALL);
+        Collection<PolarChunk> extraChunks = generator.getPolarWorld() == null ? List.of() : generator.getPolarWorld().chunks();
+        saveWorld(world, extraChunks, polarSource, generator.getWorldAccess(), BlockSelector.ALL, generator.getConfig());
     }
 
     /**
@@ -342,18 +376,18 @@ public class Polar {
      * Can be called asynchronously
      *
      * @param world The bukkit world to retrieve new chunks from
-     * @param polarWorld The polar world
+     * @param extraChunks Extra chunks to include in the saved file
      * @param polarSource The source to use to save the polar world (e.g. FilePolarSource)
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
+     * @param config Custom config for the polar world
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      * @see BlockSelector#ALL
      */
-    public static void saveWorld(World world, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector) {
-        PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
-        if (polarGenerator == null) return;
-        byte[] bytes = PolarStreamWriter.write(world, polarGenerator.getUserData(), blockSelector, false, polarGenerator.getConfig().compression(), PolarDataConverter.DEFAULT, polarWorldAccess);
-        polarSource.saveBytes(bytes);
+    public static void saveWorld(World world, Collection<PolarChunk> extraChunks, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config) {
+        PolarWorld newPolarWorld = PolarWorld.convert(world, polarWorldAccess, blockSelector, config, extraChunks);
+        byte[] worldBytes = PolarWriter.write(newPolarWorld);
+        polarSource.saveBytes(worldBytes);
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -462,7 +496,11 @@ public class Polar {
                 nmsGameRules.set(nmsRule, entry.getValue(), null);
             }
 
-            DedicatedServerProperties.WorldDimensionData properties = new DedicatedServerProperties.WorldDimensionData(GsonHelper.parse((creator.generatorSettings().isEmpty()) ? "{}" : creator.generatorSettings()), creator.type().name().toLowerCase(Locale.ROOT));
+            // fix for log "No key layers in MapLike[{}]"
+            JsonObject defaultGenSettings = new JsonObject();
+            defaultGenSettings.add("layers", new JsonArray());
+            defaultGenSettings.add("biome", new JsonPrimitive("minecraft:plains"));
+            DedicatedServerProperties.WorldDimensionData properties = new DedicatedServerProperties.WorldDimensionData(creator.generatorSettings().isEmpty() ? defaultGenSettings : GsonHelper.parse(creator.generatorSettings()), creator.type().name().toLowerCase(Locale.ROOT));
             levelSettings = new LevelSettings(
                     name,
                     GameType.byId(craftServer.getDefaultGameMode().getValue()),

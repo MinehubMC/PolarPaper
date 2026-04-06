@@ -10,6 +10,7 @@ import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.PolarReader;
 import live.minehub.polarpaper.PolarWorld;
 import live.minehub.polarpaper.PolarWriter;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.source.FilePolarSource;
 import live.minehub.polarpaper.userdata.WorldUserData;
 import net.kyori.adventure.text.Component;
@@ -32,8 +33,8 @@ public class SetCenterCommand extends PolarCmd {
         if (!(sender instanceof Player player)) return Command.SINGLE_SUCCESS;
 
         World bukkitWorld = player.getWorld();
-        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
-        if (polarWorld == null) {
+        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
+        if (polarGenerator == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))

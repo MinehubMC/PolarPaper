@@ -1,5 +1,5 @@
 package live.minehub.polarpaper;
-/*
+
 import com.github.luben.zstd.Zstd;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -123,4 +123,4 @@ public class PolarWriter {
             bb.writeBytes(section.skyLight());
     }
 
-}*/
+}

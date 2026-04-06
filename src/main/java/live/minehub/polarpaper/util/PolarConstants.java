@@ -1,5 +1,7 @@
 package live.minehub.polarpaper.util;
 
+import live.minehub.polarpaper.PolarWorld;
+
 public class PolarConstants {
     public static final int MAGIC_NUMBER = 0x506F6C72; // `Polr`
     public static final short LATEST_VERSION = 7;
@@ -35,7 +37,7 @@ public class PolarConstants {
     public static final int HEIGHTMAP_SIZE = 16 * 16; // Chunk Size X * Chunk Size Z
     public static final int MAX_HEIGHTMAPS = 32;
 
-    public static CompressionType DEFAULT_COMPRESSION = CompressionType.ZSTD;
+    public static PolarWorld.CompressionType DEFAULT_COMPRESSION = PolarWorld.CompressionType.ZSTD;
 
     public static final int BLOCK_PALETTE_SIZE = 4096;
     public static final int BIOME_PALETTE_SIZE = 64;
