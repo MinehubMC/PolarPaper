@@ -55,7 +55,7 @@ public interface PolarWorldAccess {
 
         @Override
         public void loadChunkData(@NotNull World world, @NotNull ChunkAccess chunk, final byte @Nullable [] userData) {
-            if (userData == null) return;
+            if (userData == null || userData.length == 0) return;
 
             ServerLevel level = ((CraftWorld) world).getHandle();
 

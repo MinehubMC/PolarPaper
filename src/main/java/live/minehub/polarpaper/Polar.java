@@ -235,7 +235,7 @@ public class Polar {
             for (PolarChunk chunk : polarWorld.chunks()) {
                 NoUnloadLevelChunk levelChunk = chunk.createLevelChunk(level);
                 Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
-                    worldAccess.loadChunkData(world, levelChunk, polarWorld.userData());
+                    worldAccess.loadChunkData(world, levelChunk, chunk.userData());
                 });
 
                 PolarStreamLoader.insertChunk(level, levelChunk);
