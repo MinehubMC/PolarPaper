@@ -2,10 +2,15 @@ package live.minehub.polarpaper;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.Lifecycle;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import io.papermc.paper.world.PaperWorldLoader;
+import live.minehub.polarpaper.generator.PolarGenerator;
+import live.minehub.polarpaper.generator.PolarStreamingGenerator;
 import live.minehub.polarpaper.source.FilePolarSource;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.ExceptionUtil;
@@ -40,6 +45,7 @@ import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.craftbukkit.CraftGameRule;
 import org.bukkit.craftbukkit.CraftServer;
+import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.generator.CraftWorldInfo;
 import org.bukkit.entity.Player;
 import org.bukkit.generator.BiomeProvider;
@@ -51,10 +57,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -89,19 +92,6 @@ public class Polar {
     }
 
     /**
-     * Load a polar world using the source defined in the config
-     *
-     * @param worldName The name of the world to load
-     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
-     * @see FilePolarSource#defaultFolder(String)
-     */
-    public static CompletableFuture<@Nullable World> loadWorld(@NotNull PolarSource source, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
-        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
-        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
-        return loadWorld(source, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
-    }
-
-    /**
      * Load and create a polar world
      *
      * @param source The source to load the polar world from
@@ -111,21 +101,23 @@ public class Polar {
      * @see FilePolarSource#defaultFolder(String)
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public static CompletableFuture<@Nullable World> loadWorld(@NotNull PolarSource source, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
+    public static CompletableFuture<@Nullable World> loadWorld(@NotNull PolarSource source, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
+        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
+
         CompletableFuture<@Nullable World> future = new CompletableFuture<>();
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), task -> {
             try {
                 byte[] bytes = source.readBytes();
-                PolarWorld polarWorld = PolarReader.read(bytes);
-                if (polarWorld.version() == PolarWorld.VERSION_DEPRECATED_ENTITIES) {
-                    PolarPaper.logger().info("Re-saving world to update legacy entities");
-                    byte[] worldBytes = PolarWriter.write(polarWorld);
-                    source.saveBytes(worldBytes);
-                }
 
                 Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
-                    createWorld(polarWorld, worldName, config, worldAccess).thenAccept(future::complete);
+                    createWorld(bytes, worldName, config, worldAccess)
+                            .thenAccept(future::complete)
+                            .exceptionally(e -> {
+                                ExceptionUtil.log(e);
+                                return null;
+                            });
                 });
             } catch (Exception e) {
                 PolarPaper.logger().warning("Exception while loading world: " + worldName);
@@ -140,67 +132,140 @@ public class Polar {
     /**
      * Creates a polar world with config read from config.yml and with the default PolarWorldAccess
      *
-     * @param world The polar world
      * @param worldName The name for the polar world
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
-    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld world, @NotNull String worldName) {
+    public static CompletableFuture<@Nullable World> createWorld(byte[] worldBytes, @NotNull String worldName) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
-        return createWorld(world, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
+        return createWorld(worldBytes, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
     }
 
     /**
-     * Creates a polar world with a custom config
+     * Creates a polar world with config read from config.yml and with the default PolarWorldAccess
      *
-     * @param world The polar world
      * @param worldName The name for the polar world
-     * @param config Custom config for the polar world
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
-    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config) {
-        return createWorld(world, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName) {
+        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
+        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
+        return createWorld(polarWorld, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
     }
 
     /**
      * Creates a polar world with config read from config.yml
      *
-     * @param world The polar world
      * @param worldName The name for the polar world
      * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+    public static CompletableFuture<@Nullable World> createWorld(byte[] worldBytes, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
-        return createWorld(world, worldName, config, worldAccess);
+        return createWorld(worldBytes, worldName, config, worldAccess);
+    }
+
+    /**
+     * Creates a polar world with config read from config.yml
+     *
+     * @param worldName The name for the polar world
+     * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     * @see PolarWorldAccess#POLAR_PAPER_FEATURES
+     */
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+        FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
+        Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
+        return createWorld(polarWorld, worldName, config, worldAccess);
+    }
+
+    /**
+     * Creates a polar world with the default PolarWorldAccess
+     *
+     * @param worldName The name for the polar world
+     * @param config Custom config for the polar world
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     */
+    public static CompletableFuture<@Nullable World> createWorld(byte[] worldBytes, @NotNull String worldName, @NotNull Config config) {
+        return createWorld(worldBytes, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
+    }
+
+    /**
+     * Creates a polar world with the default PolarWorldAccess
+     *
+     * @param worldName The name for the polar world
+     * @param config Custom config for the polar world
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     */
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config) {
+        return createWorld(polarWorld, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
     }
 
     /**
      * Creates a polar world
      *
-     * @param world The polar world
+     * @param worldBytes The byte array of the polar world. Null to load a blank world
      * @param worldName The name for the polar world
      * @param config Custom config for the polar world
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     */
+    public static CompletableFuture<@Nullable World> createWorld(byte[] worldBytes, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
+        return createWorld(new PolarStreamingGenerator(config, worldAccess), worldName, worldAccess).thenApplyAsync(world -> {
+            if (world == null) return null;
+            if (worldBytes != null && worldBytes.length > 0) {
+                PolarStreamLoader.stream(worldBytes, world, worldAccess);
+            }
+            return world;
+        });
+    }
+
+    /**
+     * Creates a polar world
+     *
+     * @param worldName The name for the polar world
+     * @param config Custom config for the polar world
+     * @return CompletableFuture with the created bukkit world (completes immediately if not async)
+     */
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
+        return createWorld(new PolarStreamingGenerator(config, worldAccess), worldName, worldAccess).thenApplyAsync(world -> {
+            if (world == null) return null;
+            ServerLevel level = ((CraftWorld) world).getHandle();
+            for (PolarChunk chunk : polarWorld.chunks()) {
+                NoUnloadLevelChunk levelChunk = chunk.createLevelChunk(level);
+                Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
+                    worldAccess.loadChunkData(world, levelChunk, polarWorld.userData());
+                });
+
+                PolarStreamLoader.insertChunk(level, levelChunk);
+            }
+            return world;
+        });
+    }
+
+    /**
+     * Creates a polar world
+     *
+     * @param generator Generator for the world
+     * @param worldName The name for the polar world
      * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
+     * @see PolarStreamingGenerator
      */
-    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld world, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
+    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarGenerator generator, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
         if (Bukkit.getWorld(worldName) != null) {
             PolarPaper.logger().warning("A world with the name '" + worldName + "' already exists, skipping.");
             return CompletableFuture.completedFuture(null);
         }
 
-        PolarGenerator polar = new PolarGenerator(world, worldAccess, config);
-        PolarBiomeProvider polarBiomeProvider = new PolarBiomeProvider(world);
+        Config config = generator.getConfig();
 
         WorldCreator worldCreator = WorldCreator.name(worldName)
                 .type(config.worldType())
                 .environment(config.environment())
-                .generator(polar)
-                .biomeProvider(polarBiomeProvider);
+                .generator(generator);
 
         CompletableFuture<@Nullable World> future = new CompletableFuture<>();
 
@@ -302,8 +367,6 @@ public class Polar {
     public static void reloadConfig(World world) {
         PolarPaper.getPlugin().reloadConfig();
 
-        PolarWorld polarWorld = PolarWorld.fromWorld(world);
-        if (polarWorld == null) return;
         PolarGenerator generator = PolarGenerator.fromWorld(world);
         if (generator == null) return;
 
@@ -340,11 +403,10 @@ public class Polar {
      */
     @SuppressWarnings("unused")
     public static void saveWorld(World world, PolarSource polarSource) {
-        PolarWorld polarWorld = PolarWorld.fromWorld(world);
-        if (polarWorld == null) return;
         PolarGenerator generator = PolarGenerator.fromWorld(world);
         if (generator == null) return;
-        saveWorld(world, polarWorld, polarSource, generator.getWorldAccess(), BlockSelector.ALL, generator.getConfig());
+        Collection<PolarChunk> extraChunks = generator.getPolarWorld() == null ? List.of() : generator.getPolarWorld().chunks();
+        saveWorld(world, extraChunks, polarSource, generator.getWorldAccess(), BlockSelector.ALL, generator.getConfig());
     }
 
     /**
@@ -352,7 +414,7 @@ public class Polar {
      * Can be called asynchronously
      *
      * @param world The bukkit world to retrieve new chunks from
-     * @param polarWorld The polar world
+     * @param extraChunks Extra chunks to include in the saved file
      * @param polarSource The source to use to save the polar world (e.g. FilePolarSource)
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
@@ -360,8 +422,8 @@ public class Polar {
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      * @see BlockSelector#ALL
      */
-    public static void saveWorld(World world, PolarWorld polarWorld, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config) {
-        PolarWorld newPolarWorld = polarWorld.updateChunks(world, polarWorldAccess, blockSelector, config);
+    public static void saveWorld(World world, Collection<PolarChunk> extraChunks, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config) {
+        PolarWorld newPolarWorld = PolarWorld.convert(world, polarWorldAccess, blockSelector, config, extraChunks);
         byte[] worldBytes = PolarWriter.write(newPolarWorld);
         polarSource.saveBytes(worldBytes);
     }
@@ -472,7 +534,11 @@ public class Polar {
                 nmsGameRules.set(nmsRule, entry.getValue(), null);
             }
 
-            DedicatedServerProperties.WorldDimensionData properties = new DedicatedServerProperties.WorldDimensionData(GsonHelper.parse((creator.generatorSettings().isEmpty()) ? "{}" : creator.generatorSettings()), creator.type().name().toLowerCase(Locale.ROOT));
+            // fix for log "No key layers in MapLike[{}]"
+            JsonObject defaultGenSettings = new JsonObject();
+            defaultGenSettings.add("layers", new JsonArray());
+            defaultGenSettings.add("biome", new JsonPrimitive("minecraft:plains"));
+            DedicatedServerProperties.WorldDimensionData properties = new DedicatedServerProperties.WorldDimensionData(creator.generatorSettings().isEmpty() ? defaultGenSettings : GsonHelper.parse(creator.generatorSettings()), creator.type().name().toLowerCase(Locale.ROOT));
             levelSettings = new LevelSettings(
                     name,
                     GameType.byId(craftServer.getDefaultGameMode().getValue()),

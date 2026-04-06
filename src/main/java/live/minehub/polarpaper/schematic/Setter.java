@@ -12,7 +12,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.CraftWorld;
-import org.bukkit.entity.Entity;
+import org.bukkit.craftbukkit.entity.CraftEntity;
 
 import java.util.Set;
 
@@ -42,8 +42,10 @@ public interface Setter {
 
         @Override
         public void spawnEntity(PolarEntity polarEntity, Location spawnLocation) {
-            Entity entity = polarEntity.toBukkitEntity(world, spawnLocation, true);
-            if (entity == null) return;
+            net.minecraft.world.entity.Entity nmsEntity = polarEntity.toNMSEntity(world, spawnLocation, true);
+            if (nmsEntity == null) return;
+
+            CraftEntity entity = nmsEntity.getBukkitEntity();
 
             Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
                 PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, true);

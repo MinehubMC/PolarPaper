@@ -6,7 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -35,7 +35,7 @@ public class LoadCommand extends PolarCmd {
     protected static void loadWorld(CommandContext<CommandSourceStack> ctx, String worldName) {
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld != null) {
-            PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
+            PolarGenerator polarWorld = PolarGenerator.fromWorld(bukkitWorld);
             if (polarWorld == null) {
                 ctx.getSource().getSender().sendMessage(
                         Component.text()

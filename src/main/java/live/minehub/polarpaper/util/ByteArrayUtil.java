@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 
 public class ByteArrayUtil {
 
@@ -142,6 +143,13 @@ public class ByteArrayUtil {
         writeVarInt(longs.length, bb);
         for (long aLong : longs) {
             bb.writeLong(aLong);
+        }
+    }
+
+    public static void writeStrings(Collection<String> strings, ByteBuf bb) {
+        writeVarInt(strings.size(), bb);
+        for (String aString : strings) {
+            writeString(aString, bb);
         }
     }
 

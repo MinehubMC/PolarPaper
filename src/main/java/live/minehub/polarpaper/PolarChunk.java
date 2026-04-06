@@ -3,6 +3,7 @@ package live.minehub.polarpaper;
 import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
+import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.util.ByteArrayUtil;
@@ -18,12 +19,14 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.BitStorage;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.*;
 import net.minecraft.world.level.lighting.LevelLightEngine;
+import net.minecraft.world.ticks.LevelChunkTicks;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftServer;
@@ -79,6 +82,39 @@ public record PolarChunk(
 
     public PolarChunk withUserData(byte[] newUserData) {
         return new PolarChunk(x, z, sections, blockEntities, heightmaps, newUserData);
+    }
+
+    public NoUnloadLevelChunk createLevelChunk(ServerLevel serverLevel) {
+        int sectionCount = sections().length;
+        SWMRNibbleArray[] blockNibbles = new SWMRNibbleArray[sectionCount + 2]; // light includes extra top and bottom section
+        SWMRNibbleArray[] skyNibbles = new SWMRNibbleArray[sectionCount + 2];
+        blockNibbles[0] = new SWMRNibbleArray();
+        blockNibbles[sectionCount + 1] = new SWMRNibbleArray();
+        skyNibbles[0] = new SWMRNibbleArray();
+        skyNibbles[sectionCount + 1] = new SWMRNibbleArray();
+        boolean[] skyEmptiness = new boolean[sectionCount];
+        boolean[] blockEmptiness = new boolean[sectionCount];
+        boolean anyPresent = false;
+        LevelChunkSection[] levelChunkSections = new LevelChunkSection[sectionCount];
+        for (int i = 0; i < sectionCount; i++) {
+            PolarSection polarSection = sections()[i];
+            if (!anyPresent && (polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) anyPresent = true;
+            LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess());
+            levelChunkSections[i] = section;
+            skyEmptiness[i] = polarSection.skyLightContent() == PolarSection.LightContent.EMPTY;
+            blockEmptiness[i] = polarSection.blockLightContent() == PolarSection.LightContent.EMPTY;
+            skyNibbles[i + 1] = new SWMRNibbleArray(polarSection.skyLight());
+            blockNibbles[i + 1] = new SWMRNibbleArray(polarSection.blockLight());
+
+        }
+        NoUnloadLevelChunk chunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(x, z), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
+
+        chunk.starlight$setBlockEmptinessMap(blockEmptiness);
+        chunk.starlight$setSkyEmptinessMap(skyEmptiness);
+        chunk.starlight$setSkyNibbles(skyNibbles);
+        chunk.starlight$setBlockNibbles(blockNibbles);
+
+        return chunk;
     }
 
     public record BlockEntity(
@@ -259,11 +295,11 @@ public record PolarChunk(
 
             if (skyLightArray != null) {
                 skyLight = skyLightArray.getData();
-                skyLightContent = PolarSection.LightContent.PRESENT;
+                skyLightContent = skyLightArray.isEmpty() ? PolarSection.LightContent.EMPTY : PolarSection.LightContent.PRESENT;
             }
             if (blockLightArray != null) {
                 blockLight = blockLightArray.getData();
-                blockLightContent = PolarSection.LightContent.PRESENT;
+                blockLightContent = blockLightArray.isEmpty() ? PolarSection.LightContent.EMPTY : PolarSection.LightContent.PRESENT;
             }
         }
 

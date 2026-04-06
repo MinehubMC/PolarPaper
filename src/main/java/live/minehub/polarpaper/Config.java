@@ -209,7 +209,7 @@ public record Config(
         writeProperty(fileConfig, prefix + "removeChunks", config.removeChunks, defaultConfig.removeChunks);
         fileConfig.setInlineComments(prefix + "removeChunks", List.of("Whether chunks are removed from the PolarWorld once fully generated to save memory"));
         writeProperty(fileConfig, prefix + "saveLight", config.saveLight, defaultConfig.saveLight);
-        fileConfig.setInlineComments(prefix + "saveLight", List.of("Whether chunks are saved with light data. Reduces CPU usage when loading the world but increases world size significantly"));
+        fileConfig.setInlineComments(prefix + "saveLight", List.of("Whether chunks are saved with light data. Reduces load time and CPU usage while loading but increases save time and world size"));
         writeProperty(fileConfig, prefix + "compression", config.compression.name(), defaultConfig.compression.name());
         fileConfig.setInlineComments(prefix + "compression", List.of("One of: ZSTD, NONE"));
         writeProperty(fileConfig, prefix + "compressionLevel", config.compressionLevel, defaultConfig.compressionLevel);

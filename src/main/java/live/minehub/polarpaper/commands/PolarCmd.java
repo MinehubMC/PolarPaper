@@ -7,7 +7,7 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
@@ -78,8 +78,8 @@ public abstract class PolarCmd {
                 .suggests((ctx, s) -> {
                     for (World world : Bukkit.getWorlds()) {
                         if (onlyPolar) {
-                            PolarWorld polarWorld = PolarWorld.fromWorld(world);
-                            if (polarWorld == null) continue;
+                            PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
+                            if (polarGenerator == null) continue;
                         }
 
                         if (!world.getName().toLowerCase().startsWith(s.getRemainingLowerCase())) continue;

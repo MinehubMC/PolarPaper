@@ -4,6 +4,7 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import live.minehub.polarpaper.commands.CommandManager;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
@@ -75,9 +76,8 @@ public final class PolarPaper extends JavaPlugin {
         }
 
         for (World world : getServer().getWorlds()) {
-            PolarWorld polarWorld = PolarWorld.fromWorld(world);
             PolarGenerator generator = PolarGenerator.fromWorld(world);
-            if (polarWorld == null || generator == null) continue;
+            if (generator == null) continue;
 
             if (!generator.getConfig().saveOnStop()) {
                 logger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getName()));

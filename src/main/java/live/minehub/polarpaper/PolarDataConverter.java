@@ -1,6 +1,7 @@
 package live.minehub.polarpaper;
 
 import live.minehub.polarpaper.util.ChainDataConverter;
+import live.minehub.polarpaper.util.PolarConstants;
 import net.minecraft.nbt.CompoundTag;
 import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
@@ -19,7 +20,7 @@ public interface PolarDataConverter {
     };
 
     /**
-     * Returns the data version to use on worlds lower than {@link PolarWorld#VERSION_DATA_CONVERTER} which
+     * Returns the data version to use on worlds lower than {@link PolarConstants#VERSION_DATA_CONVERTER} which
      * do not store a data version. Defaults to the current Minestom data version.
      */
     default int defaultDataVersion() {

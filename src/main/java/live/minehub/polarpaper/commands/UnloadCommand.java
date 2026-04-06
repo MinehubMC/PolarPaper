@@ -6,7 +6,10 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import live.minehub.polarpaper.*;
+import live.minehub.polarpaper.Config;
+import live.minehub.polarpaper.Polar;
+import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.util.FoliaUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -44,22 +47,12 @@ public class UnloadCommand extends PolarCmd {
         }
 
         World bukkitWorld = Bukkit.getWorld(worldName);
-        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
         if (bukkitWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
                             .append(Component.text(worldName, NamedTextColor.RED))
                             .append(Component.text("' already not loaded!", NamedTextColor.RED))
-            );
-            return CompletableFuture.completedFuture(false);
-        }
-        if (polarWorld == null) {
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
-                            .append(Component.text("' is not a polar world!", NamedTextColor.RED))
             );
             return CompletableFuture.completedFuture(false);
         }

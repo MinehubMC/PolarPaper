@@ -9,7 +9,6 @@ import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -39,14 +38,11 @@ public class CreateBlankCommand extends PolarCmd {
             return Command.SINGLE_SUCCESS;
         }
 
-
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config defaultConfig = Config.getDefaultConfig(fileConfig);
         Config.writeToConfig(fileConfig, worldName, defaultConfig);
 
-        PolarWorld newPolarWorld = new PolarWorld((byte)-4, (byte)19, defaultConfig);
-
-        Polar.createWorld(newPolarWorld, worldName, defaultConfig);
+        Polar.createWorld((byte[]) null, worldName, defaultConfig);
         ctx.getSource().getSender().sendMessage(
                 Component.text()
                         .append(Component.text("Created blank world '", NamedTextColor.AQUA))

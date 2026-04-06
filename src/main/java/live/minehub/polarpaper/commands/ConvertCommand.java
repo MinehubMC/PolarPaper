@@ -9,6 +9,7 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.*;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.source.FilePolarSource;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -42,8 +43,8 @@ public class ConvertCommand extends PolarCmd {
         World bukkitWorld = player.getWorld();
         String worldName = bukkitWorld.getName();
 
-        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
-        if (polarWorld != null) {
+        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
+        if (polarGenerator != null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))

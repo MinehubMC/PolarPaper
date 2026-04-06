@@ -5,9 +5,8 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Polar;
-import live.minehub.polarpaper.PolarGenerator;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -33,8 +32,8 @@ public class SaveCommand extends PolarCmd {
             return Command.SINGLE_SUCCESS;
         }
 
-        PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
-        if (polarWorld == null) {
+        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
+        if (polarGenerator == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
@@ -43,8 +42,6 @@ public class SaveCommand extends PolarCmd {
             );
             return Command.SINGLE_SUCCESS;
         }
-        PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
-        if (polarGenerator == null) return Command.SINGLE_SUCCESS;
 
         ctx.getSource().getSender().sendMessage(
                 Component.text()

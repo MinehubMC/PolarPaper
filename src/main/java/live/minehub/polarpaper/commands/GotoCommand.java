@@ -6,7 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -66,9 +66,9 @@ public class GotoCommand extends PolarCmd {
         }
 
         Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
-            PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
+            PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
             Location spawnPos;
-            if (polarWorld != null) {
+            if (polarGenerator != null) {
                 Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld);
                 spawnPos = config.spawn();
             } else {

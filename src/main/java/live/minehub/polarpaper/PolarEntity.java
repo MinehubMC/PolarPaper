@@ -9,13 +9,13 @@ import net.minecraft.nbt.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.util.datafix.fixes.References;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.ValueInput;
 import org.bukkit.*;
 import org.bukkit.craftbukkit.CraftWorld;
-import org.bukkit.entity.Entity;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.ByteArrayInputStream;
@@ -25,7 +25,7 @@ import java.util.Locale;
 
 public record PolarEntity(double x, double y, double z, float yaw, float pitch, byte[] bytes) {
 
-    public @Nullable Entity toBukkitEntity(World world, Location spawnLocation, boolean randomUUID) {
+    public @Nullable Entity toNMSEntity(World world, Location spawnLocation, boolean randomUUID) {
         ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
         DataInputStream dataInput = new DataInputStream(inputStream);
         CompoundTag compound;
@@ -89,12 +89,12 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "deserialiseEntity", LogUtils.getLogger());
         ValueInput tagValueInput = TagValueInput.create(problemReporter, ((CraftWorld) world).getHandle().registryAccess(), compound);
 
-        net.minecraft.world.entity.Entity nmsEntity = EntityType
+        Entity nmsEntity = EntityType
                 .create(tagValueInput, ((CraftWorld) world).getHandle(), EntitySpawnReason.LOAD)
                 .orElse(null);
         if (nmsEntity == null) return null;
 
-        return nmsEntity.getBukkitEntity();
+        return nmsEntity;
     }
 
     public Location getLocation(Chunk chunk) {

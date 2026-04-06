@@ -8,8 +8,6 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarReader;
-import live.minehub.polarpaper.PolarWorld;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -18,7 +16,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.command.CommandSender;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -43,15 +40,9 @@ public class CopyCommand extends PolarCmd {
             return Command.SINGLE_SUCCESS;
         }
 
-        PolarWorld polarWorld;
+        byte[] polarBytes;
         try {
-            byte[] polarBytes;
-            try {
-                polarBytes = Files.readAllBytes(path);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            polarWorld = PolarReader.read(polarBytes);
+            polarBytes = Files.readAllBytes(path);
         } catch (Exception e) {
             PolarPaper.logger().warning("Failed to load world '" + worldName + ".polar'");
             sender.sendMessage(Component.text("Failed to load world '" + worldName + ".polar'", NamedTextColor.RED));
@@ -59,7 +50,7 @@ public class CopyCommand extends PolarCmd {
             return Command.SINGLE_SUCCESS;
         }
 
-        Polar.createWorld(polarWorld, newWorldName);
+        Polar.createWorld(polarBytes, newWorldName);
 
         sender.sendMessage(
                 Component.text()

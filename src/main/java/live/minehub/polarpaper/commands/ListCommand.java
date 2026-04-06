@@ -7,7 +7,7 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -63,15 +63,16 @@ public class ListCommand extends PolarCmd {
         builder.append(Component.text(totalPages, NamedTextColor.GRAY));
         builder.append(Component.text(")", NamedTextColor.GRAY));
 
-        for (String world : getPagedWorlds(new ArrayList<>(worlds), page, ITEMS_PER_PAGE)) {
+        List<String> pagedWorlds = getPagedWorlds(new ArrayList<>(worlds), page, ITEMS_PER_PAGE);
+        for (String world : pagedWorlds) {
             World bukkitWorld = Bukkit.getWorld(world);
-            PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
+            PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
 
             TextColor color = NamedTextColor.WHITE;
-            if (bukkitWorld == null) color = NamedTextColor.GRAY;
-            if (polarWorld == null) color = NamedTextColor.GRAY;
+//            if (bukkitWorld == null) color = NamedTextColor.GRAY;
+            if (polarGenerator == null) color = NamedTextColor.GRAY;
 
-            builder.append(Component.newline());
+            builder.appendNewline();
             builder.append(Component.text(" - ", NamedTextColor.WHITE));
             builder.append(Component.text(world, color));
 
@@ -81,6 +82,9 @@ public class ListCommand extends PolarCmd {
                         .clickEvent(ClickEvent.runCommand("/polar goto " + world))
                         .hoverEvent(HoverEvent.showText(Component.text("Click to go to world"))));
             }
+        }
+        for (int i = 0; i < ITEMS_PER_PAGE - pagedWorlds.size(); i++) {
+            builder.appendNewline();
         }
 
         if (page > 1) {

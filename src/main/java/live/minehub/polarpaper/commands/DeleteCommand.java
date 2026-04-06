@@ -5,7 +5,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -27,8 +27,8 @@ public class DeleteCommand extends PolarCmd {
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld != null) {
-            PolarWorld polarWorld = PolarWorld.fromWorld(bukkitWorld);
-            if (polarWorld == null) {
+            PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
+            if (polarGenerator == null) {
                 ctx.getSource().getSender().sendMessage(
                         Component.text()
                                 .append(Component.text("Not deleting non-polar world '", NamedTextColor.RED))
