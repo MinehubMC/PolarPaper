@@ -63,7 +63,7 @@ public interface Setter {
             // relight chunks and resend blocks to client
             serverLevel.getChunkSource().getLightEngine().starlight$serverRelightChunks(chunksToRefresh, a -> {}, a -> {});
             for (ChunkPos c : chunksToRefresh) {
-                world.refreshChunk(c.x, c.z);
+                world.refreshChunk(c.x(), c.z());
             }
         }
     }

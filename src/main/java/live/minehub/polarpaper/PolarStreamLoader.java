@@ -161,7 +161,7 @@ public class PolarStreamLoader {
 
         insertChunk(serverLevel, newLevelChunk);
 
-        Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
+        Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), _ -> {
             worldAccess.loadChunkData(world, newLevelChunk, userData);
         });
     }
@@ -182,7 +182,7 @@ public class PolarStreamLoader {
             chunkHolderManager.ticketLockArea.unlock(lock);
             chunkTaskScheduler.schedulingLockArea.unlock(lock1);
 
-            Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
+            Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), _ -> {
                 // Cannot sync load entity data off-main
                 initializeEntityChunk(newChunkHolder, chunkX, chunkZ, chunkTaskScheduler);
             });
@@ -286,7 +286,7 @@ public class PolarStreamLoader {
         int z = CoordConversion.chunkBlockIndexGetZ(posIndex);
 
         BlockState blockState = chunk.getBlockState(x, y, z);
-        BlockPos blockPos = new BlockPos(chunk.getPos().x * 16 + x, y, chunk.getPos().z * 16 + z);
+        BlockPos blockPos = new BlockPos(chunk.getPos().x() * 16 + x, y, chunk.getPos().z() * 16 + z);
 
         if (!(blockState.getBlock() instanceof EntityBlock entityBlock)) {
             throw new IllegalArgumentException("Block " + blockState + " does not have a block entity");

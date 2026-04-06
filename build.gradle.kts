@@ -8,7 +8,7 @@ plugins {
     alias(libs.plugins.hangar.publish)
 }
 
-val developmentVersion = "${libs.versions.minecraft.get()}.20"
+val developmentVersion = "${libs.versions.minecraft.get()}.0"
 
 version = getVersion()
 group = "live.minehub"
@@ -18,16 +18,12 @@ repositories {
 }
 
 dependencies {
-    paperweight.paperDevBundle("${libs.versions.minecraft.get()}-R0.1-SNAPSHOT")
+    paperweight.paperDevBundle("${libs.versions.minecraft.get()}.build.+")
 
     compileOnly(libs.zstd)
 }
 
 tasks {
-    assemble {
-        dependsOn(reobfJar)
-    }
-
     runServer {
         minecraftVersion(libs.versions.minecraft.get())
     }
@@ -35,7 +31,7 @@ tasks {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21)) // Minestom has a minimum Java version of 21
+        languageVersion.set(JavaLanguageVersion.of(25)) // Paper has a minimum Java version of 25
     }
 
     // Generate sources JAR
