@@ -231,6 +231,9 @@ public class PolarStreamLoader {
             lastChunkCompletionField.setAccessible(true);
             lastChunkCompletionField.set(newChunkHolder, fullCompletion);
 
+            newLevelChunk.registerAllBlockEntitiesAfterLevelLoad();
+            newLevelChunk.registerTickContainerInLevel(serverLevel);
+
 //            newLevelChunk.setLoaded(true);
             newLevelChunk.markUnsaved();
 
