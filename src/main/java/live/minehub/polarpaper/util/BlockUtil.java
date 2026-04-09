@@ -10,14 +10,20 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.PaletteResize;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.IntConsumer;
 
 public class BlockUtil {
 
@@ -48,6 +54,107 @@ public class BlockUtil {
         if (newBlockZ < 0) newBlockZ = 16 + newBlockZ;
 
         levelChunkSection.setBlockState(newBlockX, newBlockY, newBlockZ, blockState);
+    }
+
+    public static @Nullable BlockState getBlockFast(World world, int x, int y, int z) {
+        CraftWorld craftWorld = (CraftWorld) world;
+        ServerLevel serverLevel = craftWorld.getHandle();
+        ChunkHolderManager chunkHolderManager = serverLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
+
+        int chunkX = (int)Math.floor(x / 16.0);
+        int chunkZ = (int)Math.floor(z / 16.0);
+        int section = (int)Math.floor(y / 16.0);
+
+        NewChunkHolder chunkHolder = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
+        if (chunkHolder == null) return null;
+        ChunkAccess chunkAccess = chunkHolder.getCurrentChunk();
+        if (chunkAccess == null) return null;
+
+        int sectionI = section - chunkAccess.getMinSectionY();
+        if (sectionI >= chunkAccess.getSections().length) return null;
+        if (sectionI < 0) return null;
+
+        LevelChunkSection levelChunkSection = chunkAccess.getSection(sectionI);
+        int newBlockX = x % 16;
+        if (newBlockX < 0) newBlockX = 16 + newBlockX;
+        int newBlockY = y % 16;
+        if (newBlockY < 0) newBlockY = 16 + newBlockY;
+        int newBlockZ = z % 16;
+        if (newBlockZ < 0) newBlockZ = 16 + newBlockZ;
+
+        return levelChunkSection.getBlockState(newBlockX, newBlockY, newBlockZ);
+    }
+
+    /**
+     * Searches a world for a specific block state
+     * @return a list of positions of the block state, empty list if none found
+     */
+    public static List<Vector3i> findBlocks(World world, BlockState blockState) {
+        CraftWorld craftWorld = (CraftWorld) world;
+        ServerLevel serverLevel = craftWorld.getHandle();
+        ChunkHolderManager chunkHolderManager = serverLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
+
+        List<Vector3i> structureVoidPositions = new ArrayList<>();
+        for (NewChunkHolder chunkHolder : chunkHolderManager.getChunkHolders()) {
+            List<Vector3i> blocks = findBlocks(world, chunkHolder.chunkX, chunkHolder.chunkZ, blockState);
+            structureVoidPositions.addAll(blocks);
+        }
+
+        return structureVoidPositions;
+    }
+
+    /**
+     * Searches a chunk in a world for a specific block state
+     * @return a list of positions of the block state, empty list if none found
+     */
+    public static List<Vector3i> findBlocks(World world, int chunkX, int chunkZ, BlockState blockState) {
+        CraftWorld craftWorld = (CraftWorld) world;
+        ServerLevel serverLevel = craftWorld.getHandle();
+        ChunkHolderManager chunkHolderManager = serverLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
+
+        List<Vector3i> blockPositions = new ArrayList<>();
+
+        NewChunkHolder chunkHolder = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
+        if (chunkHolder == null) return blockPositions;
+        ChunkAccess chunkAccess = chunkHolder.getCurrentChunk();
+        if (chunkAccess == null) return blockPositions;
+
+        int sectionY = chunkAccess.getMinSectionY();
+        for (LevelChunkSection section : chunkAccess.getSections()) {
+            if (section.hasOnlyAir()) {
+                sectionY++;
+                continue;
+            }
+
+            boolean hasBlockState = section.maybeHas(b -> b == blockState);
+            if (!hasBlockState) {
+                sectionY++;
+                continue;
+            }
+
+            int structureVoidId = section.getStates().data.palette().idFor(blockState, PaletteResize.noResizeExpected());
+            int finalSectionY = sectionY;
+            section.getStates().data.storage().getAll(new IntConsumer() {
+                int i = 0;
+
+                @Override
+                public void accept(int n) {
+                    if (n == structureVoidId) {
+                        Vector3i vec = new Vector3i(
+                                CoordConversion.sectionBlockIndexGetX(i) + chunkAccess.locX * 16,
+                                CoordConversion.sectionBlockIndexGetY(i) + finalSectionY * 16,
+                                CoordConversion.sectionBlockIndexGetZ(i) + chunkAccess.locZ * 16
+                        );
+                        blockPositions.add(vec);
+                    }
+                    i++;
+                }
+            });
+
+            sectionY++;
+        }
+
+        return blockPositions;
     }
 
     public static void setBlockEntity(World world, int x, int y, int z, PolarChunk.BlockEntity blockEntity) {
