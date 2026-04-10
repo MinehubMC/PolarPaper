@@ -8,6 +8,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.util.ByteArrayUtil;
 import live.minehub.polarpaper.util.CoordConversion;
+import live.minehub.polarpaper.util.LightUtil;
 import live.minehub.polarpaper.util.PaletteUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -101,18 +102,23 @@ public record PolarChunk(
             if (!anyPresent && (polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) anyPresent = true;
             LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess());
             levelChunkSections[i] = section;
-            skyEmptiness[i] = polarSection.skyLightContent() == PolarSection.LightContent.EMPTY;
-            blockEmptiness[i] = polarSection.blockLightContent() == PolarSection.LightContent.EMPTY;
+            boolean airSection = section.hasOnlyAir();
+            skyEmptiness[i] = airSection;
+            blockEmptiness[i] = airSection;
             skyNibbles[i + 1] = new SWMRNibbleArray(polarSection.skyLight());
             blockNibbles[i + 1] = new SWMRNibbleArray(polarSection.blockLight());
 
         }
         NoUnloadLevelChunk chunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(x, z), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
 
-        chunk.starlight$setBlockEmptinessMap(blockEmptiness);
-        chunk.starlight$setSkyEmptinessMap(skyEmptiness);
-        chunk.starlight$setSkyNibbles(skyNibbles);
-        chunk.starlight$setBlockNibbles(blockNibbles);
+        if (anyPresent) {
+            chunk.starlight$setBlockEmptinessMap(blockEmptiness);
+            chunk.starlight$setSkyEmptinessMap(skyEmptiness);
+            chunk.starlight$setSkyNibbles(skyNibbles);
+            chunk.starlight$setBlockNibbles(blockNibbles);
+        } else {
+            PolarStreamLoader.lightChunk(serverLevel, chunk);
+        }
 
         return chunk;
     }
@@ -168,6 +174,10 @@ public record PolarChunk(
         PolarSection[] sections = new PolarSection[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
             LevelChunkSection chunkAccessSection = chunkAccess.getSection(i);
+            if (chunkAccessSection.hasOnlyAir()) {
+                sections[i] = createEmptySection(chunkX, chunkZ, minSection, i, lightEngine); // empty section
+                continue;
+            }
             sections[i] = convertSection(chunkX, chunkZ, chunkAccessSection, biomeRegistry, blockSelector, minSection, i, lightEngine);
         }
 
@@ -258,8 +268,9 @@ public record PolarChunk(
             }
 
             int bitsPerEntry = (int) Math.ceil(Math.log(blockPaletteStrings.size()) / Math.log(2));
-            if (4 > bitsPerEntry && blockBitStorage.getBits() != 0) {
-                int[] ints = new int[PolarSection.BLOCK_PALETTE_SIZE];
+            if (blockBitStorage.getBits() != 0 && bitsPerEntry != blockBitStorage.getBits()) {
+                // repack
+                int[] ints = new int[blockBitStorage.getSize()];
                 PaletteUtil.unpack(ints, blockBitStorage.getRaw(), blockBitStorage.getBits());
                 blockData = PaletteUtil.pack(ints, bitsPerEntry);
             } else {
@@ -286,26 +297,52 @@ public record PolarChunk(
 
         PolarSection.LightContent blockLightContent = PolarSection.LightContent.MISSING;
         PolarSection.LightContent skyLightContent = PolarSection.LightContent.MISSING;
-        byte[] blockLight = new byte[2048];
-        byte[] skyLight = new byte[2048];
+        byte[] blockLight = null;
+        byte[] skyLight = null;
 
         if (lightEngine != null) {
             DataLayer skyLightArray = lightEngine.getLayerListener(LightLayer.SKY).getDataLayerData(SectionPos.of(chunkX, minSection + sectionI, chunkZ));
             DataLayer blockLightArray = lightEngine.getLayerListener(LightLayer.BLOCK).getDataLayerData(SectionPos.of(chunkX, minSection + sectionI, chunkZ));
 
             if (skyLightArray != null) {
-                skyLight = skyLightArray.getData();
-                skyLightContent = skyLightArray.isEmpty() ? PolarSection.LightContent.EMPTY : PolarSection.LightContent.PRESENT;
+                skyLight = skyLightArray.isDefinitelyHomogenous() ? null : skyLightArray.getData();
+                skyLightContent = LightUtil.getLightContent(skyLightArray);
             }
             if (blockLightArray != null) {
-                blockLight = blockLightArray.getData();
-                blockLightContent = blockLightArray.isEmpty() ? PolarSection.LightContent.EMPTY : PolarSection.LightContent.PRESENT;
+                blockLight = blockLightArray.isDefinitelyHomogenous() ? null : blockLightArray.getData();
+                blockLightContent = LightUtil.getLightContent(blockLightArray);
             }
         }
 
         return new PolarSection(
                 blockPaletteStrings.toArray(new String[0]), blockData,
                 biomePaletteStrings.toArray(new String[0]), biomeData,
+                blockLightContent, blockLight,
+                skyLightContent, skyLight
+        );
+    }
+
+    private static PolarSection createEmptySection(int chunkX, int chunkZ, int minSection, int sectionI, @Nullable LevelLightEngine lightEngine) {
+        if (lightEngine == null) return new PolarSection();
+
+        PolarSection.LightContent blockLightContent = PolarSection.LightContent.MISSING;
+        PolarSection.LightContent skyLightContent = PolarSection.LightContent.MISSING;
+        byte[] blockLight = null;
+        byte[] skyLight = null;
+
+        DataLayer skyLightArray = lightEngine.getLayerListener(LightLayer.SKY).getDataLayerData(SectionPos.of(chunkX, minSection + sectionI, chunkZ));
+        DataLayer blockLightArray = lightEngine.getLayerListener(LightLayer.BLOCK).getDataLayerData(SectionPos.of(chunkX, minSection + sectionI, chunkZ));
+
+        if (skyLightArray != null) {
+            skyLight = skyLightArray.isDefinitelyHomogenous() ? null : skyLightArray.getData();
+            skyLightContent = LightUtil.getLightContent(skyLightArray);
+        }
+        if (blockLightArray != null) {
+            blockLight = blockLightArray.isDefinitelyHomogenous() ? null : blockLightArray.getData();
+            blockLightContent = LightUtil.getLightContent(blockLightArray);
+        }
+
+        return new PolarSection(
                 blockLightContent, blockLight,
                 skyLightContent, skyLight
         );

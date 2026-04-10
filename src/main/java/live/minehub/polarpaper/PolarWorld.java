@@ -12,8 +12,6 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -284,26 +282,25 @@ public class PolarWorld {
         if (!blockSelector.testChunk(chunkX, chunkZ)) return;
         if (chunkAccess.getPersistedStatus().isBefore(ChunkStatus.FULL)) return;
 
-        boolean onlyPlayers = true;
+        boolean emptyEntities = true; // if no entities that should be saved
         if (entityChunk != null) {
             for (net.minecraft.world.entity.Entity nmsEntity : entityChunk.getAllEntities()) {
-                Entity entity = nmsEntity.getBukkitEntity();
-                if (entity.getType() == EntityType.PLAYER) continue;
-                onlyPlayers = false;
+                if (!nmsEntity.shouldBeSaved()) continue;
+                emptyEntities = false;
                 break;
             }
         }
 
-        if (onlyPlayers) { // if contains no entities or the entities are all players (only difference is blocks)
-            boolean allEmpty = true;
+        if (emptyEntities) {
+            boolean emptySections = true;
             for (LevelChunkSection section : chunkAccess.getSections()) {
                 if (!section.hasOnlyAir()) {
-                    allEmpty = false;
+                    emptySections = false;
                     break;
                 }
             }
 
-            if (allEmpty) {
+            if (emptySections) { // if empty sections and empty entities it must be an empty chunk so remove it
                 newPolarWorld.removeChunkAt(chunkX, chunkZ);
                 return;
             }

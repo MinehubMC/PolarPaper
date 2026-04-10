@@ -13,6 +13,7 @@ import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.Configuration;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.PalettedContainer;
 import net.minecraft.world.level.chunk.Strategy;
@@ -34,7 +35,6 @@ import java.util.List;
 @ApiStatus.Internal
 public class PolarSection {
     public static final int BLOCK_PALETTE_SIZE = 4096;
-    public static final int BIOME_PALETTE_SIZE = 64;
 
     public enum LightContent {
         MISSING, EMPTY, FULL, PRESENT;
@@ -81,6 +81,23 @@ public class PolarSection {
         this.blockData = blockData;
         this.biomePalette = biomePalette;
         this.biomeData = biomeData;
+
+        this.blockLightContent = blockLightContent;
+        this.blockLight = blockLight;
+        this.skyLightContent = skyLightContent;
+        this.skyLight = skyLight;
+    }
+
+    public PolarSection(
+            @NotNull LightContent blockLightContent, byte @Nullable [] blockLight,
+            @NotNull LightContent skyLightContent, byte @Nullable [] skyLight
+    ) {
+        this.empty = false;
+
+        this.blockPalette = new String[]{"minecraft:air"};
+        this.blockData = null;
+        this.biomePalette = new String[]{"minecraft:plains"};
+        this.biomeData = null;
 
         this.blockLightContent = blockLightContent;
         this.blockLight = blockLight;
@@ -164,114 +181,81 @@ public class PolarSection {
         // Biomes
         Registry<Biome> registry = registryAccess.lookupOrThrow(Registries.BIOME);
         Holder.Reference<Biome> orThrow = registry.getOrThrow(Biomes.PLAINS);
-        Holder<Biome>[] biomePalette = new Holder[biomePalette().length];
-        for (int i = 0; i < biomePalette.length; i++) {
+        Holder<Biome>[] biomeHolderPalette = new Holder[biomePalette().length];
+        for (int i = 0; i < biomePalette().length; i++) {
             Identifier identifier = Identifier.tryParse(biomePalette()[i]);
             if (identifier == null) {
-                System.out.println("Failed to parse " + biomePalette[i]);
-                biomePalette[i] = orThrow;
+                System.out.println("Failed to parse " + biomeHolderPalette[i]);
+                biomeHolderPalette[i] = orThrow;
                 continue;
             }
             Holder.Reference<Biome> biome = registry.get(identifier).orElse(null);
             if (biome == null) {
-                System.out.println("Failed to get " + biomePalette[i]);
-                biomePalette[i] = orThrow;
+                System.out.println("Failed to get " + biomeHolderPalette[i]);
+                biomeHolderPalette[i] = orThrow;
                 continue;
             }
-            biomePalette[i] = biome;
+            biomeHolderPalette[i] = biome;
         }
 
         int bitsPerBlockEntry = (int) Math.ceil(Math.log(blockPalette.length) / Math.log(2));
-        int longBitsPerBlockEntry = bitsPerBlockEntry;
         if (blockData != null) {
-            longBitsPerBlockEntry = PaletteUtil.getBitsForLongLength(blockData.length);
+            int longBitsPerBlockEntry = PaletteUtil.getBitsForLongLength(blockData.length);
+            if (longBitsPerBlockEntry > bitsPerBlockEntry) bitsPerBlockEntry = longBitsPerBlockEntry;
         }
 
         int bitsPerBiomeEntry = (int) Math.ceil(Math.log(biomePalette.length) / Math.log(2));
-        int longBitsPerBiomeEntry = bitsPerBiomeEntry;
         if (biomeData != null) {
-            longBitsPerBiomeEntry = PaletteUtil.getBitsForLongLength(biomeData.length);
+            int longBitsPerBiomeEntry = PaletteUtil.getBitsForLongLength(biomeData.length);
+            if (longBitsPerBiomeEntry > bitsPerBiomeEntry) bitsPerBiomeEntry = longBitsPerBiomeEntry;
         }
 
         Strategy<BlockState> blockStrategy = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
         PalettedContainer<BlockState> states = new PalettedContainer<>(Blocks.AIR.defaultBlockState(), blockStrategy, materialPalette);
 
         Strategy<Holder<Biome>> biomeStrategy = Strategy.createForBiomes(registry.asHolderIdMap());
-        PalettedContainer<Holder<Biome>> biomes = new PalettedContainer<>(orThrow, biomeStrategy, biomePalette);
+        PalettedContainer<Holder<Biome>> biomes = new PalettedContainer<>(orThrow, biomeStrategy, biomeHolderPalette);
 
-        if (biomeData == null || bitsPerBiomeEntry == 0 || longBitsPerBiomeEntry == 0) {
-            List<Holder<Biome>> biomesList = Arrays.asList(biomePalette);
-            if (biomesList.size() > 1) {
-                biomesList = List.of(biomePalette[0]);
-            }
-            biomes.data = new PalettedContainer.Data<>(
-                    PaletteUtil.getConfigurationForBitCountBiome(0),
-                    new ZeroBitStorage(PolarSection.BIOME_PALETTE_SIZE),
-                    PaletteUtil.createPalette(0, biomesList)
-            );
-        } else {
-            if (bitsPerBiomeEntry > longBitsPerBiomeEntry) {
-                int[] unpacked = new int[PolarSection.BIOME_PALETTE_SIZE];
-                PaletteUtil.unpack(unpacked, blockData, longBitsPerBiomeEntry);
-                long[] newLongs = PaletteUtil.pack(unpacked, bitsPerBiomeEntry);
-
-                biomes.data = new PalettedContainer.Data<>(
-                        PaletteUtil.getConfigurationForBitCountBlock(bitsPerBiomeEntry),
-                        new SimpleBitStorage(bitsPerBiomeEntry, PolarSection.BLOCK_PALETTE_SIZE, newLongs),
-                        PaletteUtil.createPalette(bitsPerBiomeEntry, Arrays.asList(biomePalette))
-                );
-            } else {
-                biomes.data = new PalettedContainer.Data<>(
-                        PaletteUtil.getConfigurationForBitCountBiome(bitsPerBiomeEntry),
-                        new SimpleBitStorage(bitsPerBiomeEntry, PolarSection.BIOME_PALETTE_SIZE, biomeData),
-                        PaletteUtil.createPalette(bitsPerBiomeEntry, Arrays.asList(biomePalette))
-                );
-            }
-        }
-
-
-        if (blockData == null || bitsPerBlockEntry == 0 || longBitsPerBlockEntry == 0) {
-//            System.out.println(bitsPerBlockEntry + ", " + longBitsPerBlockEntry + ", " + (blockData == null ? 0 : blockData.length) + ", " + Arrays.toString(materialPalette));
-            List<BlockState> materialsList = Arrays.asList(materialPalette);
-            if (materialsList.size() > 1) {
-                materialsList = List.of(materialPalette[0]);
-            }
-            states.data = new PalettedContainer.Data<>(
-                    PaletteUtil.getConfigurationForBitCountBlock(0),
-                    new ZeroBitStorage(PolarSection.BLOCK_PALETTE_SIZE),
-                    PaletteUtil.createPalette(0, materialsList)
-            );
-        } else {
-            if (bitsPerBlockEntry > longBitsPerBlockEntry) {
-                int[] unpacked = new int[PolarSection.BLOCK_PALETTE_SIZE];
-                PaletteUtil.unpack(unpacked, blockData, longBitsPerBlockEntry);
-                long[] newLongs = PaletteUtil.pack(unpacked, bitsPerBlockEntry);
-
-                states.data = new PalettedContainer.Data<>(
-                        PaletteUtil.getConfigurationForBitCountBlock(bitsPerBlockEntry),
-                        new SimpleBitStorage(bitsPerBlockEntry, PolarSection.BLOCK_PALETTE_SIZE, newLongs),
-                        PaletteUtil.createPalette(bitsPerBlockEntry, Arrays.asList(materialPalette))
-                );
-            } else if (4 > longBitsPerBlockEntry) {
-                int[] unpacked = new int[PolarSection.BLOCK_PALETTE_SIZE];
-                PaletteUtil.unpack(unpacked, blockData, bitsPerBlockEntry);
-                long[] newLongs = PaletteUtil.pack(unpacked, 4);
-
-                states.data = new PalettedContainer.Data<>(
-                        PaletteUtil.getConfigurationForBitCountBlock(bitsPerBlockEntry),
-                        new SimpleBitStorage(4, PolarSection.BLOCK_PALETTE_SIZE, newLongs),
-                        PaletteUtil.createPalette(bitsPerBlockEntry, Arrays.asList(materialPalette))
-                );
-            } else {
-                states.data = new PalettedContainer.Data<>(
-                        PaletteUtil.getConfigurationForBitCountBlock(longBitsPerBlockEntry),
-                        new SimpleBitStorage(Math.max(4, longBitsPerBlockEntry), PolarSection.BLOCK_PALETTE_SIZE, blockData),
-                        PaletteUtil.createPalette(longBitsPerBlockEntry, Arrays.asList(materialPalette))
-                );
-            }
-        }
+        biomes.data = getPalettedContainer(biomeHolderPalette, biomeData, bitsPerBiomeEntry, biomeStrategy);
+        states.data = getPalettedContainer(materialPalette, blockData, bitsPerBlockEntry, blockStrategy);
 
         return new LevelChunkSection(states, biomes);
     }
+
+     private static <T> PalettedContainer.Data<T> getPalettedContainer(T[] palette, long[] data, int bits, Strategy<T> strategy) {
+         if (data == null || bits == 0) {
+             Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, 0);
+             return new PalettedContainer.Data<>(
+                     configuration,
+                     new ZeroBitStorage(strategy.entryCount()),
+                     configuration.createPalette(strategy, List.of(palette[0]))
+             );
+         } else {
+             Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, bits);
+             long[] packed;
+             if (configuration.alwaysRepack() || configuration.bitsInMemory() != bits) {
+                 // repack
+                 int[] unpacked = new int[strategy.entryCount()];
+                 PaletteUtil.unpack(unpacked, data, bits);
+                 packed = PaletteUtil.pack(unpacked, configuration.bitsInMemory());
+             } else {
+                 packed = data.clone(); // only clone if not repacked
+             }
+
+             try {
+                 return new PalettedContainer.Data<>(
+                         configuration,
+                         new SimpleBitStorage(configuration.bitsInMemory(), strategy.entryCount(), packed),
+                         configuration.createPalette(strategy, Arrays.asList(palette))
+                 );
+             } catch (SimpleBitStorage.InitializationException e) {
+                 PolarPaper.logger().info("Bits in memory: " + configuration.bitsInMemory());
+                 PolarPaper.logger().info("Bits in storage: " + configuration.bitsInStorage());
+                 PolarPaper.logger().info("Bits: " + bits);
+                 PolarPaper.logger().info("Data Length: " + data.length);
+                 throw new RuntimeException(e);
+             }
+         }
+     }
 
 }

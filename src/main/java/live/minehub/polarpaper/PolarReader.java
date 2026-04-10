@@ -8,6 +8,7 @@ import live.minehub.polarpaper.PolarSection.LightContent;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.util.ByteArrayUtil;
+import live.minehub.polarpaper.util.LightUtil;
 import live.minehub.polarpaper.util.PaletteUtil;
 import net.kyori.adventure.key.Key;
 import net.minecraft.nbt.*;
@@ -191,16 +192,16 @@ public class PolarReader {
             biomeData = getLongArray(bb);
         }
 
-        byte[] blockLight = null;
-        byte[] skyLight = null;
+        byte[] blockLight;
+        byte[] skyLight;
         LightContent blockLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
                 ? LightContent.VALUES[bb.readByte()]
                 : ((bb.readByte() == 1) ? LightContent.PRESENT : LightContent.MISSING);
-        if (blockLightContent == LightContent.PRESENT) blockLight = getLightData(bb);
+        blockLight = LightUtil.getLightArray(blockLightContent, blockLightContent == LightContent.PRESENT ? getLightData(bb) : null);
         LightContent skyLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
                 ? LightContent.VALUES[bb.readByte()]
                 : (bb.readByte() == 1 ? LightContent.PRESENT : LightContent.MISSING);
-        if (skyLightContent == LightContent.PRESENT) skyLight = getLightData(bb);
+        skyLight = LightUtil.getLightArray(skyLightContent, skyLightContent == LightContent.PRESENT ? getLightData(bb) : null);
 
 
         return new PolarSection(
