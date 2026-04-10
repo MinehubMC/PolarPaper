@@ -231,10 +231,12 @@ public class PolarSection {
                      configuration.createPalette(strategy, List.of(palette[0]))
              );
          } else {
+             int valuesPerLong = (char) (64 / bits);
+             int expectedDataLength = (strategy.entryCount() + valuesPerLong - 1) / valuesPerLong;
+
              Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, bits);
              long[] packed;
-             if (configuration.alwaysRepack() || configuration.bitsInMemory() != bits) {
-                 // repack
+             if (configuration.alwaysRepack() || configuration.bitsInMemory() != bits || data.length != expectedDataLength) {
                  int[] unpacked = new int[strategy.entryCount()];
                  PaletteUtil.unpack(unpacked, data, bits);
                  packed = PaletteUtil.pack(unpacked, configuration.bitsInMemory());
@@ -253,6 +255,9 @@ public class PolarSection {
                  PolarPaper.logger().info("Bits in storage: " + configuration.bitsInStorage());
                  PolarPaper.logger().info("Bits: " + bits);
                  PolarPaper.logger().info("Data Length: " + data.length);
+                 PolarPaper.logger().info("Packed Length: " + packed.length);
+                 PolarPaper.logger().info("Palette Length: " + palette.length);
+                 PolarPaper.logger().info("Strategy Entry Count: " + strategy.entryCount());
                  throw new RuntimeException(e);
              }
          }
