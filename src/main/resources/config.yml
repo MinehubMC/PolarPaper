@@ -8,9 +8,9 @@ default:
   spawn: 0.0, 64.0, 0.0, 0.0, 0.0
   difficulty: NORMAL
   async: false
-  saveLight: false
+  saveLight: true # Whether chunks are saved with light data. Reduces load time and CPU usage while loading but increases world size
   compression: ZSTD # One of: ZSTD, NONE
-  compressionLevel: 9 # ZSTD compression level, higher means smaller file size but longer save times. Max 22, default 9
+  compressionLevel: 7 # ZSTD compression level, higher means smaller file size but longer save times. Max 22, default 7
   worldType: FLAT # One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES
   environment: NORMAL # One of: NORMAL, NETHER, THE_END, CUSTOM
   gamerules: # Custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath

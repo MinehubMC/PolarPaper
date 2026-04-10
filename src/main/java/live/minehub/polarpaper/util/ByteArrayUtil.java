@@ -90,7 +90,7 @@ public class ByteArrayUtil {
         return strings;
     }
     public static byte[] getLightData(ByteBuf bb) {
-        byte[] bytes = new byte[2048];
+        byte[] bytes = new byte[LightUtil.LIGHT_LENGTH];
         bb.readBytes(bytes);
         return bytes;
     }

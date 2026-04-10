@@ -127,9 +127,11 @@ public class PolarStreamLoader {
         for (int i = 0; i < sectionCount; i++) {
             PolarSection polarSection = PolarReader.readSection(dataConverter, version, dataVersion, bb);
             if (!anyPresent && (polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) anyPresent = true;
-            levelChunkSections[i] = polarSection.createLevelChunkSection(serverLevel.registryAccess());
-            skyEmptiness[i] = polarSection.skyLightContent() == PolarSection.LightContent.EMPTY;
-            blockEmptiness[i] = polarSection.blockLightContent() == PolarSection.LightContent.EMPTY;
+            LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess());
+            levelChunkSections[i] = section;
+            boolean airSection = section.hasOnlyAir();
+            skyEmptiness[i] = airSection;
+            blockEmptiness[i] = airSection;
             skyNibbles[i + 1] = new SWMRNibbleArray(polarSection.skyLight());
             blockNibbles[i + 1] = new SWMRNibbleArray(polarSection.blockLight());
 
@@ -146,6 +148,8 @@ public class PolarStreamLoader {
             lightChunk(serverLevel, newLevelChunk);
         }
         newLevelChunk.setLightCorrect(true);
+        newLevelChunk.tryMarkSaved();
+//        newLevelChunk.setLogUnsaved(true);
 
         int blockEntityCount = getVarInt(bb);
         for (int i = 0; i < blockEntityCount; i++) {
@@ -188,7 +192,6 @@ public class PolarStreamLoader {
             });
 
             newLevelChunk.needsDecoration = false;
-//            newLevelChunk.setLightCorrect(true);
             Field currentChunkField = newChunkHolder.getClass().getDeclaredField("currentChunk");
             currentChunkField.setAccessible(true);
             currentChunkField.set(newChunkHolder, newLevelChunk);
@@ -234,9 +237,6 @@ public class PolarStreamLoader {
             newLevelChunk.registerAllBlockEntitiesAfterLevelLoad();
             newLevelChunk.registerTickContainerInLevel(serverLevel);
 
-//            newLevelChunk.setLoaded(true);
-            newLevelChunk.markUnsaved();
-
         } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException | NoSuchFieldException |
                  InstantiationException e) {
             throw new RuntimeException(e);
@@ -265,7 +265,7 @@ public class PolarStreamLoader {
 
     }
 
-    private static void lightChunk(ServerLevel level, LevelChunk chunk) {
+    public static void lightChunk(ServerLevel level, LevelChunk chunk) {
         ThreadedLevelLightEngine threadedEngine = (ThreadedLevelLightEngine) level.getLightEngine();
         StarLightInterface starlight = threadedEngine.starlight$getLightEngine();
 
