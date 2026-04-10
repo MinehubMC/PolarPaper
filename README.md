@@ -53,7 +53,10 @@ Load a polar world
 ```java
 // Manually
 byte[] bytes = ...
-PolarWorld polarWorld = PolarReader.read(bytes);
+Polar.createWorld(bytes, worldName);
+// or
+byte[] bytes = ...
+PolarWorld polarWorld = PolarReader.read(bytes); // (PolarWorld can be reused, see below)
 Polar.createWorld(polarWorld, worldName);
 
 // Using PolarSource
@@ -62,15 +65,14 @@ Path savePath = Path.of("./epic/world.polar");
 PolarSource source = new FilePolarSource(savePath);
 Polar.loadWorld(source, worldName);
 
-// Load world like /polar load
+// Load world like /polar load - must be in PolarPaper worlds folder
 Polar.loadWorldFromFile("gamingworld");
 ```
 
 Save a polar world
 ```java
 // Manually
-World bukkitWorld = player.getWorld();
-PolarWorld polarWorld = PolarWorld.fromWorld(world);
+PolarWorld polarWorld = ...
 polarWorld.updateChunks(bukkitWorld); // update chunks in the polar world
 byte[] bytes = PolarWriter.write(polarWorld);
 
@@ -86,9 +88,20 @@ World bukkitWorld = player.getWorld();
 Polar.saveWorldToFile(bukkitWorld);
 ```
 
-Get the `PolarWorld` that a player is in
+Reusing the PolarWorld object
 ```java
-PolarWorld polarWorld = PolarWorld.fromWorld(player.getWorld());
+// We can save memory and load time by reusing one PolarWorld
+byte[] bytes = ...
+PolarWorld polarWorld = PolarReader.read(bytes);
+Polar.createWorld(polarWorld, "worldName1");
+Polar.createWorld(polarWorld, "worldName2");
+Polar.createWorld(polarWorld, "worldName3");
+```
+
+Get the `PolarGenerator` of a world
+```java
+World world = ... // e.g. player.getWorld()
+PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
 // (returns null if the world is not from PolarPaper)
 ```
 
@@ -108,22 +121,6 @@ Register events
 // as a dependency (e.g. implementation instead of compileOnly), you do not need to
 // add it to the depend list in your plugin.yml. However, you must manually register the plugin listeners:
 PolarPaper.registerEvents();
-```
-
-Reusing the PolarWorld object
-```java
-// We can save memory and load time by reusing one PolarWorld
-// We just have to let the generator know not to remove chunks
-
-byte[] bytes = ...
-PolarWorld polarWorld = PolarReader.read(bytes);
-FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
-Config config = Config.getDefaultConfig(fileConfig).toBuilder()
-        .removeChunks(false)
-        .build();
-Polar.createWorld(polarWorld, "worldName1", config);
-Polar.createWorld(polarWorld, "worldName2", config);
-Polar.createWorld(polarWorld, "worldName3", config);
 ```
 
 ### Versioning
