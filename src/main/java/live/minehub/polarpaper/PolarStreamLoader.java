@@ -40,24 +40,25 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.concurrent.CompletableFuture;
 
 import static live.minehub.polarpaper.util.ByteArrayUtil.getVarInt;
 
 public class PolarStreamLoader {
 
-    public static void stream(PolarSource source, World world, @NotNull PolarWorldAccess worldAccess) {
-        stream(source.readBytes(), world, worldAccess);
+    public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarWorldAccess worldAccess) {
+        return stream(source.readBytes(), world, worldAccess);
     }
 
-    public static void stream(PolarSource source, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) {
-        stream(source.readBytes(), world, dataConverter, worldAccess);
+    public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) {
+        return stream(source.readBytes(), world, dataConverter, worldAccess);
     }
 
-    public static void stream(byte @NotNull [] data, World world, @NotNull PolarWorldAccess worldAccess) {
-        stream(data, world, PolarDataConverter.DEFAULT, worldAccess);
+    public static CompletableFuture<Void> stream(byte @NotNull [] data, World world, @NotNull PolarWorldAccess worldAccess) {
+        return stream(data, world, PolarDataConverter.DEFAULT, worldAccess);
     }
 
-    public static void stream(byte @NotNull [] data, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) {
+    public static CompletableFuture<Void> stream(byte @NotNull [] data, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) {
         ByteBuf bb = Unpooled.wrappedBuffer(data);
 
         int magic = bb.readInt();
@@ -67,8 +68,8 @@ public class PolarStreamLoader {
         PolarReader.validateVersion(version);
 
         PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
-        if (polarGenerator == null) return;
-        if (!(polarGenerator instanceof PolarStreamingGenerator voidGenerator)) return;
+        if (polarGenerator == null) return CompletableFuture.completedFuture(null);
+        if (!(polarGenerator instanceof PolarStreamingGenerator voidGenerator)) return CompletableFuture.completedFuture(null);
         voidGenerator.setVersion(version);
 
         int dataVersion = version >= PolarConstants.VERSION_DATA_CONVERTER
@@ -102,12 +103,15 @@ public class PolarStreamLoader {
         voidGenerator.setUserData(userData);
 
         int chunkCount = getVarInt(uncompressed);
+        CompletableFuture<Void>[] futures = new CompletableFuture[chunkCount];
         for (int i = 0; i < chunkCount; i++) {
-            readChunk(world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
+            futures[i] = readChunk(world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
         }
+
+        return CompletableFuture.allOf(futures);
     }
 
-    private static void readChunk(World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess, short version, int dataVersion, @NotNull ByteBuf bb, int sectionCount) {
+    private static CompletableFuture<Void> readChunk(World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess, short version, int dataVersion, @NotNull ByteBuf bb, int sectionCount) {
         var chunkX = getVarInt(bb);
         var chunkZ = getVarInt(bb);
 
@@ -163,14 +167,14 @@ public class PolarStreamLoader {
         byte[] userData = new byte[userDataLength];
         bb.readBytes(userData);
 
-        insertChunk(serverLevel, newLevelChunk);
-
-        Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), _ -> {
+        return insertChunk(serverLevel, newLevelChunk).thenRun(() -> {
             worldAccess.loadChunkData(world, newLevelChunk, userData);
         });
     }
 
-    protected static void insertChunk(ServerLevel serverLevel, NoUnloadLevelChunk newLevelChunk) {
+    protected static CompletableFuture<Void> insertChunk(ServerLevel serverLevel, NoUnloadLevelChunk newLevelChunk) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+
         int chunkX = newLevelChunk.locX;
         int chunkZ = newLevelChunk.locZ;
         ChunkTaskScheduler chunkTaskScheduler = serverLevel.moonrise$getChunkTaskScheduler();
@@ -186,9 +190,10 @@ public class PolarStreamLoader {
             chunkHolderManager.ticketLockArea.unlock(lock);
             chunkTaskScheduler.schedulingLockArea.unlock(lock1);
 
-            Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), _ -> {
+            Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
                 // Cannot sync load entity data off-main
                 initializeEntityChunk(newChunkHolder, chunkX, chunkZ, chunkTaskScheduler);
+                future.complete(null);
             });
 
             newLevelChunk.needsDecoration = false;
@@ -237,6 +242,7 @@ public class PolarStreamLoader {
             newLevelChunk.registerAllBlockEntitiesAfterLevelLoad();
             newLevelChunk.registerTickContainerInLevel(serverLevel);
 
+            return future;
         } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException | NoSuchFieldException |
                  InstantiationException e) {
             throw new RuntimeException(e);
@@ -262,7 +268,6 @@ public class PolarStreamLoader {
         } catch (NoSuchFieldException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
-
     }
 
     public static void lightChunk(ServerLevel level, LevelChunk chunk) {
@@ -289,7 +294,7 @@ public class PolarStreamLoader {
         int z = CoordConversion.chunkBlockIndexGetZ(posIndex);
 
         BlockState blockState = chunk.getBlockState(x, y, z);
-        BlockPos blockPos = new BlockPos(chunk.getPos().x() * 16 + x, y, chunk.getPos().z() * 16 + z);
+        BlockPos blockPos = new BlockPos(chunk.getPos().x * 16 + x, y, chunk.getPos().z * 16 + z);
 
         if (!(blockState.getBlock() instanceof EntityBlock entityBlock)) {
             throw new IllegalArgumentException("Block " + blockState + " does not have a block entity");

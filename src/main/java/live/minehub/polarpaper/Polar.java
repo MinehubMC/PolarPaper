@@ -201,12 +201,17 @@ public class Polar {
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
     public static CompletableFuture<@Nullable World> createWorld(byte[] worldBytes, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
-        return createWorld(new PolarStreamingGenerator(config, worldAccess), worldName, worldAccess).thenApplyAsync(world -> {
-            if (world == null) return null;
+        CompletableFuture<@Nullable World> future = new CompletableFuture<>();
+        createWorld(new PolarStreamingGenerator(config, worldAccess), worldName, worldAccess).thenAcceptAsync(world -> {
+            if (world == null) return;
             if (worldBytes != null && worldBytes.length > 0) {
-                PolarStreamLoader.stream(worldBytes, world, worldAccess);
+                PolarStreamLoader.stream(worldBytes, world, worldAccess).thenRun(() -> future.complete(world));
+                return;
             }
-            return world;
+            future.complete(world);
+        });
+        return future.whenComplete((u, ex) -> {
+            if (ex != null) ExceptionUtil.log(ex);
         });
     }
 
@@ -218,19 +223,22 @@ public class Polar {
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
     public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
-        return createWorld(new PolarStreamingGenerator(config, worldAccess), worldName, worldAccess).thenApplyAsync(world -> {
-            if (world == null) return null;
+        CompletableFuture<@Nullable World> future = new CompletableFuture<>();
+        createWorld(new PolarStreamingGenerator(config, worldAccess), worldName, worldAccess).thenAcceptAsync(world -> {
+            if (world == null) return;
             ServerLevel level = ((CraftWorld) world).getHandle();
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
             for (PolarChunk chunk : polarWorld.chunks()) {
                 NoUnloadLevelChunk levelChunk = chunk.createLevelChunk(level);
-                Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
+                futures.add(PolarStreamLoader.insertChunk(level, levelChunk).thenRun(() -> {
                     worldAccess.loadChunkData(world, levelChunk, chunk.userData());
-                });
-
-                PolarStreamLoader.insertChunk(level, levelChunk);
+                }));
             }
-            return world;
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
+                future.complete(world);
+            });
         });
+        return future;
     }
 
     /**
