@@ -1,6 +1,7 @@
 package live.minehub.polarpaper;
 
 import ca.spottedleaf.concurrentutil.lock.ReentrantAreaLock;
+import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkTaskScheduler;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
@@ -15,6 +16,7 @@ import live.minehub.polarpaper.util.CoordConversion;
 import live.minehub.polarpaper.util.PolarConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.FullChunkStatus;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ThreadedLevelLightEngine;
 import net.minecraft.util.ProblemReporter;
@@ -192,7 +194,9 @@ public class PolarStreamLoader {
 
             Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
                 // Cannot sync load entity data off-main
-                initializeEntityChunk(newChunkHolder, chunkX, chunkZ, chunkTaskScheduler);
+                ChunkEntitySlices slices = initializeEntityChunk(newChunkHolder, chunkX, chunkZ, chunkTaskScheduler);
+                slices.updateStatus(FullChunkStatus.ENTITY_TICKING, serverLevel.moonrise$getEntityLookup());
+
                 future.complete(null);
             });
 
@@ -249,7 +253,7 @@ public class PolarStreamLoader {
         }
     }
 
-    private static void initializeEntityChunk(NewChunkHolder holder, int chunkX, int chunkZ, ChunkTaskScheduler scheduler) {
+    private static ChunkEntitySlices initializeEntityChunk(NewChunkHolder holder, int chunkX, int chunkZ, ChunkTaskScheduler scheduler) {
         try {
             Field pendingEntityChunkField = NewChunkHolder.class.getDeclaredField("pendingEntityChunk");
             pendingEntityChunkField.setAccessible(true);
@@ -264,7 +268,7 @@ public class PolarStreamLoader {
                 scheduler.schedulingLockArea.unlock(lock);
             }
 
-            loadInEntityChunkMethod.invoke(holder, false);
+            return (ChunkEntitySlices) loadInEntityChunkMethod.invoke(holder, false);
         } catch (NoSuchFieldException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
