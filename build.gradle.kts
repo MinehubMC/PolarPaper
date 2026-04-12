@@ -8,7 +8,7 @@ plugins {
     alias(libs.plugins.hangar.publish)
 }
 
-val developmentVersion = "${libs.versions.minecraft.get()}.25"
+val developmentVersion = "${libs.versions.minecraft.get()}.26"
 
 version = getVersion()
 group = "live.minehub"

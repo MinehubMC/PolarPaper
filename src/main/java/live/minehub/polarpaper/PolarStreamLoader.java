@@ -189,13 +189,14 @@ public class PolarStreamLoader {
             Method getOrCreateChunkHolderMethod = chunkHolderManager.getClass().getDeclaredMethod("getOrCreateChunkHolder", int.class, int.class);
             getOrCreateChunkHolderMethod.setAccessible(true);
             NewChunkHolder newChunkHolder = (NewChunkHolder) getOrCreateChunkHolderMethod.invoke(chunkHolderManager, chunkX, chunkZ);
-            chunkHolderManager.ticketLockArea.unlock(lock);
-            chunkTaskScheduler.schedulingLockArea.unlock(lock1);
 
             Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
                 // Cannot sync load entity data off-main
                 ChunkEntitySlices slices = initializeEntityChunk(newChunkHolder, chunkX, chunkZ, chunkTaskScheduler);
                 slices.updateStatus(FullChunkStatus.ENTITY_TICKING, serverLevel.moonrise$getEntityLookup());
+
+                chunkHolderManager.ticketLockArea.unlock(lock);
+                chunkTaskScheduler.schedulingLockArea.unlock(lock1);
 
                 future.complete(null);
             });
