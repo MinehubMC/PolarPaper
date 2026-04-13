@@ -1,6 +1,8 @@
 package live.minehub.polarpaper;
 
 import ca.spottedleaf.concurrentutil.lock.ReentrantAreaLock;
+import ca.spottedleaf.moonrise.common.util.WorldUtil;
+import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkTaskScheduler;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
@@ -167,13 +169,17 @@ public class PolarStreamLoader {
         byte[] userData = new byte[userDataLength];
         bb.readBytes(userData);
 
-        return insertChunk(serverLevel, newLevelChunk).thenRun(() -> {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
+            insertChunk(serverLevel, newLevelChunk);
             worldAccess.loadChunkData(world, newLevelChunk, userData);
+            future.complete(null);
         });
+
+        return future;
     }
 
-    protected static CompletableFuture<Void> insertChunk(ServerLevel serverLevel, NoUnloadLevelChunk newLevelChunk) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
+    protected static void insertChunk(ServerLevel serverLevel, NoUnloadLevelChunk newLevelChunk) {
 
         int chunkX = newLevelChunk.locX;
         int chunkZ = newLevelChunk.locZ;
@@ -189,12 +195,6 @@ public class PolarStreamLoader {
             NewChunkHolder newChunkHolder = (NewChunkHolder) getOrCreateChunkHolderMethod.invoke(chunkHolderManager, chunkX, chunkZ);
             chunkHolderManager.ticketLockArea.unlock(lock);
             chunkTaskScheduler.schedulingLockArea.unlock(lock1);
-
-            Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
-                // Cannot sync load entity data off-main
-                initializeEntityChunk(newChunkHolder, chunkX, chunkZ, chunkTaskScheduler);
-                future.complete(null);
-            });
 
             newLevelChunk.needsDecoration = false;
             Field currentChunkField = newChunkHolder.getClass().getDeclaredField("currentChunk");
@@ -242,30 +242,30 @@ public class PolarStreamLoader {
             newLevelChunk.registerAllBlockEntitiesAfterLevelLoad();
             newLevelChunk.registerTickContainerInLevel(serverLevel);
 
-            return future;
+            initializeEntityChunk(newChunkHolder);
         } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException | NoSuchFieldException |
                  InstantiationException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static void initializeEntityChunk(NewChunkHolder holder, int chunkX, int chunkZ, ChunkTaskScheduler scheduler) {
+    private static ChunkEntitySlices initializeEntityChunk(NewChunkHolder holder) {
         try {
-            Field pendingEntityChunkField = NewChunkHolder.class.getDeclaredField("pendingEntityChunk");
-            pendingEntityChunkField.setAccessible(true);
+            Field entityChunkField = NewChunkHolder.class.getDeclaredField("entityChunk");
+            entityChunkField.setAccessible(true);
 
-            Method loadInEntityChunkMethod = NewChunkHolder.class.getDeclaredMethod("loadInEntityChunk", boolean.class);
-            loadInEntityChunkMethod.setAccessible(true);
+            ChunkEntitySlices slices = new ChunkEntitySlices(
+                    holder.world, holder.chunkX, holder.chunkZ, holder.getChunkStatus(),
+                    holder.holderData, WorldUtil.getMinSection(holder.world), WorldUtil.getMaxSection(holder.world)
+            );
+            slices.setTransient(false);
 
-            ReentrantAreaLock.Node lock = scheduler.schedulingLockArea.lock(chunkX, chunkZ);
-            try {
-                pendingEntityChunkField.set(holder, new CompoundTag());
-            } finally {
-                scheduler.schedulingLockArea.unlock(lock);
-            }
+            entityChunkField.set(holder, slices);
 
-            loadInEntityChunkMethod.invoke(holder, false);
-        } catch (NoSuchFieldException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            holder.world.moonrise$getEntityLookup().entitySectionLoad(holder.chunkX, holder.chunkZ, slices);
+
+            return slices;
+        } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }

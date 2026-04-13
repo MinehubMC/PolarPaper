@@ -64,6 +64,7 @@ public interface PolarWorldAccess {
             byte version = bb.readByte();
 
             List<PolarEntity> entities = EntityUtil.getEntities(bb);
+            List<net.minecraft.world.entity.Entity> successEntities = new ArrayList<>();
 
             for (PolarEntity polarEntity : entities) {
                 net.minecraft.world.entity.Entity entity = polarEntity.toNMSEntity(world, polarEntity.getLocation(world, chunk.locX, chunk.locZ), true);
@@ -75,9 +76,11 @@ public interface PolarWorldAccess {
                 PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, bukkitEntity, spawnLocation, false);
                 event.callEvent();
                 if (!event.isCancelled()) {
-                    level.moonrise$getEntityLookup().addNewEntity(entity);
+                    successEntities.add(entity);
                 }
             }
+
+            level.moonrise$getEntityLookup().addEntityChunkEntities(successEntities, chunk.getPos());
 
             if (version >= PERSISTENT_DATA_CONTAINER_VERSION) {
                 PersistentDataContainer persistentDataContainer = chunk.persistentDataContainer;
