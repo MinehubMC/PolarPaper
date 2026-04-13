@@ -294,7 +294,7 @@ public class PolarStreamLoader {
         int z = CoordConversion.chunkBlockIndexGetZ(posIndex);
 
         BlockState blockState = chunk.getBlockState(x, y, z);
-        BlockPos blockPos = new BlockPos(chunk.getPos().x * 16 + x, y, chunk.getPos().z * 16 + z);
+        BlockPos blockPos = new BlockPos(chunk.getPos().x() * 16 + x, y, chunk.getPos().z() * 16 + z);
 
         if (!(blockState.getBlock() instanceof EntityBlock entityBlock)) {
             throw new IllegalArgumentException("Block " + blockState + " does not have a block entity");
