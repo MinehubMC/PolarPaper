@@ -241,9 +241,14 @@ public class Polar {
             List<CompletableFuture<Void>> futures = new ArrayList<>();
             for (PolarChunk chunk : polarWorld.chunks()) {
                 NoUnloadLevelChunk levelChunk = chunk.createLevelChunk(level);
-                futures.add(PolarStreamLoader.insertChunk(level, levelChunk).thenRun(() -> {
+
+                CompletableFuture<Void> future2 = new CompletableFuture<>();
+                Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
+                    PolarStreamLoader.insertChunk(level, levelChunk);
                     worldAccess.loadChunkData(world, levelChunk, chunk.userData());
-                }));
+                    future2.complete(null);
+                });
+                futures.add(future2);
             }
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
                 future.complete(world);
