@@ -20,7 +20,7 @@ default:
     - mob_griefing: false
     - spread_vines: false
     - tnt_explodes: false
-    - coralDeath: false
+    - blockFade: false
     - blockPhysics: true
     - blockGravity: true
     - liquidPhysics: true

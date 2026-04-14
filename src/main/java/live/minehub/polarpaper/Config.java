@@ -28,7 +28,7 @@ import java.util.*;
  * Reduces CPU usage when loading the world but increases world size significantly
  * @param worldType Prefer WorldType.FLAT if possible as it skips unnecessary vanilla biome generation
  * @param environment
- * @param gamerules map of gamerules - custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath
+ * @param gamerules map of gamerules - custom rules: liquidPhysics, blockPhysics, blockGravity, blockFade
  */
 public record Config(
         int autoSaveIntervalTicks,
@@ -54,7 +54,7 @@ public record Config(
         put("mob_griefing", false);
         put("spread_vines", false);
         put("tnt_explodes", false);
-        put("coralDeath", false); // custom gamerule
+        put("blockFade", false); // custom gamerule
         put("blockPhysics", true); // custom gamerule
         put("blockGravity", true); // custom gamerule
         put("liquidPhysics", true); // custom gamerule
@@ -218,7 +218,7 @@ public record Config(
         if (gamerulesToSave.isEmpty()) gamerulesToSave = null;
         fileConfig.set(prefix + "gamerules", gamerulesToSave);
 
-        fileConfig.setInlineComments(prefix + "gamerules", List.of("Custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath"));
+        fileConfig.setInlineComments(prefix + "gamerules", List.of("Custom rules: liquidPhysics, blockPhysics, blockGravity, blockFade"));
 
         Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path configFile = pluginFolder.resolve("config.yml");

@@ -24,17 +24,17 @@ import org.bukkit.util.Vector;
 @SuppressWarnings("unused")
 public class PolarListener implements Listener {
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onBlockFade(BlockFadeEvent event) { // coral death
         PolarGenerator generator = PolarGenerator.fromWorld(event.getBlock().getWorld());
         if (generator == null) return;
         Config config = generator.getConfig();
-        Object enabled = config.gamerules().getOrDefault("coralDeath", true);
+        Object enabled = config.gamerules().get("blockFade");
         if (!(enabled instanceof Boolean enabledBool)) return;
         event.setCancelled(!enabledBool);
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onBlockFromTo(BlockFromToEvent event) { // liquid flow / dragon egg
         PolarGenerator generator = PolarGenerator.fromWorld(event.getBlock().getWorld());
         if (generator == null) return;
@@ -44,7 +44,7 @@ public class PolarListener implements Listener {
         event.setCancelled(!enabledBool);
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onBlockPhysics(BlockPhysicsEvent event) { // block placement rules
         PolarGenerator generator = PolarGenerator.fromWorld(event.getBlock().getWorld());
         if (generator == null) return;
@@ -54,7 +54,7 @@ public class PolarListener implements Listener {
         event.setCancelled(!enabledBool);
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onChangeBlock(EntityChangeBlockEvent event) { // gravity blocks
         if (!event.getBlock().getType().hasGravity()) return;
 
@@ -66,14 +66,14 @@ public class PolarListener implements Listener {
         event.setCancelled(!enabledBool);
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onWorldUnload(WorldUnloadEvent event) {
         Polar.stopAutoSaveTask(event.getWorld().getName());
     }
 
 
     // WAND
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onChangeWorld(PlayerChangedWorldEvent event) {
         // clear wand properties
         PersistentDataContainer data = event.getPlayer().getPersistentDataContainer();
