@@ -35,23 +35,29 @@ public class Schematic {
             for (PolarSection section : chunk.sections()) {
                 Vector3i blockOffset = new Vector3i(chunk.x() * 16, (i + polarWorld.minSection()) * 16, chunk.z() * 16)
                         .sub(offset);
-                pasteSection(section, setter, blockOffset, pasteOffset, rotation, ignoreAir);
+                boolean shouldPaste = setter.shouldPaste(chunk, section, i + polarWorld.minSection(), blockOffset);
                 i++;
+                if (!shouldPaste) continue;
+
+                pasteSection(section, setter, blockOffset, pasteOffset, rotation, ignoreAir);
             }
 
             handleUserData(setter, pasteOffset, rotation, chunk, offset);
 
-            for (PolarChunk.BlockEntity blockEntity : chunk.blockEntities()) {
-                int x = CoordConversion.chunkBlockIndexGetX(blockEntity.index());
-                int y = CoordConversion.chunkBlockIndexGetY(blockEntity.index());
-                int z = CoordConversion.chunkBlockIndexGetZ(blockEntity.index());
+            Vector3i finalOffset = offset;
+            Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
+                for (PolarChunk.BlockEntity blockEntity : chunk.blockEntities()) {
+                    int x = CoordConversion.chunkBlockIndexGetX(blockEntity.index());
+                    int y = CoordConversion.chunkBlockIndexGetY(blockEntity.index());
+                    int z = CoordConversion.chunkBlockIndexGetZ(blockEntity.index());
 
-                Vector3i blockOffset = new Vector3i(chunk.x() * 16, 0, chunk.z() * 16).sub(offset).add(x, y, z);
-                BlockUtil.rotatePos(blockOffset, rotation);
-                blockOffset.add(pasteOffset);
+                    Vector3i blockOffset = new Vector3i(chunk.x() * 16, 0, chunk.z() * 16).sub(finalOffset).add(x, y, z);
+                    BlockUtil.rotatePos(blockOffset, rotation);
+                    blockOffset.add(pasteOffset);
 
-                setter.setBlockEntity(blockOffset.x, blockOffset.y, blockOffset.z, blockEntity);
-            }
+                    setter.setBlockEntity(blockOffset.x, blockOffset.y, blockOffset.z, blockEntity);
+                }
+            });
         }
 
         Set<ChunkPos> chunksToRefresh = new HashSet<>();

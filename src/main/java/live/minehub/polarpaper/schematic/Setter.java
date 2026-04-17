@@ -1,8 +1,6 @@
 package live.minehub.polarpaper.schematic;
 
-import live.minehub.polarpaper.PolarChunk;
-import live.minehub.polarpaper.PolarEntity;
-import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.userdata.EntityUtil;
 import live.minehub.polarpaper.util.BlockUtil;
@@ -13,6 +11,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.entity.CraftEntity;
+import org.joml.Vector3i;
 
 import java.util.Set;
 
@@ -23,25 +22,51 @@ public interface Setter {
 
     void spawnEntity(PolarEntity polarEntity, Location spawnLocation);
 
+    default boolean shouldPaste(PolarChunk polarChunk, PolarSection section, int sectionY, Vector3i cornerPos) {
+        return true;
+    }
+
     class World implements Setter {
         private final org.bukkit.World world;
+        private final BlockSelector selector;
 
         public World(org.bukkit.World world) {
             this.world = world;
+            this.selector = BlockSelector.ALL;
+        }
+
+        public World(org.bukkit.World world, BlockSelector selector) {
+            this.world = world;
+            this.selector = selector;
+        }
+
+        public BlockSelector getBlockSelector() {
+            return selector;
+        }
+
+        @Override
+        public boolean shouldPaste(PolarChunk polarChunk, PolarSection section, int sectionY, Vector3i cornerPos) {
+            return selector.testChunk(polarChunk.x(), polarChunk.z());
         }
 
         @Override
         public void setBlock(int x, int y, int z, BlockState newBlockState) {
+            if (!selector.test(x, y, z)) return;
+
             BlockUtil.setBlockFast(world, x, y, z, newBlockState);
         }
 
         @Override
         public void setBlockEntity(int x, int y, int z, PolarChunk.BlockEntity blockEntity) {
+            if (!selector.test(x, y, z)) return;
+
             BlockUtil.setBlockEntity(world, x, y, z, blockEntity);
         }
 
         @Override
         public void spawnEntity(PolarEntity polarEntity, Location spawnLocation) {
+            if (!selector.test(spawnLocation.blockX(), spawnLocation.blockY(), spawnLocation.blockZ())) return;
+
             net.minecraft.world.entity.Entity nmsEntity = polarEntity.toNMSEntity(world, spawnLocation, true);
             if (nmsEntity == null) return;
 

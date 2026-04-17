@@ -23,11 +23,7 @@ public class GCCommand extends PolarCmd {
     }
 
     private static void printMemoryStats(CommandContext<CommandSourceStack> ctx) {
-        // Get the Java runtime
         Runtime runtime = Runtime.getRuntime();
-        // Run the garbage collector
-        runtime.gc();
-        // Calculate the used memory
         long memory = runtime.totalMemory() - runtime.freeMemory();
 
         ctx.getSource().getSender().sendMessage("Currently using %sMB".formatted(memory / (1024L * 1024L)));

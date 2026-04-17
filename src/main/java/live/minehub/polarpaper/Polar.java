@@ -48,12 +48,14 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 @SuppressWarnings("unused")
 public class Polar {
 
-    private static final Map<String, ScheduledTask> AUTOSAVE_TASK_MAP = new HashMap<>();
+    private static final Map<String, ScheduledTask> AUTOSAVE_TASK_MAP = new ConcurrentHashMap<>();
 
     private Polar() {
 
@@ -205,12 +207,18 @@ public class Polar {
         createWorld(new PolarStreamingGenerator(config, worldAccess), worldName, worldAccess).thenAcceptAsync(world -> {
             if (world == null) return;
             if (worldBytes != null && worldBytes.length > 0) {
-                PolarStreamLoader.stream(worldBytes, world, worldAccess).thenRun(() -> future.complete(world));
+                PolarStreamLoader.stream(worldBytes, world, worldAccess)
+                        .thenRun(() -> future.complete(world))
+                        .exceptionally(e -> {
+                            ExceptionUtil.log(e);
+                            return null;
+                        });
                 return;
             }
             future.complete(world);
         });
-        return future.whenComplete((u, ex) -> {
+        return future.whenComplete((world, ex) -> {
+            if (world != null) startAutoSaveTask(world, config);
             if (ex != null) ExceptionUtil.log(ex);
         });
     }
@@ -233,17 +241,28 @@ public class Polar {
 
                 CompletableFuture<Void> future2 = new CompletableFuture<>();
                 Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
-                    PolarStreamLoader.insertChunk(level, levelChunk);
-                    worldAccess.loadChunkData(world, levelChunk, chunk.userData());
-                    future2.complete(null);
+                    try {
+                        PolarStreamLoader.insertChunk(level, levelChunk);
+                        worldAccess.loadChunkData(world, levelChunk, chunk.userData());
+                        future2.complete(null);
+                    } catch (Throwable e) {
+                        future.completeExceptionally(e);
+                    }
                 });
+                if (future2.isCompletedExceptionally()) {
+                    ExceptionUtil.log(future2.exceptionNow());
+                    return;
+                }
                 futures.add(future2);
             }
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
                 future.complete(world);
             });
         });
-        return future;
+        return future.whenComplete((world, ex) -> {
+            if (world != null) startAutoSaveTask(world, config);
+            if (ex != null) ExceptionUtil.log(ex);
+        });
     }
 
     /**
@@ -271,9 +290,7 @@ public class Polar {
 
         CompletableFuture<@Nullable World> future = new CompletableFuture<>();
 
-        Runnable worldCreateRunnable = () -> {
-            World newWorld = createPolarLevel(worldCreator, config.spawn(), config.difficulty(), config.gamerules(), config.time());
-
+        createPolarLevel(worldCreator, config.spawn(), config.difficulty(), config.gamerules(), config.time()).thenAccept(newWorld -> {
             if (newWorld == null) {
                 PolarPaper.logger().warning("An error occurred loading polar world '" + worldName + "', skipping.");
                 future.complete(null);
@@ -284,15 +301,8 @@ public class Polar {
             // chunks should be allowed to unload and be removed from memory
             newWorld.setAutoSave(false);
 
-            startAutoSaveTask(newWorld, config);
             future.complete(newWorld);
-        };
-
-        if (config.async()) {
-            Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (t) -> worldCreateRunnable.run());
-        } else {
-            worldCreateRunnable.run();
-        }
+        });
 
         return future;
     }
@@ -431,14 +441,14 @@ public class Polar {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    public static @Nullable World createPolarLevel(WorldCreator creator, Location spawnPos, Difficulty difficulty, Map<String, Object> gamerules, long time) {
+    public static CompletableFuture<@Nullable World> createPolarLevel(WorldCreator creator, Location spawnPos, Difficulty difficulty, Map<String, Object> gamerules, long time) {
         CraftServer craftServer = (CraftServer) Bukkit.getServer();
 
         boolean async = !craftServer.isPrimaryThread();
 
         // Check if already existing
         if (craftServer.getWorld(creator.name()) != null) {
-            return null;
+            return CompletableFuture.completedFuture(null);
         }
 
         Preconditions.checkState(craftServer.getServer().getAllLevels().iterator().hasNext(), "Cannot create additional worlds on STARTUP");
@@ -454,7 +464,7 @@ public class Polar {
         World worldByKey = craftServer.getWorld(creator.key());
         if (world != null || worldByKey != null) {
             if (world == worldByKey) {
-                return world;
+                return CompletableFuture.completedFuture(world);
             }
             throw new IllegalArgumentException("Cannot create a world with key " + creator.key() + " and name " + name + " one (or both) already match a world that exists");
         }
@@ -596,14 +606,18 @@ public class Polar {
             serverLevel.serverLevelData.setSpawn(LevelData.RespawnData.of(serverLevel.dimension(), new BlockPos(spawnPos.getBlockX(), spawnPos.getBlockY(), spawnPos.getBlockZ()), spawnPos.getYaw(), spawnPos.getPitch()));
 
             craftServer.getServer().updateEffectiveRespawnData();
+
+            return serverLevel.getWorld();
         };
         if (async) {
-            Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), initRunnable);
+            CompletableFuture<@Nullable World> future = new CompletableFuture<>();
+            Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
+                future.complete(initSupplier.get());
+            });
+            return future;
         } else {
-            initRunnable.run();
+            return CompletableFuture.completedFuture(initSupplier.get());
         }
-
-        return serverLevel.getWorld();
     }
 
 }
