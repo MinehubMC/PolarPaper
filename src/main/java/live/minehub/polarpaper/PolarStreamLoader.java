@@ -107,7 +107,13 @@ public class PolarStreamLoader {
         int chunkCount = getVarInt(uncompressed);
         CompletableFuture<Void>[] futures = new CompletableFuture[chunkCount];
         for (int i = 0; i < chunkCount; i++) {
-            futures[i] = readChunk(world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
+            try {
+                CompletableFuture<Void> future = readChunk(world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
+                if (future.isCompletedExceptionally()) throw future.exceptionNow();
+                futures[i] = future;
+            } catch (Throwable e) {
+                return CompletableFuture.failedFuture(e);
+            }
         }
 
         return CompletableFuture.allOf(futures);
@@ -171,9 +177,13 @@ public class PolarStreamLoader {
 
         CompletableFuture<Void> future = new CompletableFuture<>();
         Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
-            insertChunk(serverLevel, newLevelChunk);
-            worldAccess.loadChunkData(world, newLevelChunk, userData);
-            future.complete(null);
+            try {
+                insertChunk(serverLevel, newLevelChunk);
+                worldAccess.loadChunkData(world, newLevelChunk, userData);
+                future.complete(null);
+            } catch (Throwable e) {
+                future.completeExceptionally(e);
+            }
         });
 
         return future;

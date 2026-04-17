@@ -199,15 +199,15 @@ public class PolarSection {
         }
 
         int bitsPerBlockEntry = (int) Math.ceil(Math.log(blockPalette.length) / Math.log(2));
+        int longBitsPerBlockEntry = bitsPerBlockEntry;
         if (blockData != null) {
-            int longBitsPerBlockEntry = PaletteUtil.getBitsForLongLength(blockData.length);
-            if (longBitsPerBlockEntry > bitsPerBlockEntry) bitsPerBlockEntry = longBitsPerBlockEntry;
+            longBitsPerBlockEntry = PaletteUtil.getBitsForLongLength(blockData.length);
         }
 
         int bitsPerBiomeEntry = (int) Math.ceil(Math.log(biomePalette.length) / Math.log(2));
+        int longBitsPerBiomeEntry = bitsPerBiomeEntry;
         if (biomeData != null) {
-            int longBitsPerBiomeEntry = PaletteUtil.getBitsForLongLength(biomeData.length);
-            if (longBitsPerBiomeEntry > bitsPerBiomeEntry) bitsPerBiomeEntry = longBitsPerBiomeEntry;
+            longBitsPerBiomeEntry = PaletteUtil.getBitsForLongLength(biomeData.length);
         }
 
         Strategy<BlockState> blockStrategy = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
@@ -216,14 +216,27 @@ public class PolarSection {
         Strategy<Holder<Biome>> biomeStrategy = Strategy.createForBiomes(registry.asHolderIdMap());
         PalettedContainer<Holder<Biome>> biomes = new PalettedContainer<>(orThrow, biomeStrategy, biomeHolderPalette);
 
-        biomes.data = getPalettedContainer(biomeHolderPalette, biomeData, bitsPerBiomeEntry, biomeStrategy);
-        states.data = getPalettedContainer(materialPalette, blockData, bitsPerBlockEntry, blockStrategy);
+        biomes.data = getPalettedContainer(biomeHolderPalette, biomeData, bitsPerBiomeEntry, longBitsPerBiomeEntry, biomeStrategy);
+        states.data = getPalettedContainer(materialPalette, blockData, bitsPerBlockEntry, longBitsPerBlockEntry, blockStrategy);
 
-        return new LevelChunkSection(states, biomes);
+        try {
+            return new LevelChunkSection(states, biomes);
+        } catch (Exception e) {
+            PolarPaper.logger().info("Biome Bits: " + bitsPerBiomeEntry);
+            PolarPaper.logger().info("Biome Long Bits: " + longBitsPerBiomeEntry);
+            PolarPaper.logger().info("Biome Data Length: " + biomeData.length);
+            PolarPaper.logger().info("Biome Palette Length: " + biomePalette.length);
+            PolarPaper.logger().info("----");
+            PolarPaper.logger().info("Block Bits: " + bitsPerBlockEntry);
+            PolarPaper.logger().info("Block Long Bits: " + longBitsPerBlockEntry);
+            PolarPaper.logger().info("Block Data Length: " + blockData.length);
+            PolarPaper.logger().info("Block Palette Length: " + materialPalette.length);
+            throw new RuntimeException(e);
+        }
     }
 
-     private static <T> PalettedContainer.Data<T> getPalettedContainer(T[] palette, long[] data, int bits, Strategy<T> strategy) {
-         if (data == null || bits == 0) {
+     private static <T> PalettedContainer.Data<T> getPalettedContainer(T[] palette, long[] data, int bits, int longBits, Strategy<T> strategy) {
+         if (data == null || bits == 0 || longBits == 0) {
              Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, 0);
              return new PalettedContainer.Data<>(
                      configuration,
@@ -236,9 +249,9 @@ public class PolarSection {
 
              Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, bits);
              long[] packed;
-             if (configuration.alwaysRepack() || configuration.bitsInMemory() != bits || data.length != expectedDataLength) {
+             if (configuration.alwaysRepack() || configuration.bitsInMemory() != bits || data.length != expectedDataLength || bits > longBits) {
                  int[] unpacked = new int[strategy.entryCount()];
-                 PaletteUtil.unpack(unpacked, data, bits);
+                 PaletteUtil.unpack(unpacked, data, longBits);
                  packed = PaletteUtil.pack(unpacked, configuration.bitsInMemory());
              } else {
                  packed = data.clone(); // only clone if not repacked

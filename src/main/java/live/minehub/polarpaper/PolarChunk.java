@@ -23,7 +23,6 @@ import net.minecraft.util.BitStorage;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.*;
 import net.minecraft.world.level.lighting.LevelLightEngine;
@@ -119,6 +118,7 @@ public record PolarChunk(
         } else {
             PolarStreamLoader.lightChunk(serverLevel, chunk);
         }
+        chunk.setLightCorrect(true);
 
         return chunk;
     }
@@ -174,10 +174,6 @@ public record PolarChunk(
         PolarSection[] sections = new PolarSection[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
             LevelChunkSection chunkAccessSection = chunkAccess.getSection(i);
-            if (chunkAccessSection.hasOnlyAir()) {
-                sections[i] = createEmptySection(chunkX, chunkZ, minSection, i, lightEngine); // empty section
-                continue;
-            }
             sections[i] = convertSection(chunkX, chunkZ, chunkAccessSection, biomeRegistry, blockSelector, minSection, i, lightEngine);
         }
 
@@ -228,57 +224,55 @@ public record PolarChunk(
     }
 
     private static PolarSection convertSection(int chunkX, int chunkZ, LevelChunkSection chunkAccessSection, Registry<Biome> biomeRegistry, BlockSelector blockSelector, int minSection, int sectionI, @Nullable LevelLightEngine lightEngine) {
-        long[] blockData = null;
+        if (chunkAccessSection.hasOnlyAir()) return createEmptySection(chunkX, chunkZ, minSection, sectionI, lightEngine);
+
+        long[] blockData;
         long[] biomeData;
 
         List<String> blockPaletteStrings = new ArrayList<>();
         List<String> biomePaletteStrings = new ArrayList<>();
-        if (!chunkAccessSection.hasOnlyAir()) {
-            PalettedContainer.Data<BlockState> blockPaletteData = chunkAccessSection.getStates().data;
-            Palette<BlockState> chunkPalette = blockPaletteData.palette();
-            if (chunkPalette instanceof GlobalPalette<BlockState> globalPalette) {
-                for (int i1 = 0; i1 < globalPalette.getSize(); i1++) {
-                    BlockState blockState = globalPalette.valueFor(i1);
+
+        PalettedContainer.Data<BlockState> blockPaletteData = chunkAccessSection.getStates().data;
+        Palette<BlockState> chunkPalette = blockPaletteData.palette();
+        if (chunkPalette instanceof GlobalPalette<BlockState> globalPalette) {
+            for (int i1 = 0; i1 < globalPalette.getSize(); i1++) {
+                BlockState blockState = globalPalette.valueFor(i1);
+                blockPaletteStrings.add(blockState.toString()
+                        .replace("Block{", "").replace("}", "")); // e.g. Block{minecraft:oak_fence}[...] to minecraft:oak_fence[...]
+            }
+        } else {
+            Object[] palette = chunkPalette.moonrise$getRawPalette(blockPaletteData);
+            if (palette != null) {
+                for (Object p : palette) {
+                    if (!(p instanceof BlockState blockState)) continue;
                     blockPaletteStrings.add(blockState.toString()
                             .replace("Block{", "").replace("}", "")); // e.g. Block{minecraft:oak_fence}[...] to minecraft:oak_fence[...]
                 }
-            } else {
-                Object[] palette = chunkPalette.moonrise$getRawPalette(blockPaletteData);
-                if (palette != null) {
-                    for (Object p : palette) {
-                        if (!(p instanceof BlockState blockState)) continue;
-                        blockPaletteStrings.add(blockState.toString()
-                                .replace("Block{", "").replace("}", "")); // e.g. Block{minecraft:oak_fence}[...] to minecraft:oak_fence[...]
-                    }
-                }
             }
+        }
 
-            int airIndex = blockPaletteStrings.indexOf("minecraft:air");
-            if (airIndex == -1) {
-                blockPaletteStrings.add("minecraft:air");
-                airIndex = blockPaletteStrings.size() - 1;
-            }
+        int airIndex = blockPaletteStrings.indexOf("minecraft:air");
+        if (airIndex == -1) {
+            blockPaletteStrings.add("minecraft:air");
+            airIndex = blockPaletteStrings.size() - 1;
+        }
 
-            // TODO: measure time impact of this
-            BitStorage blockBitStorage = blockPaletteData.storage().copy();
-            for (int index = 0; index < blockBitStorage.getSize(); ++index) {
-                boolean included = blockSelector.test(index, chunkX, chunkZ, minSection + sectionI);
-                if (included) continue;
-                blockBitStorage.set(index, airIndex);
-            }
+        // TODO: measure time impact of this
+        BitStorage blockBitStorage = blockPaletteData.storage().copy();
+        for (int index = 0; index < blockBitStorage.getSize(); ++index) {
+            boolean included = blockSelector.test(index, chunkX, chunkZ, minSection + sectionI);
+            if (included) continue;
+            blockBitStorage.set(index, airIndex);
+        }
 
-            int bitsPerEntry = (int) Math.ceil(Math.log(blockPaletteStrings.size()) / Math.log(2));
-            if (blockBitStorage.getBits() != 0 && bitsPerEntry != blockBitStorage.getBits()) {
-                // repack
-                int[] ints = new int[blockBitStorage.getSize()];
-                PaletteUtil.unpack(ints, blockBitStorage.getRaw(), blockBitStorage.getBits());
-                blockData = PaletteUtil.pack(ints, bitsPerEntry);
-            } else {
-                blockData = blockBitStorage.getRaw();
-            }
+        int bitsPerEntry = (int) Math.ceil(Math.log(blockPaletteStrings.size()) / Math.log(2));
+        if (blockBitStorage.getBits() != 0 && bitsPerEntry != blockBitStorage.getBits()) {
+            // repack
+            int[] ints = new int[blockBitStorage.getSize()];
+            PaletteUtil.unpack(ints, blockBitStorage.getRaw(), blockBitStorage.getBits());
+            blockData = PaletteUtil.pack(ints, bitsPerEntry);
         } else {
-            blockPaletteStrings.add(Blocks.AIR.defaultBlockState().toString()
-                    .replace("Block{", "").replace("}", ""));
+            blockData = blockBitStorage.getRaw();
         }
         PalettedContainer.Data<Holder<Biome>> biomePaletteData = ((PalettedContainer<Holder<Biome>>)chunkAccessSection.getBiomes()).data;
         Object[] biomePalette = biomePaletteData.palette().moonrise$getRawPalette(biomePaletteData);
