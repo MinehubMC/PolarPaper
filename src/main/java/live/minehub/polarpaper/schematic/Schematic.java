@@ -16,9 +16,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.craftbukkit.block.data.CraftBlockData;
 import org.joml.Vector3i;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class Schematic {
 
@@ -29,6 +27,8 @@ public class Schematic {
         byte[] userData = polarWorld.userData();
         Vector3i offset = WorldUserData.readSchematicOffset(userData);
         if (offset == null) offset = new Vector3i();
+
+        Map<Vector3i, PolarChunk.BlockEntity> blockEntityMap = new HashMap<>();
 
         for (PolarChunk chunk : polarWorld.chunks()) {
             int i = 0;
@@ -44,40 +44,46 @@ public class Schematic {
 
             handleUserData(setter, pasteOffset, rotation, chunk, offset);
 
-            Vector3i finalOffset = offset;
-            Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
-                for (PolarChunk.BlockEntity blockEntity : chunk.blockEntities()) {
-                    int x = CoordConversion.chunkBlockIndexGetX(blockEntity.index());
-                    int y = CoordConversion.chunkBlockIndexGetY(blockEntity.index());
-                    int z = CoordConversion.chunkBlockIndexGetZ(blockEntity.index());
+            for (PolarChunk.BlockEntity blockEntity : chunk.blockEntities()) {
+                int x = CoordConversion.chunkBlockIndexGetX(blockEntity.index());
+                int y = CoordConversion.chunkBlockIndexGetY(blockEntity.index());
+                int z = CoordConversion.chunkBlockIndexGetZ(blockEntity.index());
 
-                    Vector3i blockOffset = new Vector3i(chunk.x() * 16, 0, chunk.z() * 16).sub(finalOffset).add(x, y, z);
-                    BlockUtil.rotatePos(blockOffset, rotation);
-                    blockOffset.add(pasteOffset);
+                Vector3i blockOffset = new Vector3i(chunk.x() * 16, 0, chunk.z() * 16).sub(offset).add(x, y, z);
+                BlockUtil.rotatePos(blockOffset, rotation);
+                blockOffset.add(pasteOffset);
 
-                    setter.setBlockEntity(blockOffset.x, blockOffset.y, blockOffset.z, blockEntity);
-                }
-            });
-        }
-
-        Set<ChunkPos> chunksToRefresh = new HashSet<>();
-        for (PolarChunk chunk : polarWorld.chunks()) {
-            Vector3i chunkOffset = new Vector3i(chunk.x() * 16, 0, chunk.z() * 16)
-                    .sub(offset);
-            BlockUtil.rotatePos(chunkOffset, rotation);
-            chunkOffset.add(pasteOffset.x, 0, pasteOffset.z);
-
-            int cX = (int)Math.floor(chunkOffset.x / 16.0);
-            int cZ = (int)Math.floor(chunkOffset.z / 16.0);
-
-            for (int x = -1; x <= 1; x++) {
-                for (int z = -1; z <= 1; z++) {
-                    chunksToRefresh.add(new ChunkPos(cX + x, cZ + z));
-                }
+                blockEntityMap.put(blockOffset, blockEntity);
             }
         }
 
-        if (setter instanceof Setter.World worldSetter) worldSetter.refreshChunks(chunksToRefresh);
+        Vector3i finalOffset = offset;
+        Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
+            for (Map.Entry<Vector3i, PolarChunk.BlockEntity> entry : blockEntityMap.entrySet()) {
+                Vector3i blockOffset = entry.getKey();
+                PolarChunk.BlockEntity blockEntity = entry.getValue();
+                setter.setBlockEntity(blockOffset.x, blockOffset.y, blockOffset.z, blockEntity);
+            }
+
+            Set<ChunkPos> chunksToRefresh = new HashSet<>();
+            for (PolarChunk chunk : polarWorld.chunks()) {
+                Vector3i chunkOffset = new Vector3i(chunk.x() * 16, 0, chunk.z() * 16)
+                        .sub(finalOffset);
+                BlockUtil.rotatePos(chunkOffset, rotation);
+                chunkOffset.add(pasteOffset.x, 0, pasteOffset.z);
+
+                int cX = (int)Math.floor(chunkOffset.x / 16.0);
+                int cZ = (int)Math.floor(chunkOffset.z / 16.0);
+
+                for (int x = -1; x <= 1; x++) {
+                    for (int z = -1; z <= 1; z++) {
+                        chunksToRefresh.add(new ChunkPos(cX + x, cZ + z));
+                    }
+                }
+            }
+
+            if (setter instanceof Setter.World worldSetter) worldSetter.refreshChunks(chunksToRefresh);
+        });
     }
 
     private static void handleUserData(Setter setter, Vector3i pasteOffset, Rotation rotation, PolarChunk chunk, Vector3i offset) {
