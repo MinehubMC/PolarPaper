@@ -571,32 +571,32 @@ public class Polar {
                 new PhantomSpawner(), new PatrolSpawner(), new CatSpawner(), new VillageSiege(), new WanderingTraderSpawner(savedDataStorage)
         );
 
-        ServerLevel serverLevel = new ServerLevel(
-                craftServer.getServer(),
-                craftServer.getServer().executor,
-                craftServer.getServer().storageSource,
-                worldGenSettings,
-                dimensionKey,
-                customStem,
-                primaryLevelData.isDebugWorld(),
-                biomeZoomSeed,
-                creator.environment() == World.Environment.NORMAL ? list : ImmutableList.of(),
-                true,
-                actualDimension,
-                creator.environment(),
-                chunkGenerator,
-                biomeProvider,
-                savedDataStorage,
-                loadedWorldData
-        );
+        LevelStem finalCustomStem = customStem;
+        ChunkGenerator finalChunkGenerator = chunkGenerator;
+        BiomeProvider finalBiomeProvider = biomeProvider;
+        PaperWorldLoader.LoadedWorldData finalLoadedWorldData = loadedWorldData;
+        Supplier<World> initSupplier = () -> {
+            ServerLevel serverLevel = new ServerLevel(
+                    craftServer.getServer(),
+                    craftServer.getServer().executor,
+                    craftServer.getServer().storageSource,
+                    worldGenSettings,
+                    dimensionKey,
+                    finalCustomStem,
+                    primaryLevelData.isDebugWorld(),
+                    biomeZoomSeed,
+                    creator.environment() == World.Environment.NORMAL ? list : ImmutableList.of(),
+                    true,
+                    actualDimension,
+                    creator.environment(),
+                    finalChunkGenerator,
+                    finalBiomeProvider,
+                    savedDataStorage,
+                    finalLoadedWorldData
+            );
 
-//        if (!(craftServer.getWorlds().containsKey(name.toLowerCase(Locale.ROOT)))) {
-//            return null;
-//        }
+            serverLevel.clockManager().setTotalTicks(serverLevel.dimensionType().defaultClock().get(), time);
 
-        serverLevel.clockManager().setTotalTicks(serverLevel.dimensionType().defaultClock().get(), time);
-
-        Runnable initRunnable = () -> {
             craftServer.getServer().addLevel(serverLevel); // Paper - Put world into worldlist before initing the world; move up
             craftServer.getServer().initWorld(serverLevel);
             // Paper - Put world into worldlist before initing the world; move up
