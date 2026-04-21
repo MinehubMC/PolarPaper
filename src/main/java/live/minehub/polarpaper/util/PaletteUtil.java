@@ -80,6 +80,7 @@ public final class PaletteUtil {
     }
 
     public static int getBitsForLongLength(int longLength) {
+        if (longLength == 1024) return 15;
         return (longLength * 64) / PolarSection.BLOCK_PALETTE_SIZE;
     }
 
