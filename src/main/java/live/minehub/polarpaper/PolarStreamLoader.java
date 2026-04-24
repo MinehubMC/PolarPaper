@@ -29,6 +29,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.UpgradeData;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.ticks.LevelChunkTicks;
 import org.bukkit.Bukkit;
@@ -42,6 +43,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 
 import static live.minehub.polarpaper.util.ByteArrayUtil.getVarInt;
@@ -255,6 +257,8 @@ public class PolarStreamLoader {
             Field lastChunkCompletionField = NewChunkHolder.class.getDeclaredField("lastChunkCompletion");
             lastChunkCompletionField.setAccessible(true);
             lastChunkCompletionField.set(newChunkHolder, fullCompletion);
+
+            Heightmap.primeHeightmaps(newLevelChunk, EnumSet.allOf(Heightmap.Types.class));
 
             newLevelChunk.registerAllBlockEntitiesAfterLevelLoad();
             newLevelChunk.registerTickContainerInLevel(serverLevel);
