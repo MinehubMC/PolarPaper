@@ -93,6 +93,11 @@ public class Polar {
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
     public static CompletableFuture<@Nullable World> loadWorld(@NotNull PolarSource source, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+        if (Bukkit.getWorld(worldName) != null) {
+            PolarPaper.logger().warning("A world with the name '" + worldName + "' already exists, skipping.");
+            return CompletableFuture.completedFuture(null);
+        }
+
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
 
