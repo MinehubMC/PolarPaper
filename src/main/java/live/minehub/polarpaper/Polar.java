@@ -210,6 +210,7 @@ public class Polar {
                 PolarStreamLoader.stream(worldBytes, world, worldAccess)
                         .thenRun(() -> future.complete(world))
                         .exceptionally(e -> {
+                            PolarPaper.logger().warning("Failed to load world " + worldName);
                             ExceptionUtil.log(e);
                             return null;
                         });

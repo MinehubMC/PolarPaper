@@ -139,13 +139,20 @@ public class PolarStreamLoader {
         for (int i = 0; i < sectionCount; i++) {
             PolarSection polarSection = PolarReader.readSection(dataConverter, version, dataVersion, bb);
             if (!anyPresent && (polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) anyPresent = true;
-            LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess());
-            levelChunkSections[i] = section;
-            boolean airSection = section.hasOnlyAir();
-            skyEmptiness[i] = airSection;
-            blockEmptiness[i] = airSection;
-            skyNibbles[i + 1] = new SWMRNibbleArray(polarSection.skyLight());
-            blockNibbles[i + 1] = new SWMRNibbleArray(polarSection.blockLight());
+
+            try {
+                LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess());
+                levelChunkSections[i] = section;
+                boolean airSection = section.hasOnlyAir();
+                skyEmptiness[i] = airSection;
+                blockEmptiness[i] = airSection;
+                skyNibbles[i + 1] = new SWMRNibbleArray(polarSection.skyLight());
+                blockNibbles[i + 1] = new SWMRNibbleArray(polarSection.blockLight());
+
+            } catch (Exception e) {
+                PolarPaper.logger().warning("Failed to load chunk at " + chunkX + " " + chunkZ);
+                throw e;
+            }
 
         }
 
@@ -307,12 +314,16 @@ public class PolarStreamLoader {
         BlockPos blockPos = new BlockPos(chunk.getPos().x() * 16 + x, y, chunk.getPos().z() * 16 + z);
 
         if (!(blockState.getBlock() instanceof EntityBlock entityBlock)) {
-            throw new IllegalArgumentException("Block " + blockState + " does not have a block entity");
+//            PolarPaper.logger().warning("Block " + blockState + " does not have a block entity");
+//            throw new IllegalArgumentException("Block " + blockState + " does not have a block entity");
+            return;
         }
 
         BlockEntity blockEntity = entityBlock.newBlockEntity(blockPos, blockState);
         if (blockEntity == null) {
-            throw new IllegalArgumentException("Block " + blockState + " returned null block entity");
+//            PolarPaper.logger().warning("Block " + blockState + " returned null block entity");
+//            throw new IllegalArgumentException("Block " + blockState + " returned null block entity");
+            return;
         }
 
         // Load NBT data into the block entity

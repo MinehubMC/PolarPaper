@@ -249,7 +249,7 @@ public class PolarSection {
 
              Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, bits);
              long[] packed;
-             if (configuration.alwaysRepack() || configuration.bitsInMemory() != bits || data.length != expectedDataLength || bits > longBits) {
+             if (configuration.alwaysRepack() || configuration.bitsInMemory() != bits || data.length != expectedDataLength || bits != longBits) {
                  int[] unpacked = new int[strategy.entryCount()];
                  PaletteUtil.unpack(unpacked, data, longBits);
                  packed = PaletteUtil.pack(unpacked, configuration.bitsInMemory());
