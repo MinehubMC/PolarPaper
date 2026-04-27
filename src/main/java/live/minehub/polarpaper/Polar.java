@@ -604,7 +604,7 @@ public class Polar {
             serverLevel.clockManager().setTotalTicks(serverLevel.dimensionType().defaultClock().get(), time);
 
             craftServer.getServer().addLevel(serverLevel); // Paper - Put world into worldlist before initing the world; move up
-            craftServer.getServer().initWorld(serverLevel);
+            craftServer.getServer().initWorld(serverLevel, null);
             // Paper - Put world into worldlist before initing the world; move up
 
             craftServer.getServer().prepareLevel(serverLevel);
