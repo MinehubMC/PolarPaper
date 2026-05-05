@@ -4,6 +4,7 @@ import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlic
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
+import ca.spottedleaf.moonrise.patches.starlight.light.StarLightEngine;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.util.ByteArrayUtil;
@@ -77,7 +78,7 @@ public record PolarChunk(
     public PolarChunk(int x, int z, int sectionCount) {
         // Blank chunk
         this(x, z, new PolarSection[sectionCount], new BlockEntity[0], new int[PolarChunk.MAX_HEIGHTMAPS][0], new byte[0]);
-        Arrays.setAll(sections, (i) -> new PolarSection());
+        Arrays.setAll(sections, _ -> new PolarSection());
     }
 
     public PolarChunk withUserData(byte[] newUserData) {
@@ -92,27 +93,28 @@ public record PolarChunk(
         blockNibbles[sectionCount + 1] = new SWMRNibbleArray();
         skyNibbles[0] = new SWMRNibbleArray();
         skyNibbles[sectionCount + 1] = new SWMRNibbleArray();
-        boolean[] skyEmptiness = new boolean[sectionCount];
-        boolean[] blockEmptiness = new boolean[sectionCount];
-        boolean anyPresent = false;
+        boolean lightPresent = false;
         LevelChunkSection[] levelChunkSections = new LevelChunkSection[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
             PolarSection polarSection = sections()[i];
-            if (!anyPresent && (polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) anyPresent = true;
+            if ((polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) lightPresent = true;
             LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess());
             levelChunkSections[i] = section;
-            boolean airSection = section.hasOnlyAir();
-            skyEmptiness[i] = airSection;
-            blockEmptiness[i] = airSection;
             skyNibbles[i + 1] = new SWMRNibbleArray(polarSection.skyLight());
             blockNibbles[i + 1] = new SWMRNibbleArray(polarSection.blockLight());
 
         }
         NoUnloadLevelChunk chunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(x, z), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
 
-        if (anyPresent) {
-            chunk.starlight$setBlockEmptinessMap(blockEmptiness);
-            chunk.starlight$setSkyEmptinessMap(skyEmptiness);
+        if (lightPresent) {
+            Boolean[] emptinessMap = StarLightEngine.getEmptySectionsForChunk(chunk);
+            boolean[] emptinessMapPrim = new boolean[emptinessMap.length];
+            for (int i = 0; i < emptinessMap.length; i++) {
+                Boolean bool = emptinessMap[i];
+                emptinessMapPrim[i] = bool != null && bool;
+            }
+            chunk.starlight$setBlockEmptinessMap(emptinessMapPrim);
+            chunk.starlight$setSkyEmptinessMap(emptinessMapPrim);
             chunk.starlight$setSkyNibbles(skyNibbles);
             chunk.starlight$setBlockNibbles(blockNibbles);
         } else {

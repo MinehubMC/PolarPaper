@@ -14,7 +14,7 @@ public class ReloadCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
 
         UnloadCommand.unload(ctx, worldName, false, false).thenAccept(success -> {
             if (!success) return;

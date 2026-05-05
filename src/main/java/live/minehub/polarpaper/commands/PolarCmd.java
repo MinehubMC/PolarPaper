@@ -51,7 +51,7 @@ public abstract class PolarCmd {
     }
 
     public RequiredArgumentBuilder<CommandSourceStack, String> createFileWorldNameArgument(boolean greedy) {
-        return Commands.argument("worldname", greedy ? StringArgumentType.greedyString() : StringArgumentType.string())
+        return Commands.argument("world name", greedy ? StringArgumentType.greedyString() : StringArgumentType.string())
                 .suggests((ctx, s) -> {
                     Path pluginFolder = PolarPaper.getPlugin().getDataPath();
                     Path worldsFolder = pluginFolder.resolve("worlds");
@@ -74,7 +74,7 @@ public abstract class PolarCmd {
     }
 
     public RequiredArgumentBuilder<CommandSourceStack, String> createWorldNameArgument(boolean greedy, boolean onlyPolar) {
-        return Commands.argument("worldname", greedy ? StringArgumentType.greedyString() : StringArgumentType.string())
+        return Commands.argument("world name", greedy ? StringArgumentType.greedyString() : StringArgumentType.string())
                 .suggests((ctx, s) -> {
                     for (World world : Bukkit.getWorlds()) {
                         if (onlyPolar) {

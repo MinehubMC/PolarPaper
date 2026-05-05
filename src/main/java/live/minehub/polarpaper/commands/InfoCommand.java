@@ -65,7 +65,7 @@ public class InfoCommand extends PolarCmd {
     }
 
     private static int executeArgument(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
         return printInfo(ctx, worldName);
     }
 

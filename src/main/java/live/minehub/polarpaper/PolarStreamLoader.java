@@ -7,6 +7,7 @@ import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManage
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkTaskScheduler;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
+import ca.spottedleaf.moonrise.patches.starlight.light.StarLightEngine;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightInterface;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -134,20 +135,15 @@ public class PolarStreamLoader {
         blockNibbles[sectionCount + 1] = new SWMRNibbleArray();
         skyNibbles[0] = new SWMRNibbleArray();
         skyNibbles[sectionCount + 1] = new SWMRNibbleArray();
-        boolean[] skyEmptiness = new boolean[sectionCount];
-        boolean[] blockEmptiness = new boolean[sectionCount];
-        boolean anyPresent = false;
+        boolean lightPresent = false;
         LevelChunkSection[] levelChunkSections = new LevelChunkSection[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
             PolarSection polarSection = PolarReader.readSection(dataConverter, version, dataVersion, bb);
-            if (!anyPresent && (polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) anyPresent = true;
+            if (!lightPresent && (polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) lightPresent = true;
 
             try {
                 LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess());
                 levelChunkSections[i] = section;
-                boolean airSection = section.hasOnlyAir();
-                skyEmptiness[i] = airSection;
-                blockEmptiness[i] = airSection;
                 skyNibbles[i + 1] = new SWMRNibbleArray(polarSection.skyLight());
                 blockNibbles[i + 1] = new SWMRNibbleArray(polarSection.blockLight());
 
@@ -160,9 +156,15 @@ public class PolarStreamLoader {
 
         NoUnloadLevelChunk newLevelChunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(chunkX, chunkZ), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
 
-        if (anyPresent) {
-            newLevelChunk.starlight$setBlockEmptinessMap(blockEmptiness);
-            newLevelChunk.starlight$setSkyEmptinessMap(skyEmptiness);
+        if (lightPresent) {
+            Boolean[] emptinessMap = StarLightEngine.getEmptySectionsForChunk(newLevelChunk);
+            boolean[] emptinessMapPrim = new boolean[emptinessMap.length];
+            for (int i = 0; i < emptinessMap.length; i++) {
+                Boolean bool = emptinessMap[i];
+                emptinessMapPrim[i] = bool != null && bool;
+            }
+            newLevelChunk.starlight$setBlockEmptinessMap(emptinessMapPrim);
+            newLevelChunk.starlight$setSkyEmptinessMap(emptinessMapPrim);
             newLevelChunk.starlight$setSkyNibbles(skyNibbles);
             newLevelChunk.starlight$setBlockNibbles(blockNibbles);
         } else {
@@ -185,7 +187,7 @@ public class PolarStreamLoader {
         bb.readBytes(userData);
 
         CompletableFuture<Void> future = new CompletableFuture<>();
-        Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
+        Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), _ -> {
             try {
                 insertChunk(serverLevel, newLevelChunk);
                 worldAccess.loadChunkData(world, newLevelChunk, userData);
@@ -294,14 +296,7 @@ public class PolarStreamLoader {
     public static void lightChunk(ServerLevel level, LevelChunk chunk) {
         ThreadedLevelLightEngine threadedEngine = (ThreadedLevelLightEngine) level.getLightEngine();
         StarLightInterface starlight = threadedEngine.starlight$getLightEngine();
-
-        LevelChunkSection[] sections = chunk.getSections();
-        Boolean[] emptySections = new Boolean[sections.length];
-        for (int i = 0; i < sections.length; i++) {
-            emptySections[i] = sections[i].hasOnlyAir();
-        }
-
-        starlight.lightChunk(chunk, emptySections);
+        starlight.lightChunk(chunk, StarLightEngine.getEmptySectionsForChunk(chunk));
     }
 
     private static void readBlockEntity(@NotNull PolarDataConverter dataConverter, LevelChunk chunk, int dataVersion, @NotNull ByteBuf bb) {

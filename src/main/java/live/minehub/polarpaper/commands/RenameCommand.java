@@ -26,8 +26,8 @@ public class RenameCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
-        String newWorldName = ctx.getArgument("newworldname", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
+        String newWorldName = ctx.getArgument("new world name", String.class);
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld != null) {
@@ -103,7 +103,7 @@ public class RenameCommand extends PolarCmd {
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
         builder.then(createFileWorldNameArgument(false)
-                .then(Commands.argument("newworldname", StringArgumentType.greedyString())
+                .then(Commands.argument("new world name", StringArgumentType.greedyString())
                         .executes(RenameCommand::run)));
     }
 }

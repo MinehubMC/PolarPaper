@@ -36,7 +36,7 @@ public class CreateFromRegionCommand extends PolarCmd {
 
         World bukkitWorld = player.getWorld();
 
-        String newWorldName = ctx.getArgument("newworldname", String.class);
+        String newWorldName = ctx.getArgument("new world name", String.class);
 
         long before = System.nanoTime();
 
@@ -62,7 +62,7 @@ public class CreateFromRegionCommand extends PolarCmd {
 
         // TODO: option to center the world
 
-        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
+        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
             try {
                 PolarWorld polarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, blockSelector);
                 polarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
@@ -118,7 +118,7 @@ public class CreateFromRegionCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(Commands.argument("newworldname", StringArgumentType.string())
+        builder.then(Commands.argument("new world name", StringArgumentType.string())
                 .executes(CreateFromRegionCommand::run));
     }
 }

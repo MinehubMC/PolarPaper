@@ -28,8 +28,8 @@ public class CopyCommand extends PolarCmd {
     public static int run(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
 
-        String worldName = ctx.getArgument("worldname", String.class);
-        String newWorldName = ctx.getArgument("newworldname", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
+        String newWorldName = ctx.getArgument("new world name", String.class);
 
         Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
@@ -85,7 +85,7 @@ public class CopyCommand extends PolarCmd {
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
         builder.then(createWorldNameArgument(false, true)
-                .then(Commands.argument("newworldname", StringArgumentType.string())
+                .then(Commands.argument("new world name", StringArgumentType.greedyString())
                         .executes(CopyCommand::run)));
     }
 }

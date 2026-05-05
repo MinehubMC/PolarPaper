@@ -20,7 +20,7 @@ public class SaveZSTDCommand extends PolarCmd {
     }
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld == null) {
@@ -57,7 +57,7 @@ public class SaveZSTDCommand extends PolarCmd {
             Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
         });
 
-        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
+        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
 
             for (int i = 0; i <= 22; i++) {
                 long before = System.nanoTime();

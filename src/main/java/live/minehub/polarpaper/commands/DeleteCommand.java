@@ -23,7 +23,7 @@ public class DeleteCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld != null) {

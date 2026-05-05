@@ -25,7 +25,7 @@ public class LoadCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
 
         loadWorld(ctx, worldName);
 

@@ -13,7 +13,7 @@ default:
   compressionLevel: 7 # ZSTD compression level, higher means smaller file size but longer save times. Max 22, default 7
   worldType: FLAT # One of: NORMAL, FLAT, AMPLIFIED, LARGE_BIOMES
   environment: NORMAL # One of: NORMAL, NETHER, THE_END, CUSTOM
-  gamerules: # Custom rules: liquidPhysics, blockPhysics, blockGravity, coralDeath
+  gamerules: # Custom rules: liquidPhysics, blockPhysics, blockGravity, blockFade
     - spawn_mobs: false
     - fire_spread_radius_around_player: 0
     - random_tick_speed: 0

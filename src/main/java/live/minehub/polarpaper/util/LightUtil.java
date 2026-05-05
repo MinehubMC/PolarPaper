@@ -18,8 +18,8 @@ public class LightUtil {
     public static byte[] getLightArray(PolarSection.LightContent lightContent, byte[] data) {
         return switch (lightContent) {
             case MISSING -> null;
-            case EMPTY -> EMPTY_CONTENT;
-            case FULL -> FULLY_LIT_CONTENT;
+            case EMPTY -> EMPTY_CONTENT.clone();
+            case FULL -> FULLY_LIT_CONTENT.clone();
             case PRESENT -> data;
         };
     }

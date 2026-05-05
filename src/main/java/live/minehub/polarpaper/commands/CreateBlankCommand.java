@@ -25,7 +25,7 @@ public class CreateBlankCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("newworldname", String.class);
+        String worldName = ctx.getArgument("new world name", String.class);
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld != null) {
@@ -74,7 +74,7 @@ public class CreateBlankCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(Commands.argument("newworldname", StringArgumentType.greedyString())
+        builder.then(Commands.argument("new world name", StringArgumentType.greedyString())
                 .executes(CreateBlankCommand::run));
     }
 }

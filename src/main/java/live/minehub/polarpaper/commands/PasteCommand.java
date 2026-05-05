@@ -81,7 +81,7 @@ public class PasteCommand extends PolarCmd {
             return Command.SINGLE_SUCCESS;
         }
 
-        String ignoreAirString = ctx.getArgument("ignoreair", String.class);
+        String ignoreAirString = ctx.getArgument("ignore air", String.class);
 
         try {
             Schematic.IgnoreAir ignoreAir = Schematic.IgnoreAir.valueOf(ignoreAirString.toUpperCase());
@@ -97,7 +97,7 @@ public class PasteCommand extends PolarCmd {
 
         long before = System.nanoTime();
 
-        String worldName = ctx.getArgument("worldname", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
 
         Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
@@ -160,18 +160,18 @@ public class PasteCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(Commands.argument("worldname", StringArgumentType.string())
+        builder.then(Commands.argument("world name", StringArgumentType.string())
                 .executes(PasteCommand::run)
                 .then(Commands.argument("rotation", StringArgumentType.string())
-                        .suggests((ctx, s) -> {
+                        .suggests((_, s) -> {
                             for (Rotation rotation : Rotation.values()) {
                                 s.suggest(rotation.getFriendlyName());
                             }
                             return s.buildFuture();
                         })
                         .executes(PasteCommand::runWithRotation)
-                        .then(Commands.argument("ignoreair", StringArgumentType.string())
-                                .suggests((ctx, s) -> {
+                        .then(Commands.argument("ignore air", StringArgumentType.string())
+                                .suggests((_, s) -> {
                                     for (Schematic.IgnoreAir ignoreAir : Schematic.IgnoreAir.values()) {
                                         s.suggest(ignoreAir.name().toLowerCase());
                                     }

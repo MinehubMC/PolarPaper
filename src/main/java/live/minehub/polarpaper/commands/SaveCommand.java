@@ -19,7 +19,7 @@ public class SaveCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
 
         World bukkitWorld = Bukkit.getWorld(worldName);
         if (bukkitWorld == null) {
@@ -56,7 +56,7 @@ public class SaveCommand extends PolarCmd {
             Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
         });
 
-        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
+        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
             try {
                 Polar.saveWorldToFile(bukkitWorld);
             } catch (Exception e) {

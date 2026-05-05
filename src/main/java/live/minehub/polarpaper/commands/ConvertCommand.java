@@ -57,8 +57,8 @@ public class ConvertCommand extends PolarCmd {
             return Command.SINGLE_SUCCESS;
         }
 
-        String newWorldName = ctx.getArgument("newworldname", String.class);
-        Integer chunkRadius = ctx.getArgument("chunkradius", Integer.class);
+        String newWorldName = ctx.getArgument("new world name", String.class);
+        Integer chunkRadius = ctx.getArgument("chunk radius", Integer.class);
 
         World newBukkitWorld = Bukkit.getWorld(newWorldName);
         if (newBukkitWorld != null) {
@@ -108,7 +108,7 @@ public class ConvertCommand extends PolarCmd {
 
             Config config = Polar.updateConfig(bukkitWorld, newWorldName);
 
-            Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
+            Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
                 PolarWorld newPolarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.square(offsetX, offsetZ, chunkRadius), config);
                 byte[] polarBytes = PolarWriter.write(newPolarWorld);
                 FilePolarSource.defaultFolder(newWorldName).saveBytes(polarBytes);
@@ -148,8 +148,8 @@ public class ConvertCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(Commands.argument("newworldname", StringArgumentType.string())
-                .then(Commands.argument("chunkradius", IntegerArgumentType.integer(1))
+        builder.then(Commands.argument("new world name", StringArgumentType.string())
+                .then(Commands.argument("chunk radius", IntegerArgumentType.integer(1))
                         .executes(this::execute)));
     }
 }

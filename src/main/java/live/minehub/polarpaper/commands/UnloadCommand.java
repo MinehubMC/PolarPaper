@@ -25,13 +25,13 @@ public class UnloadCommand extends PolarCmd {
     }
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
         unload(ctx, worldName, false, false);
         return Command.SINGLE_SUCCESS;
     }
 
     protected static int runOverrided(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("worldname", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
         Boolean override = ctx.getArgument("save", Boolean.class);
         unload(ctx, worldName, true, override);
         return Command.SINGLE_SUCCESS;
@@ -87,7 +87,7 @@ public class UnloadCommand extends PolarCmd {
             CompletableFuture<Boolean> future = new CompletableFuture<>();
 
             Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
-            Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
+            Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
                 Polar.saveWorldToFile(bukkitWorld);
                 bukkitUnload(ctx, bukkitWorld).thenAccept(future::complete);
             });
