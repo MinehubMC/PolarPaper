@@ -11,7 +11,7 @@ import live.minehub.polarpaper.PolarReader;
 import live.minehub.polarpaper.PolarWorld;
 import live.minehub.polarpaper.PolarWriter;
 import live.minehub.polarpaper.generator.PolarGenerator;
-import live.minehub.polarpaper.source.FilePolarSource;
+import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.userdata.WorldUserData;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -38,21 +38,25 @@ public class SetCenterCommand extends PolarCmd {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(bukkitWorld.getName(), NamedTextColor.RED))
+                            .append(Component.text(bukkitWorld.getKey().toString(), NamedTextColor.RED))
                             .append(Component.text("' is not a polar world!", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
         }
 
-        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), (task) -> {
+        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
             try {
-                FilePolarSource source = FilePolarSource.defaultFolder(bukkitWorld.getName());
+                PolarSource source = polarGenerator.getSource();
+                if (source == null) {
+                    sender.sendMessage(Component.text("No source is defined for this world", NamedTextColor.RED));
+                    return;
+                }
                 PolarWorld newPolarWorld = PolarReader.read(source.readBytes());
                 newPolarWorld.userData(WorldUserData.writeSchematicOffset(center));
                 byte[] worldBytes = PolarWriter.write(newPolarWorld);
                 source.saveBytes(worldBytes);
             } catch (Exception e) {
-                String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getName());
+                String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getKey().getKey());
                 PolarPaper.logger().severe(errorMsg);
                 sender.sendMessage(Component.text(errorMsg, NamedTextColor.RED));
                 return;

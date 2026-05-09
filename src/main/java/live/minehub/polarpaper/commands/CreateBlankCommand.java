@@ -9,12 +9,16 @@ import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.generator.PolarGenerator;
+import live.minehub.polarpaper.source.FilePolarSource;
+import live.minehub.polarpaper.source.PolarSource;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -27,7 +31,8 @@ public class CreateBlankCommand extends PolarCmd {
     private static int run(CommandContext<CommandSourceStack> ctx) {
         String worldName = ctx.getArgument("new world name", String.class);
 
-        World bukkitWorld = Bukkit.getWorld(worldName);
+        NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
+        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
         if (bukkitWorld != null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
@@ -42,23 +47,27 @@ public class CreateBlankCommand extends PolarCmd {
         Config defaultConfig = Config.getDefaultConfig(fileConfig);
         Config.writeToConfig(fileConfig, worldName, defaultConfig);
 
-        Polar.createWorld((byte[]) null, worldName, defaultConfig);
-        ctx.getSource().getSender().sendMessage(
-                Component.text()
-                        .append(Component.text("Created blank world '", NamedTextColor.AQUA))
-                        .append(Component.text(worldName, NamedTextColor.AQUA))
-                        .append(Component.text("'. ", NamedTextColor.AQUA))
-                        .append(Component.text("Use ", NamedTextColor.AQUA))
-                        .append(
-                                Component.text()
-                                        .append(Component.text("/polar goto ", NamedTextColor.WHITE))
-                                        .append(Component.text(worldName, NamedTextColor.WHITE))
-                                        .clickEvent(ClickEvent.runCommand("/polar goto " + worldName))
-                                        .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
-                                        .decorate(TextDecoration.UNDERLINED))
-                        .append(Component.text(" to teleport now", NamedTextColor.AQUA))
-        );
+        Polar.createWorld((PolarSource) null, worldName, defaultConfig).thenAccept(world -> {
+            if (world == null) {
+                ctx.getSource().getSender().sendMessage(Component.text("Failed to create blank world", NamedTextColor.RED));
+                return;
+            }
 
+            PolarGenerator generator = PolarGenerator.fromWorld(world);
+            if (generator != null) generator.setSource(FilePolarSource.defaultFolder(worldName)); // change source to the path so it can be saved/autosaved properly
+
+            ctx.getSource().getSender().sendMessage(
+                    Component.text()
+                            .append(Component.text("Created blank world '", NamedTextColor.AQUA))
+                            .append(Component.text(worldName, NamedTextColor.AQUA))
+                            .append(Component.text("'. ", NamedTextColor.AQUA))
+                            .append(Component.text("Click to teleport", NamedTextColor.WHITE, TextDecoration.UNDERLINED)
+                                    .clickEvent(ClickEvent.runCommand("/polar goto " + worldName))
+                                    .hoverEvent(HoverEvent.showText(Component.text()
+                                            .append(Component.text("Click to run ", NamedTextColor.AQUA))
+                                            .append(Component.text("/polar goto " + worldName)))))
+            );
+        });
 
         return Command.SINGLE_SUCCESS;
     }

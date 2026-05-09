@@ -20,6 +20,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.CraftWorld;
@@ -41,18 +42,18 @@ public class ConvertCommand extends PolarCmd {
         if (!(sender instanceof Player player)) return Command.SINGLE_SUCCESS;
 
         World bukkitWorld = player.getWorld();
-        String worldName = bukkitWorld.getName();
+        NamespacedKey worldKey = bukkitWorld.getKey();
 
         PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
         if (polarGenerator != null) {
-            ctx.getSource().getSender().sendMessage(
+            sender.sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldKey.getKey(), NamedTextColor.RED))
                             .append(Component.text("' is already converted! ", NamedTextColor.RED))
                             .append(Component.text("Use ", NamedTextColor.RED))
                             .append(Component.text("/polar save ", NamedTextColor.WHITE))
-                            .append(Component.text(worldName, NamedTextColor.WHITE))
+                            .append(Component.text(worldKey.getKey(), NamedTextColor.WHITE))
             );
             return Command.SINGLE_SUCCESS;
         }
@@ -60,12 +61,13 @@ public class ConvertCommand extends PolarCmd {
         String newWorldName = ctx.getArgument("new world name", String.class);
         Integer chunkRadius = ctx.getArgument("chunk radius", Integer.class);
 
-        World newBukkitWorld = Bukkit.getWorld(newWorldName);
+        NamespacedKey newWorldKey = NamespacedKey.fromString(newWorldName, PolarPaper.getPlugin());
+        World newBukkitWorld = newWorldKey == null ? null : Bukkit.getWorld(newWorldKey);
         if (newBukkitWorld != null) {
-            ctx.getSource().getSender().sendMessage(
+            sender.sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(newBukkitWorld.getName(), NamedTextColor.RED))
+                            .append(Component.text(newBukkitWorld.getKey().toString(), NamedTextColor.RED))
                             .append(Component.text("' already exists!", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
@@ -73,7 +75,7 @@ public class ConvertCommand extends PolarCmd {
 
         long before = System.nanoTime();
 
-        ctx.getSource().getSender().sendMessage(
+        sender.sendMessage(
                 Component.text()
                         .append(Component.text("Loading chunks in '", NamedTextColor.GRAY))
                         .append(Component.text(newWorldName, NamedTextColor.GRAY))
@@ -91,7 +93,7 @@ public class ConvertCommand extends PolarCmd {
                 CompletableFuture<Void> future = new CompletableFuture<>();
                 // FEATURES status as we do not need light
                 // should be changed to FULL if/when light saving is added
-                level.moonrise$getChunkTaskScheduler().scheduleChunkLoad(x + offsetX, z + offsetZ, ChunkStatus.FEATURES, true, Priority.LOW, (realChunk) -> {
+                level.moonrise$getChunkTaskScheduler().scheduleChunkLoad(x + offsetX, z + offsetZ, ChunkStatus.FEATURES, true, Priority.LOW, _ -> {
                     future.complete(null);
                 });
                 futures.add(future);
@@ -99,7 +101,7 @@ public class ConvertCommand extends PolarCmd {
         }
 
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(() -> {
-            ctx.getSource().getSender().sendMessage(
+            sender.sendMessage(
                     Component.text()
                             .append(Component.text("Converting '", NamedTextColor.GRAY))
                             .append(Component.text(newWorldName, NamedTextColor.GRAY))
@@ -114,22 +116,18 @@ public class ConvertCommand extends PolarCmd {
                 FilePolarSource.defaultFolder(newWorldName).saveBytes(polarBytes);
 
                 int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-                ctx.getSource().getSender().sendMessage(
+                sender.sendMessage(
                         Component.text()
                                 .append(Component.text("Converted '", NamedTextColor.AQUA))
-                                .append(Component.text(worldName, NamedTextColor.AQUA))
+                                .append(Component.text(worldKey.getKey(), NamedTextColor.AQUA))
                                 .append(Component.text("' in ", NamedTextColor.AQUA))
                                 .append(Component.text(ms, NamedTextColor.AQUA))
                                 .append(Component.text("ms. ", NamedTextColor.AQUA))
-                                .append(Component.text("Use ", NamedTextColor.AQUA))
-                                .append(
-                                        Component.text()
-                                                .append(Component.text("/polar load ", NamedTextColor.WHITE))
-                                                .append(Component.text(newWorldName, NamedTextColor.WHITE))
-                                                .clickEvent(ClickEvent.runCommand("/polar load " + newWorldName))
-                                                .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
-                                                .decorate(TextDecoration.UNDERLINED))
-                                .append(Component.text(" to load it now", NamedTextColor.AQUA))
+                                .append(Component.text("Click to load now", NamedTextColor.WHITE, TextDecoration.UNDERLINED)
+                                        .clickEvent(ClickEvent.runCommand("/polar load " + worldKey.getKey()))
+                                        .hoverEvent(HoverEvent.showText(Component.text()
+                                                .append(Component.text("Click to run ", NamedTextColor.AQUA))
+                                                .append(Component.text("/polar load " + worldKey.getKey())))))
                 );
             });
         });

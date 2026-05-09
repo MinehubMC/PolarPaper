@@ -9,6 +9,7 @@ import live.minehub.polarpaper.generator.PolarGenerator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -20,7 +21,9 @@ public class InfoCommand extends PolarCmd {
     }
 
     protected static int printInfo(CommandContext<CommandSourceStack> ctx, String worldName) {
-        World bukkitWorld = Bukkit.getWorld(worldName);
+        worldName = worldName.toLowerCase().replace(" ", "_");
+        NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
+        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
         if (bukkitWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()

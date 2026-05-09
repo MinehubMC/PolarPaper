@@ -7,13 +7,14 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Config;
-import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.util.FoliaUtil;
+import live.minehub.polarpaper.util.TaskFutures;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 
 import java.util.concurrent.CompletableFuture;
@@ -46,7 +47,8 @@ public class UnloadCommand extends PolarCmd {
             return CompletableFuture.completedFuture(false);
         }
 
-        World bukkitWorld = Bukkit.getWorld(worldName);
+        NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
+        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
         if (bukkitWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
@@ -73,31 +75,19 @@ public class UnloadCommand extends PolarCmd {
         if (saveOverrided) {
             shouldSave = save;
         } else {
-            shouldSave = config.autoSaveIntervalTicks() != -1;
+            shouldSave = config.autoSaveIntervalTicks() != -1 || config.saveOnStop();
         }
 
         if (shouldSave) {
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("Saving '", NamedTextColor.GRAY))
-                            .append(Component.text(worldName, NamedTextColor.GRAY))
-                            .append(Component.text("'...", NamedTextColor.GRAY))
-            );
-
-            CompletableFuture<Boolean> future = new CompletableFuture<>();
-
-            Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
-            Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
-                Polar.saveWorldToFile(bukkitWorld);
-                bukkitUnload(ctx, bukkitWorld).thenAccept(future::complete);
+            return SaveCommand.saveWorld(ctx, worldName).thenCompose(success -> {
+                if (!success) return CompletableFuture.completedFuture(false);
+                return bukkitUnload(ctx, bukkitWorld);
             });
-
-            return future;
         } else {
             if (saveOverrided) {
                 ctx.getSource().getSender().sendMessage(Component.text("Save force disabled, world will not be saved before unload", NamedTextColor.AQUA));
             } else {
-                ctx.getSource().getSender().sendMessage(Component.text("Autosave is disabled, world will not be saved before unload", NamedTextColor.AQUA));
+                ctx.getSource().getSender().sendMessage(Component.text("Autosave and save on stop is disabled, world will not be saved before unload", NamedTextColor.AQUA));
             }
 
             return bukkitUnload(ctx, bukkitWorld);
@@ -105,19 +95,11 @@ public class UnloadCommand extends PolarCmd {
     }
 
     protected static CompletableFuture<Boolean> bukkitUnload(CommandContext<CommandSourceStack> ctx, World bukkitWorld) {
-        CompletableFuture<Boolean> future = new CompletableFuture<>();
-        Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
-            String worldName = bukkitWorld.getName();
-            boolean successful = Bukkit.unloadWorld(bukkitWorld, false);
-
-            if (successful) {
-                ctx.getSource().getSender().sendMessage(
-                        Component.text()
-                                .append(Component.text("Unloaded '", NamedTextColor.AQUA))
-                                .append(Component.text(worldName, NamedTextColor.AQUA))
-                                .append(Component.text("'", NamedTextColor.AQUA))
-                );
-            } else {
+        String worldName = bukkitWorld.getKey().getKey();
+        return TaskFutures.run(() -> {
+            return Bukkit.unloadWorld(bukkitWorld, false);
+        }).whenComplete((success, ex) -> {
+            if (!success || ex != null) {
                 if (!bukkitWorld.getPlayers().isEmpty()) {
                     ctx.getSource().getSender().sendMessage(
                             Component.text()
@@ -125,20 +107,26 @@ public class UnloadCommand extends PolarCmd {
                                     .append(Component.text(worldName, NamedTextColor.RED))
                                     .append(Component.text("'", NamedTextColor.RED))
                     );
-                } else {
-                    ctx.getSource().getSender().sendMessage(
-                            Component.text()
-                                    .append(Component.text("Something went wrong while unloading '", NamedTextColor.RED))
-                                    .append(Component.text(worldName, NamedTextColor.RED))
-                                    .append(Component.text("'", NamedTextColor.RED))
-                    );
+                    return;
                 }
+
+                ctx.getSource().getSender().sendMessage(
+                        Component.text()
+                                .append(Component.text("Failed to unload '", NamedTextColor.RED))
+                                .append(Component.text(worldName, NamedTextColor.RED))
+                                .append(Component.text("'", NamedTextColor.RED))
+                );
+
+                return;
             }
 
-            future.complete(successful);
+            ctx.getSource().getSender().sendMessage(
+                    Component.text()
+                            .append(Component.text("Unloaded '", NamedTextColor.AQUA))
+                            .append(Component.text(worldName, NamedTextColor.AQUA))
+                            .append(Component.text("'", NamedTextColor.AQUA))
+            );
         });
-
-        return future;
     }
 
     @Override

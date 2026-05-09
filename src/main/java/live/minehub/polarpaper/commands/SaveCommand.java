@@ -7,10 +7,16 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.generator.PolarGenerator;
+import live.minehub.polarpaper.util.ExceptionUtil;
+import live.minehub.polarpaper.util.TaskFutures;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
+import org.bukkit.command.CommandSender;
+
+import java.util.concurrent.CompletableFuture;
 
 public class SaveCommand extends PolarCmd {
 
@@ -18,32 +24,33 @@ public class SaveCommand extends PolarCmd {
         super("save", "Save the polar world");
     }
 
-    private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world name", String.class);
+    protected static CompletableFuture<Boolean> saveWorld(CommandContext<CommandSourceStack> ctx, String worldName) {
+        CommandSender sender = ctx.getSource().getSender();
 
-        World bukkitWorld = Bukkit.getWorld(worldName);
+        NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
+        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
         if (bukkitWorld == null) {
-            ctx.getSource().getSender().sendMessage(
+            sender.sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
                             .append(Component.text(worldName, NamedTextColor.RED))
                             .append(Component.text("' does not exist!", NamedTextColor.RED))
             );
-            return Command.SINGLE_SUCCESS;
+            return CompletableFuture.completedFuture(false);
         }
 
         PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
         if (polarGenerator == null) {
-            ctx.getSource().getSender().sendMessage(
+            sender.sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
                             .append(Component.text(worldName, NamedTextColor.RED))
                             .append(Component.text("' is not a polar world!", NamedTextColor.RED))
             );
-            return Command.SINGLE_SUCCESS;
+            return CompletableFuture.completedFuture(false);
         }
 
-        ctx.getSource().getSender().sendMessage(
+        sender.sendMessage(
                 Component.text()
                         .append(Component.text("Saving '", NamedTextColor.GRAY))
                         .append(Component.text(worldName, NamedTextColor.GRAY))
@@ -53,21 +60,23 @@ public class SaveCommand extends PolarCmd {
         long before = System.nanoTime();
 
         Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
-            Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
+            Polar.updateConfig(bukkitWorld, bukkitWorld.getKey().getKey()); // config should only be updated synchronously
         });
 
-        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
-            try {
-                Polar.saveWorldToFile(bukkitWorld);
-            } catch (Exception e) {
-                String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getName());
+        return TaskFutures.runAsync(() -> {
+            Polar.saveWorld(bukkitWorld);
+            return true;
+        }).whenComplete((success, ex) -> {
+            if (!success || ex != null) {
+                String errorMsg = String.format("Failed to save '%s'", bukkitWorld.getKey().getKey());
                 PolarPaper.logger().severe(errorMsg);
-                ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                sender.sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                ExceptionUtil.log(ex);
                 return;
             }
 
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-            ctx.getSource().getSender().sendMessage(
+            sender.sendMessage(
                     Component.text()
                             .append(Component.text("Saved '", NamedTextColor.AQUA))
                             .append(Component.text(worldName, NamedTextColor.AQUA))
@@ -76,7 +85,11 @@ public class SaveCommand extends PolarCmd {
                             .append(Component.text("ms", NamedTextColor.AQUA))
             );
         });
+    }
 
+    private static int run(CommandContext<CommandSourceStack> ctx) {
+        String worldName = ctx.getArgument("world name", String.class);
+        saveWorld(ctx, worldName);
         return Command.SINGLE_SUCCESS;
     }
 

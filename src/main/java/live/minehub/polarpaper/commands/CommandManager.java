@@ -22,6 +22,7 @@ public class CommandManager {
     private final LiteralArgumentBuilder<CommandSourceStack> rootCmd = Commands.literal("polar");
 
     public void register(Commands registrar) {
+        register(new BrowseCommand());
         register(new ConvertCommand());
         register(new CopyCommand());
         register(new CreateBlankCommand());
@@ -42,6 +43,8 @@ public class CommandManager {
         register(new SetSpawnCommand());
         register(new UnloadCommand());
         register(new VersionCommand());
+
+        register(new RelightCommand());
 
         rootCmd
                 .then(Commands.literal("help")

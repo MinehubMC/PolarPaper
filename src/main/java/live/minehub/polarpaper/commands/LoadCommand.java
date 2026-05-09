@@ -1,21 +1,28 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.generator.PolarGenerator;
+import live.minehub.polarpaper.source.FilePolarSource;
+import live.minehub.polarpaper.source.PolarSource;
+import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 
 public class LoadCommand extends PolarCmd {
@@ -25,74 +32,94 @@ public class LoadCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world name", String.class);
+        String worldName = ctx.getArgument("world path", String.class);
 
         loadWorld(ctx, worldName);
 
         return Command.SINGLE_SUCCESS;
     }
 
-    protected static void loadWorld(CommandContext<CommandSourceStack> ctx, String worldName) {
-        World bukkitWorld = Bukkit.getWorld(worldName);
+    protected static void loadWorld(CommandContext<CommandSourceStack> ctx, String worldPath) {
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
+        Path worldsFolder = pluginFolder.resolve("worlds");
+        worldPath = worldPath + (worldPath.endsWith(".polar") ? "" : ".polar"); // ensure ends with .polar
+        Path path;
+        try {
+            path = worldsFolder.resolve(worldPath);
+        } catch (InvalidPathException e) {
+            ctx.getSource().getSender().sendMessage(Component.text("Invalid path", NamedTextColor.RED));
+            return;
+        }
+
+        if (!Files.exists(path)) {
+            ctx.getSource().getSender().sendMessage(Component.text("File '" + path.getFileName() + "' does not exist", NamedTextColor.RED));
+            return;
+        }
+        if (!path.normalize().startsWith(worldsFolder)) {
+            ctx.getSource().getSender().sendMessage(Component.text("Outside of worlds folder", NamedTextColor.RED));
+            return;
+        }
+
+        String newWorldName = WorldKey.getWorldName(path);
+
+        NamespacedKey worldKey = NamespacedKey.fromString(newWorldName, PolarPaper.getPlugin());
+        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
         if (bukkitWorld != null) {
             PolarGenerator polarWorld = PolarGenerator.fromWorld(bukkitWorld);
             if (polarWorld == null) {
                 ctx.getSource().getSender().sendMessage(
                         Component.text()
                                 .append(Component.text("Non-polar world '", NamedTextColor.RED))
-                                .append(Component.text(worldName, NamedTextColor.RED))
+                                .append(Component.text(newWorldName, NamedTextColor.RED))
                                 .append(Component.text("' already loaded!", NamedTextColor.RED))
                 );
             } else {
                 ctx.getSource().getSender().sendMessage(
                         Component.text()
-                                .append(Component.text("Polar world '", NamedTextColor.RED))
-                                .append(Component.text(worldName, NamedTextColor.RED))
+                                .append(Component.text("World '", NamedTextColor.RED))
+                                .append(Component.text(newWorldName, NamedTextColor.RED))
                                 .append(Component.text("' already loaded!", NamedTextColor.RED))
                 );
             }
             return;
         }
 
-        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-        Path worldsFolder = pluginFolder.resolve("worlds");
-        Path path = worldsFolder.resolve(worldName + ".polar");
+        loadWorld(ctx, new FilePolarSource(path), newWorldName);
+    }
 
-        if (!Files.exists(path)) {
-            ctx.getSource().getSender().sendMessage(Component.text("Couldn't find file '" + worldName + ".polar' in the worlds folder", NamedTextColor.RED));
-            return;
-        }
-
+    protected static void loadWorld(CommandContext<CommandSourceStack> ctx, PolarSource source, String newWorldName) {
         ctx.getSource().getSender().sendMessage(
                 Component.text()
                         .append(Component.text("Loading '", NamedTextColor.GRAY))
-                        .append(Component.text(worldName, NamedTextColor.GRAY))
+                        .append(Component.text(newWorldName, NamedTextColor.GRAY))
                         .append(Component.text("'...", NamedTextColor.GRAY))
         );
 
-        Polar.loadWorldFromFile(worldName).thenAccept(world -> {
+        long before = System.nanoTime();
+
+        Polar.createWorld(source, newWorldName).thenAccept(world -> {
             boolean successful = world != null;
             if (successful) {
+                int ms = (int) ((System.nanoTime() - before) / 1_000_000);
+
                 ctx.getSource().getSender().sendMessage(
                         Component.text()
                                 .append(Component.text("Loaded '", NamedTextColor.AQUA))
-                                .append(Component.text(worldName, NamedTextColor.AQUA))
-                                .append(Component.text("'. ", NamedTextColor.AQUA))
-                                .append(Component.text("Use ", NamedTextColor.AQUA))
-                                .append(
-                                        Component.text()
-                                                .append(Component.text("/polar goto ", NamedTextColor.WHITE))
-                                                .append(Component.text(worldName, NamedTextColor.WHITE))
-                                                .clickEvent(ClickEvent.runCommand("/polar goto " + worldName))
-                                                .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
-                                                .decorate(TextDecoration.UNDERLINED))
-                                .append(Component.text(" to teleport now", NamedTextColor.AQUA))
+                                .append(Component.text(newWorldName, NamedTextColor.AQUA))
+                                .append(Component.text("' in ", NamedTextColor.AQUA))
+                                .append(Component.text(ms, NamedTextColor.AQUA))
+                                .append(Component.text("ms. ", NamedTextColor.AQUA))
+                                .append(Component.text("Click to teleport", NamedTextColor.WHITE, TextDecoration.UNDERLINED)
+                                        .clickEvent(ClickEvent.runCommand("/polar goto " + newWorldName))
+                                        .hoverEvent(HoverEvent.showText(Component.text()
+                                                .append(Component.text("Click to run ", NamedTextColor.AQUA))
+                                                .append(Component.text("/polar goto " + newWorldName)))))
                 );
             } else {
                 ctx.getSource().getSender().sendMessage(
                         Component.text()
                                 .append(Component.text("Failed to load world '", NamedTextColor.RED))
-                                .append(Component.text(worldName, NamedTextColor.RED))
+                                .append(Component.text(newWorldName, NamedTextColor.RED))
                                 .append(Component.text("'", NamedTextColor.RED))
                 );
             }
@@ -110,7 +137,7 @@ public class LoadCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(createFileWorldNameArgument(true)
+        builder.then(Commands.argument("world path", StringArgumentType.greedyString())
                 .executes(LoadCommand::run));
     }
 }

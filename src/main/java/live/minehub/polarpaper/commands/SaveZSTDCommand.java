@@ -11,6 +11,7 @@ import live.minehub.polarpaper.source.BytesPolarSource;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 
 public class SaveZSTDCommand extends PolarCmd {
@@ -22,7 +23,8 @@ public class SaveZSTDCommand extends PolarCmd {
     protected static int run(CommandContext<CommandSourceStack> ctx) {
         String worldName = ctx.getArgument("world name", String.class);
 
-        World bukkitWorld = Bukkit.getWorld(worldName);
+        NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
+        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
         if (bukkitWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
@@ -54,7 +56,7 @@ public class SaveZSTDCommand extends PolarCmd {
 
 
         Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
-            Polar.updateConfig(bukkitWorld, bukkitWorld.getName()); // config should only be updated synchronously
+            Polar.updateConfig(bukkitWorld, bukkitWorld.getKey().getKey()); // config should only be updated synchronously
         });
 
         Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
@@ -69,7 +71,7 @@ public class SaveZSTDCommand extends PolarCmd {
                 try {
                     Polar.saveWorld(bukkitWorld, source);
                 } catch (Exception e) {
-                    String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getName());
+                    String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getKey().getKey());
                     PolarPaper.logger().severe(errorMsg);
                     ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
                     return;

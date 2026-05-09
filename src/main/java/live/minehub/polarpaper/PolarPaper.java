@@ -5,8 +5,11 @@ import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import live.minehub.polarpaper.commands.CommandManager;
 import live.minehub.polarpaper.generator.PolarGenerator;
+import live.minehub.polarpaper.source.FilePolarSource;
 import live.minehub.polarpaper.util.ExceptionUtil;
+import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
@@ -53,7 +56,7 @@ public final class PolarPaper extends JavaPlugin {
 
                 logger().info("Loading polar world: " + worldName);
 
-                Polar.loadWorldFromFile(worldName);
+                Polar.createWorld(FilePolarSource.defaultFolder(worldName), worldName);
             });
         } catch (IOException e) {
             logger().warning("Failed to load world on startup");
@@ -63,8 +66,8 @@ public final class PolarPaper extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        Path pluginFolder = getDataPath();
-        Path tempFolder = pluginFolder.resolve("temp");
+        CraftServer craftServer = (CraftServer) Bukkit.getServer();
+        Path tempFolder = craftServer.getServer().storageSource.levelDirectory.path().resolve("dimensions").resolve(namespace());
         if (Files.exists(tempFolder)) {
             logger().info("Clearing temp directory");
             try (Stream<Path> paths = Files.walk(tempFolder)) {
@@ -80,17 +83,21 @@ public final class PolarPaper extends JavaPlugin {
             if (generator == null) continue;
 
             if (!generator.getConfig().saveOnStop()) {
-                logger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getName()));
+                logger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getKey().getKey()));
+                continue;
+            }
+            if (Polar.isLoading(world)) {
+                logger().info(String.format("Not saving '%s' as it was not fully loaded", world.getKey().getKey()));
                 continue;
             }
 
-            logger().info("Saving '" + world.getName() + "'...");
+            logger().info("Saving '" + world.getKey().getKey() + "'...");
 
             long before = System.nanoTime();
-            Polar.updateConfig(world, world.getName());
-            Polar.saveWorldToFile(world);
+            Polar.updateConfig(world, world.getKey().getKey());
+            Polar.saveWorld(world);
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-            logger().info(String.format("Saved '%s' in %sms", world.getName(), ms));
+            logger().info(String.format("Saved '%s' in %sms", world.getKey().getKey(), ms));
         }
     }
 

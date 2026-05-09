@@ -52,7 +52,7 @@ public abstract class PolarCmd {
 
     public RequiredArgumentBuilder<CommandSourceStack, String> createFileWorldNameArgument(boolean greedy) {
         return Commands.argument("world name", greedy ? StringArgumentType.greedyString() : StringArgumentType.string())
-                .suggests((ctx, s) -> {
+                .suggests((_, s) -> {
                     Path pluginFolder = PolarPaper.getPlugin().getDataPath();
                     Path worldsFolder = pluginFolder.resolve("worlds");
 
@@ -75,19 +75,22 @@ public abstract class PolarCmd {
 
     public RequiredArgumentBuilder<CommandSourceStack, String> createWorldNameArgument(boolean greedy, boolean onlyPolar) {
         return Commands.argument("world name", greedy ? StringArgumentType.greedyString() : StringArgumentType.string())
-                .suggests((ctx, s) -> {
+                .suggests((_, s) -> {
                     for (World world : Bukkit.getWorlds()) {
                         if (onlyPolar) {
                             PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
                             if (polarGenerator == null) continue;
                         }
 
-                        if (!world.getName().toLowerCase().startsWith(s.getRemainingLowerCase())) continue;
+                        String worldKey = world.getKey().toString().replace(PolarPaper.getPlugin().namespace() + ":", "");
 
-                        if (world.getName().contains(" ") && !greedy) {
-                            s.suggest("\"" + world.getName() + "\"");
+                        if (!worldKey.toLowerCase().startsWith(s.getRemainingLowerCase())
+                            && !world.getKey().getKey().toLowerCase().startsWith(s.getRemainingLowerCase())) continue;
+
+                        if (worldKey.contains(" ") && !greedy) {
+                            s.suggest("\"" + world.getKey() + "\"");
                         } else {
-                            s.suggest(world.getName());
+                            s.suggest(worldKey);
                         }
                     }
                     return s.buildFuture();

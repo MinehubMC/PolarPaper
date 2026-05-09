@@ -16,6 +16,7 @@ import live.minehub.polarpaper.generator.PolarStreamingGenerator;
 import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.util.CoordConversion;
 import live.minehub.polarpaper.util.PolarConstants;
+import live.minehub.polarpaper.util.TaskFutures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -33,7 +34,6 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.ticks.LevelChunkTicks;
-import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.jetbrains.annotations.Contract;
@@ -111,9 +111,7 @@ public class PolarStreamLoader {
         CompletableFuture<Void>[] futures = new CompletableFuture[chunkCount];
         for (int i = 0; i < chunkCount; i++) {
             try {
-                CompletableFuture<Void> future = readChunk(world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
-                if (future.isCompletedExceptionally()) throw future.exceptionNow();
-                futures[i] = future;
+                futures[i] = readChunk(world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
             } catch (Throwable e) {
                 return CompletableFuture.failedFuture(e);
             }
@@ -146,9 +144,8 @@ public class PolarStreamLoader {
                 levelChunkSections[i] = section;
                 skyNibbles[i + 1] = new SWMRNibbleArray(polarSection.skyLight());
                 blockNibbles[i + 1] = new SWMRNibbleArray(polarSection.blockLight());
-
             } catch (Exception e) {
-                PolarPaper.logger().warning("Failed to load chunk at " + chunkX + " " + chunkZ);
+                PolarPaper.logger().severe("Failed to load chunk at " + chunkX + " " + chunkZ + " in " + world.getKey());
                 throw e;
             }
 
@@ -156,21 +153,6 @@ public class PolarStreamLoader {
 
         NoUnloadLevelChunk newLevelChunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(chunkX, chunkZ), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
 
-        if (lightPresent) {
-            Boolean[] emptinessMap = StarLightEngine.getEmptySectionsForChunk(newLevelChunk);
-            boolean[] emptinessMapPrim = new boolean[emptinessMap.length];
-            for (int i = 0; i < emptinessMap.length; i++) {
-                Boolean bool = emptinessMap[i];
-                emptinessMapPrim[i] = bool != null && bool;
-            }
-            newLevelChunk.starlight$setBlockEmptinessMap(emptinessMapPrim);
-            newLevelChunk.starlight$setSkyEmptinessMap(emptinessMapPrim);
-            newLevelChunk.starlight$setSkyNibbles(skyNibbles);
-            newLevelChunk.starlight$setBlockNibbles(blockNibbles);
-        } else {
-            lightChunk(serverLevel, newLevelChunk);
-        }
-        newLevelChunk.setLightCorrect(true);
         newLevelChunk.tryMarkSaved();
 //        newLevelChunk.setLogUnsaved(true);
 
@@ -186,18 +168,29 @@ public class PolarStreamLoader {
         byte[] userData = new byte[userDataLength];
         bb.readBytes(userData);
 
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), _ -> {
-            try {
-                insertChunk(serverLevel, newLevelChunk);
-                worldAccess.loadChunkData(world, newLevelChunk, userData);
-                future.complete(null);
-            } catch (Throwable e) {
-                future.completeExceptionally(e);
-            }
-        });
+        boolean finalLightPresent = lightPresent;
 
-        return future;
+        return TaskFutures.run(() -> {
+            insertChunk(serverLevel, newLevelChunk);
+            worldAccess.loadChunkData(world, newLevelChunk, userData);
+
+            if (finalLightPresent) {
+                Boolean[] emptinessMap = StarLightEngine.getEmptySectionsForChunk(newLevelChunk);
+                boolean[] emptinessMapPrim = new boolean[emptinessMap.length];
+                for (int i = 0; i < emptinessMap.length; i++) {
+                    Boolean bool = emptinessMap[i];
+                    emptinessMapPrim[i] = bool != null && bool;
+                }
+                newLevelChunk.starlight$setBlockEmptinessMap(emptinessMapPrim);
+                newLevelChunk.starlight$setSkyEmptinessMap(emptinessMapPrim);
+                newLevelChunk.starlight$setSkyNibbles(skyNibbles);
+                newLevelChunk.starlight$setBlockNibbles(blockNibbles);
+            } else {
+                lightChunk(serverLevel, newLevelChunk);
+            }
+            newLevelChunk.setLightCorrect(true);
+            return null;
+        });
     }
 
     protected static void insertChunk(ServerLevel serverLevel, NoUnloadLevelChunk newLevelChunk) {

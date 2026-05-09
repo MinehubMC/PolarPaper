@@ -10,6 +10,7 @@ import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 
 import java.io.IOException;
@@ -23,9 +24,13 @@ public class DeleteCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
+        // TODO: Delete from path like load world
+        // TODO: confirm instead of immediate delete
+
         String worldName = ctx.getArgument("world name", String.class);
 
-        World bukkitWorld = Bukkit.getWorld(worldName);
+        NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
+        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
         if (bukkitWorld != null) {
             PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
             if (polarGenerator == null) {

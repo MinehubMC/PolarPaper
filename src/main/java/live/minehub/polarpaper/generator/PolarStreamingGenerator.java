@@ -3,6 +3,7 @@ package live.minehub.polarpaper.generator;
 import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.PolarWorld;
 import live.minehub.polarpaper.PolarWorldAccess;
+import live.minehub.polarpaper.source.PolarSource;
 import live.minehub.polarpaper.userdata.WorldUserData;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -15,12 +16,12 @@ public class PolarStreamingGenerator extends PolarGenerator {
     private Short version = null;
     private Integer dataVersion = null;
     private byte[] userData = new byte[0];
-    public PolarStreamingGenerator(Config config, PolarWorldAccess worldAccess) {
-        super(config, worldAccess);
+    public PolarStreamingGenerator(Config config, PolarSource source, PolarWorldAccess worldAccess) {
+        super(config, source, worldAccess);
     }
 
-    public PolarStreamingGenerator(Config config) {
-        this(config, PolarWorldAccess.POLAR_PAPER_FEATURES);
+    public PolarStreamingGenerator(Config config, PolarSource source) {
+        this(config, source, PolarWorldAccess.POLAR_PAPER_FEATURES);
     }
 
     @Override
@@ -59,7 +60,7 @@ public class PolarStreamingGenerator extends PolarGenerator {
 
         TextComponent.Builder builder = Component.text()
                 .append(Component.text("Info for ", NamedTextColor.AQUA))
-                .append(Component.text(world.getName(), NamedTextColor.AQUA))
+                .append(Component.text(world.getKey().getKey(), NamedTextColor.AQUA))
                 .append(Component.text(":", NamedTextColor.AQUA))
                 .appendNewline()
                 .append(Component.text(" Version: ", NamedTextColor.AQUA))

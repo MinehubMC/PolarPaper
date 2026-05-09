@@ -105,7 +105,7 @@ public record Config(
             }
 
             Object gameRuleValue = world.getGameRuleValue(gamerule);
-            Object gameRuleDefault = world.getGameRuleDefault(gamerule);
+            Object gameRuleDefault = gamerule.getDefaultValue();
             if (gameRuleValue != gameRuleDefault) {
                 configBuilder.gamerule(name, gameRuleValue);
             } else {
@@ -121,7 +121,7 @@ public record Config(
     }
 
     public static @NotNull Config readFromConfig(FileConfiguration config, World world) {
-        return updateConfigWithWorld(readFromConfig(config, world.getName(), getDefaultConfig(config)), world);
+        return updateConfigWithWorld(readFromConfig(config, world.getKey().getKey(), getDefaultConfig(config)), world);
     }
 
     public static @NotNull Config readFromConfig(FileConfiguration config, String worldName) {
@@ -173,7 +173,7 @@ public record Config(
                     gamerulesMap
             );
         } catch (IllegalArgumentException e) {
-            PolarPaper.logger().warning("Failed to read config, using defaults");
+            PolarPaper.logger().severe("Failed to read config, using defaults");
             ExceptionUtil.log(e);
             return defaultConfig;
         }
@@ -225,7 +225,7 @@ public record Config(
         try {
             fileConfig.save(configFile.toFile());
         } catch (IOException e) {
-            PolarPaper.logger().warning("Failed to save world to config file");
+            PolarPaper.logger().severe("Failed to save world to config file");
             ExceptionUtil.log(e);
         }
     }

@@ -121,7 +121,7 @@ public interface PolarWorldAccess {
                 byte[] bytes = persistentDataContainer.serializeToBytes();
                 ByteArrayUtil.writeByteArray(bytes, userData);
             } catch (IOException e) {
-                PolarPaper.logger().warning("Failed to deserialize persistent data container");
+                PolarPaper.logger().warning("Failed to serialize persistent data container");
                 ExceptionUtil.log(e);
                 ByteArrayUtil.writeByteArray(new byte[0], userData);
             }

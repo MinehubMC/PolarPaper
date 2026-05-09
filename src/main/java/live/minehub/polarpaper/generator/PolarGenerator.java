@@ -3,6 +3,7 @@ package live.minehub.polarpaper.generator;
 import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.PolarWorld;
 import live.minehub.polarpaper.PolarWorldAccess;
+import live.minehub.polarpaper.source.PolarSource;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -14,10 +15,12 @@ import java.util.Random;
 
 public abstract class PolarGenerator extends ChunkGenerator {
     private Config config;
+    private @Nullable PolarSource source;
     private final PolarWorldAccess worldAccess;
 
-    public PolarGenerator(Config config, PolarWorldAccess worldAccess) {
+    public PolarGenerator(Config config, @Nullable PolarSource source, PolarWorldAccess worldAccess) {
         this.config = config;
+        this.source = source;
         this.worldAccess = worldAccess;
     }
 
@@ -27,6 +30,14 @@ public abstract class PolarGenerator extends ChunkGenerator {
 
     public void setConfig(Config config) {
         this.config = config;
+    }
+
+    public @Nullable PolarSource getSource() {
+        return source;
+    }
+
+    public void setSource(@Nullable PolarSource source) {
+        this.source = source;
     }
 
     public PolarWorldAccess getWorldAccess() {

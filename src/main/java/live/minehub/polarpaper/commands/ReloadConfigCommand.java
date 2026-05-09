@@ -20,7 +20,7 @@ public class ReloadConfigCommand extends PolarCmd {
     protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
         int numWorlds = 0;
         for (World bukkitWorld : Bukkit.getWorlds()) {
-            if (!Config.isInConfig(bukkitWorld.getName())) continue;
+            if (!Config.isInConfig(bukkitWorld.getKey().getKey())) continue;
 
             Polar.reloadConfig(bukkitWorld);
 

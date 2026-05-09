@@ -118,7 +118,7 @@ public class PasteCommand extends PolarCmd {
             }
             polarWorld = PolarReader.read(polarBytes);
         } catch (Exception e) {
-            PolarPaper.logger().warning("Failed to load world '" + worldName + ".polar'");
+            PolarPaper.logger().severe("Failed to load world '" + worldName + ".polar'");
             player.sendMessage(Component.text("Failed to load world '" + worldName + ".polar'", NamedTextColor.RED));
             ExceptionUtil.log(e);
             return Command.SINGLE_SUCCESS;

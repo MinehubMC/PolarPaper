@@ -7,6 +7,7 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.generator.PolarGenerator;
+import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -35,7 +36,7 @@ public class GotoCommand extends PolarCmd {
         Entity executor = ctx.getSource().getExecutor();
         if (!(executor instanceof Player player)) return Command.SINGLE_SUCCESS;
 
-        World bukkitWorld = Bukkit.getWorld(worldName);
+        World bukkitWorld = WorldKey.getWorld(worldName);
         if (bukkitWorld == null) {
             Path pluginFolder = PolarPaper.getPlugin().getDataPath();
             Path worldsFolder = pluginFolder.resolve("worlds");
@@ -59,7 +60,7 @@ public class GotoCommand extends PolarCmd {
                 sender.sendMessage(Component.text()
                         .append(Component.text("World '", NamedTextColor.RED))
                         .append(Component.text(worldName, NamedTextColor.RED))
-                        .append(Component.text("' does not exist!", NamedTextColor.RED)));
+                        .append(Component.text("' does not exist or is not loaded!", NamedTextColor.RED)));
             }
 
             return Command.SINGLE_SUCCESS;
@@ -78,7 +79,7 @@ public class GotoCommand extends PolarCmd {
             sender.sendMessage(
                     Component.text()
                             .append(Component.text("Teleporting to '", NamedTextColor.AQUA))
-                            .append(Component.text(bukkitWorld.getName(), NamedTextColor.AQUA))
+                            .append(Component.text(bukkitWorld.getKey().getKey(), NamedTextColor.AQUA))
                             .append(Component.text("'", NamedTextColor.AQUA))
             );
 
