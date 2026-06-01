@@ -28,7 +28,6 @@ public class CommandManager {
         register(new CreateBlankCommand());
         register(new CreateFromRegionCommand());
         register(new DeleteCommand());
-//        register(new GCCommand());
         register(new GotoCommand());
         register(new InfoCommand());
         register(new ListCommand());
@@ -38,13 +37,17 @@ public class CommandManager {
         register(new ReloadConfigCommand());
         register(new RenameCommand());
         register(new SaveCommand());
-//        register(new SaveZSTDCommand());
         register(new SetCenterCommand());
         register(new SetSpawnCommand());
         register(new UnloadCommand());
         register(new VersionCommand());
 
         register(new RelightCommand());
+
+//        register(new GCCommand());
+//        register(new SaveZSTDCommand());
+//        register(new SetRandomCommand());
+//        register(new FixSectionPaletteCommand());
 
         rootCmd
                 .then(Commands.literal("help")

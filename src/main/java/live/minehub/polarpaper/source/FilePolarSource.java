@@ -2,27 +2,24 @@ package live.minehub.polarpaper.source;
 
 import live.minehub.polarpaper.PolarPaper;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 public record FilePolarSource(Path path) implements PolarSource {
     @Override
-    public byte[] readBytes() {
-        try {
-            return Files.readAllBytes(this.path);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    public byte[] readBytes() throws Exception {
+        return Files.readAllBytes(this.path);
     }
 
     @Override
-    public void saveBytes(byte[] data) {
-        try {
-            Files.write(path, data);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    public void saveBytes(byte[] data) throws Exception {
+        Files.createDirectories(path.getParent());
+        Files.write(path, data);
+    }
+
+    @Override
+    public void delete() throws Exception {
+        Files.deleteIfExists(path);
     }
 
     public static FilePolarSource defaultFolder(String worldName) {

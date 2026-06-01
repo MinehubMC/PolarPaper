@@ -47,17 +47,12 @@ public class BrowseCommand extends PolarCmd {
         Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
 
-        if (!parent.normalize().startsWith(worldsFolder)) {
-            ctx.getSource().getSender().sendMessage(Component.text("Outside of worlds folder", NamedTextColor.RED));
-            return Command.SINGLE_SUCCESS;
-        }
-
+        parent = WorldKey.validatePath(ctx.getSource().getSender(), parent);
+        if (parent == null) return Command.SINGLE_SUCCESS;
         if (!Files.exists(parent)) {
-            ctx.getSource().getSender().sendMessage(Component.text("Path does not exist", NamedTextColor.RED));
+            ctx.getSource().getSender().sendMessage(Component.text("File '" + parent.getFileName() + "' does not exist", NamedTextColor.RED));
             return Command.SINGLE_SUCCESS;
         }
-
-        Path relative = worldsFolder.getParent().relativize(parent);
 
         List<Path> paths;
         try (Stream<Path> list = Files.list(parent)) {
@@ -81,7 +76,7 @@ public class BrowseCommand extends PolarCmd {
         // Header
         builder.append(Component.text("Browsing '", NamedTextColor.GRAY));
         boolean first = true;
-        for (Path path : relative) {
+        for (Path path : worldsFolder.getParent().relativize(parent)) {
             if (!first) builder.append(Component.text(" / ", NamedTextColor.GRAY));
             builder.append(Component.text(path.getFileName().toString(), NamedTextColor.GRAY)
                     .clickEvent(ClickEvent.runCommand(first ? "/polar browse" : "/polar browse 1 " + path)));
@@ -140,7 +135,7 @@ public class BrowseCommand extends PolarCmd {
                 builder.appendSpace();
                 builder.appendSpace();
                 builder.append(Component.text("ɢᴏᴛᴏ", NamedTextColor.AQUA)
-                        .clickEvent(ClickEvent.runCommand("/polar goto " + fileName))
+                        .clickEvent(ClickEvent.runCommand("/polar goto " + worldsFolder.relativize(path)))
                         .hoverEvent(HoverEvent.showText(Component.text("Click to teleport"))));
             }
         }
@@ -158,10 +153,14 @@ public class BrowseCommand extends PolarCmd {
             for (int i = 0; i < ITEMS_PER_PAGE - usedLines; i++) { // padding
                 builder.appendNewline();
             }
+
+            String currentParent = worldsFolder.relativize(parent).toString();
+            if (!currentParent.isBlank()) currentParent = " " + currentParent;
+
             if (page > 1) {
                 builder.appendNewline();
                 builder.append(Component.text("[←]", NamedTextColor.AQUA)
-                        .clickEvent(ClickEvent.runCommand("/polar browse " + (page - 1) + " " + relative)));
+                        .clickEvent(ClickEvent.runCommand("/polar browse " + (page - 1) + currentParent)));
             }
             if (page < totalPages) {
                 if (page <= 1) {
@@ -169,7 +168,7 @@ public class BrowseCommand extends PolarCmd {
                     builder.append(Component.text("    "));
                 }
                 builder.append(Component.text(" ".repeat(25) + "[→]", NamedTextColor.AQUA)
-                        .clickEvent(ClickEvent.runCommand("/polar browse " + (page + 1) + " " + relative)));
+                        .clickEvent(ClickEvent.runCommand("/polar browse " + (page + 1) + currentParent)));
             }
         }
 

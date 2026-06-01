@@ -58,7 +58,7 @@ public abstract class PolarGenerator extends ChunkGenerator {
     public static @Nullable PolarGenerator fromWorld(World world) {
         if (world == null) return null;
         ChunkGenerator generator = world.getGenerator();
-        if (generator instanceof PolarStreamingGenerator voidGen) return voidGen;
+        if (generator instanceof PolarGenerator polarGenerator) return polarGenerator;
         return null;
     }
 }

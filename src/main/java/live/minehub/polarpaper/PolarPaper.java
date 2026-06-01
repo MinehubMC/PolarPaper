@@ -7,6 +7,7 @@ import live.minehub.polarpaper.commands.CommandManager;
 import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.source.FilePolarSource;
 import live.minehub.polarpaper.util.ExceptionUtil;
+import live.minehub.polarpaper.util.WorldKey;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftServer;
@@ -16,6 +17,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -42,13 +44,13 @@ public final class PolarPaper extends JavaPlugin {
 
         saveDefaultConfig();
 
-        try (var files = Files.list(worldsFolder)) {
+        try (var files = Files.walk(worldsFolder, 4, FileVisitOption.FOLLOW_LINKS)) {
             files.forEach(path -> {
-                if (!path.getFileName().toString().endsWith(".polar")) {
+                if (Files.isDirectory(path) || !path.getFileName().toString().endsWith(".polar")) {
                     return;
                 }
 
-                String worldName = path.getFileName().toString().split("\\.polar")[0];
+                String worldName = WorldKey.getWorldName(path);
 
                 Config config = Config.readFromConfig(getConfig(), worldName);
 
@@ -56,7 +58,7 @@ public final class PolarPaper extends JavaPlugin {
 
                 logger().info("Loading polar world: " + worldName);
 
-                Polar.createWorld(FilePolarSource.defaultFolder(worldName), worldName);
+                Polar.createWorld(new FilePolarSource(path), worldName);
             });
         } catch (IOException e) {
             logger().warning("Failed to load world on startup");

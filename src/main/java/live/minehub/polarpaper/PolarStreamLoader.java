@@ -34,11 +34,14 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.ticks.LevelChunkTicks;
+import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -51,12 +54,20 @@ import static live.minehub.polarpaper.util.ByteArrayUtil.getVarInt;
 
 public class PolarStreamLoader {
 
-    public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarWorldAccess worldAccess) {
-        return stream(source.readBytes(), world, worldAccess);
+    public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarWorldAccess worldAccess) throws IOException {
+        try {
+            return stream(source.readBytes(), world, worldAccess);
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
     }
 
-    public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) {
-        return stream(source.readBytes(), world, dataConverter, worldAccess);
+    public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) throws IOException {
+        try {
+            return stream(source.readBytes(), world, dataConverter, worldAccess);
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
     }
 
     public static CompletableFuture<Void> stream(byte @NotNull [] data, World world, @NotNull PolarWorldAccess worldAccess) {
@@ -158,7 +169,8 @@ public class PolarStreamLoader {
 
         int blockEntityCount = getVarInt(bb);
         for (int i = 0; i < blockEntityCount; i++) {
-            readBlockEntity(dataConverter, newLevelChunk, dataVersion, bb);
+            PolarChunk.BlockEntity polarBlockEntity = PolarReader.readBlockEntity(dataConverter, dataVersion, bb);
+            addBlockEntity(polarBlockEntity, newLevelChunk);
         }
 
         var heightmaps = PolarReader.readHeightmaps(bb);
@@ -292,9 +304,7 @@ public class PolarStreamLoader {
         starlight.lightChunk(chunk, StarLightEngine.getEmptySectionsForChunk(chunk));
     }
 
-    private static void readBlockEntity(@NotNull PolarDataConverter dataConverter, LevelChunk chunk, int dataVersion, @NotNull ByteBuf bb) {
-        PolarChunk.BlockEntity polarBlockEntity = PolarReader.readBlockEntity(dataConverter, dataVersion, bb);
-
+    public static void addBlockEntity(PolarChunk.BlockEntity polarBlockEntity, ChunkAccess chunk) {
         int posIndex = polarBlockEntity.index();
         CompoundTag nbt = polarBlockEntity.data();
 
@@ -318,17 +328,20 @@ public class PolarStreamLoader {
             return;
         }
 
+        var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
+
         // Load NBT data into the block entity
         blockEntity.loadWithComponents(
-                TagValueInput.create(
-                        ProblemReporter.DISCARDING,
-                        chunk.getLevel().registryAccess(),
-                        nbt
-                )
+                TagValueInput.create(ProblemReporter.DISCARDING, registryAccess, nbt)
         );
 
-        blockEntity.setLevel(chunk.getLevel());
-        chunk.addAndRegisterBlockEntity(blockEntity);
+        if (chunk instanceof LevelChunk levelChunk) {
+            blockEntity.setLevel(levelChunk.getLevel());
+            levelChunk.addAndRegisterBlockEntity(blockEntity);
+        } else {
+            chunk.blockEntities.put(blockPos, blockEntity);
+        }
+
     }
 
     @Contract("false, _ -> fail")

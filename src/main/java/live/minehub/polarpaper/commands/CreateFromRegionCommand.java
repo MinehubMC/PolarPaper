@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -10,6 +11,7 @@ import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.schematic.Schematic;
 import live.minehub.polarpaper.source.FilePolarSource;
 import live.minehub.polarpaper.userdata.WorldUserData;
+import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -29,15 +31,7 @@ public class CreateFromRegionCommand extends PolarCmd {
         super("createfromregion", "Create a polar world from the selected region");
     }
 
-    private static int run(CommandContext<CommandSourceStack> ctx) {
-        CommandSender sender = ctx.getSource().getSender();
-        // Being ran from console
-        if (!(sender instanceof Player player)) return Command.SINGLE_SUCCESS;
-
-        World bukkitWorld = player.getWorld();
-
-        String newWorldName = ctx.getArgument("new world name", String.class);
-
+    private static void createFromRegion(CommandContext<CommandSourceStack> ctx, World bukkitWorld, String newWorldName, Vector3i pos1, Vector3i pos2) {
         long before = System.nanoTime();
 
         ctx.getSource().getSender().sendMessage(
@@ -46,6 +40,71 @@ public class CreateFromRegionCommand extends PolarCmd {
                         .append(Component.text(newWorldName, NamedTextColor.GRAY))
                         .append(Component.text("' from selected region...", NamedTextColor.GRAY))
         );
+
+        BlockSelector.RegionBlockSelector blockSelector = BlockSelector.RegionBlockSelector.fromCorners(pos1, pos2);
+
+        Vector3i schemOffset = new Vector3i();
+        // Being ran from console
+        if (ctx.getSource().getSender() instanceof Player player) {
+            schemOffset = player.getLocation().toVector().toVector3i();
+        }
+        Vector3i finalSchemOffset = schemOffset;
+
+        // TODO: option to center the world
+
+        bukkitWorld.getChunksAtAsync((blockSelector.min().x / 16) - 1, (blockSelector.min().z / 16) - 1, (blockSelector.max().x / 16) + 1, (blockSelector.max().z / 16) + 1, false, () -> {
+            Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
+                try {
+                    PolarWorld polarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, blockSelector);
+                    polarWorld.userData(WorldUserData.writeSchematicOffset(finalSchemOffset));
+                    byte[] worldBytes = PolarWriter.write(polarWorld);
+                    FilePolarSource.defaultFolder(newWorldName).saveBytes(worldBytes);
+                } catch (Exception e) {
+                    String errorMsg = String.format("Failed to create '%s', please check logs for error", newWorldName);
+                    PolarPaper.logger().severe(errorMsg);
+                    ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                    return;
+                }
+
+                int ms = (int) ((System.nanoTime() - before) / 1_000_000);
+                ctx.getSource().getSender().sendMessage(
+                        Component.text()
+                                .append(Component.text("Converted '", NamedTextColor.AQUA))
+                                .append(Component.text(newWorldName, NamedTextColor.AQUA))
+                                .append(Component.text("' in ", NamedTextColor.AQUA))
+                                .append(Component.text(ms, NamedTextColor.AQUA))
+                                .append(Component.text("ms. ", NamedTextColor.AQUA))
+                                .append(Component.text("\nUse ", NamedTextColor.AQUA))
+                                .append(
+                                        Component.text()
+                                                .append(Component.text("/polar paste ", NamedTextColor.WHITE))
+                                                .append(Component.text(newWorldName, NamedTextColor.WHITE))
+                                                .clickEvent(ClickEvent.runCommand("/polar paste " + newWorldName))
+                                                .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
+                                                .decorate(TextDecoration.UNDERLINED))
+                                .append(Component.text(" to paste it now", NamedTextColor.AQUA))
+                                .append(Component.text("\nUse ", NamedTextColor.AQUA))
+                                .append(
+                                        Component.text()
+                                                .append(Component.text("/polar load ", NamedTextColor.WHITE))
+                                                .append(Component.text(newWorldName, NamedTextColor.WHITE))
+                                                .clickEvent(ClickEvent.runCommand("/polar load " + newWorldName))
+                                                .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
+                                                .decorate(TextDecoration.UNDERLINED))
+                                .append(Component.text(" to load it now", NamedTextColor.AQUA))
+                );
+            });
+        });
+    }
+
+    private static int run(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        // Being ran from console
+        if (!(sender instanceof Player player)) return Command.SINGLE_SUCCESS;
+
+        World bukkitWorld = player.getWorld();
+
+        String newWorldName = ctx.getArgument("new world name", String.class);
 
         PersistentDataContainer data = player.getPersistentDataContainer();
         int[] pos1Array = data.get(Schematic.POS_1_KEY, PersistentDataType.INTEGER_ARRAY);
@@ -56,54 +115,8 @@ public class CreateFromRegionCommand extends PolarCmd {
         }
         Vector3i pos1 = new Vector3i(pos1Array);
         Vector3i pos2 = new Vector3i(pos2Array);
-        BlockSelector blockSelector = BlockSelector.RegionBlockSelector.fromCorners(pos1, pos2);
 
-        Vector3i schemOffset = player.getLocation().toVector().toVector3i();
-
-        // TODO: option to center the world
-
-        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
-            try {
-                PolarWorld polarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, blockSelector);
-                polarWorld.userData(WorldUserData.writeSchematicOffset(schemOffset));
-                byte[] worldBytes = PolarWriter.write(polarWorld);
-                FilePolarSource.defaultFolder(newWorldName).saveBytes(worldBytes);
-            } catch (Exception e) {
-                String errorMsg = String.format("Failed to create '%s', please check logs for error", newWorldName);
-                PolarPaper.logger().severe(errorMsg);
-                ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
-                return;
-            }
-
-            int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-            ctx.getSource().getSender().sendMessage(
-                    Component.text()
-                            .append(Component.text("Converted '", NamedTextColor.AQUA))
-                            .append(Component.text(newWorldName, NamedTextColor.AQUA))
-                            .append(Component.text("' in ", NamedTextColor.AQUA))
-                            .append(Component.text(ms, NamedTextColor.AQUA))
-                            .append(Component.text("ms. ", NamedTextColor.AQUA))
-                            .append(Component.text("\nUse ", NamedTextColor.AQUA))
-                            .append(
-                                    Component.text()
-                                            .append(Component.text("/polar paste ", NamedTextColor.WHITE))
-                                            .append(Component.text(newWorldName, NamedTextColor.WHITE))
-                                            .clickEvent(ClickEvent.runCommand("/polar paste " + newWorldName))
-                                            .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
-                                            .decorate(TextDecoration.UNDERLINED))
-                            .append(Component.text(" to paste it now", NamedTextColor.AQUA))
-                            .append(Component.text("\nUse ", NamedTextColor.AQUA))
-                            .append(
-                                    Component.text()
-                                            .append(Component.text("/polar load ", NamedTextColor.WHITE))
-                                            .append(Component.text(newWorldName, NamedTextColor.WHITE))
-                                            .clickEvent(ClickEvent.runCommand("/polar load " + newWorldName))
-                                            .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
-                                            .decorate(TextDecoration.UNDERLINED))
-                            .append(Component.text(" to load it now", NamedTextColor.AQUA))
-            );
-        });
-
+        createFromRegion(ctx, bukkitWorld, newWorldName, pos1, pos2);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -112,6 +125,8 @@ public class CreateFromRegionCommand extends PolarCmd {
         ctx.getSource().getSender().sendMessage(
                 Component.text()
                         .append(Component.text("Usage: /polar createfromregion <new worldname> (While in a world) to create a new polar world from the selected region", NamedTextColor.RED))
+                        .appendNewline()
+                        .append(Component.text("or: /polar createfromregion <new worldname> <world name> <pos1> <pos2> to create a new polar world from the specified region", NamedTextColor.RED))
         );
         return Command.SINGLE_SUCCESS;
     }
@@ -119,6 +134,33 @@ public class CreateFromRegionCommand extends PolarCmd {
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
         builder.then(Commands.argument("new world name", StringArgumentType.string())
-                .executes(CreateFromRegionCommand::run));
+                .executes(CreateFromRegionCommand::run)
+                .then(createWorldNameArgument(false, false)
+                        .then(Commands.argument("x1", IntegerArgumentType.integer())
+                                .then(Commands.argument("y1", IntegerArgumentType.integer())
+                                        .then(Commands.argument("z1", IntegerArgumentType.integer())
+                                                .then(Commands.argument("x2", IntegerArgumentType.integer())
+                                                        .then(Commands.argument("y2", IntegerArgumentType.integer())
+                                                                .then(Commands.argument("z2", IntegerArgumentType.integer())
+                                                                        .executes(ctx -> {
+                                                                            String worldName = ctx.getArgument("world name", String.class);
+                                                                            String newWorldName = ctx.getArgument("new world name", String.class);
+
+                                                                            Vector3i pos1 = new Vector3i(
+                                                                                    ctx.getArgument("x1", Integer.class),
+                                                                                    ctx.getArgument("y1", Integer.class),
+                                                                                    ctx.getArgument("z1", Integer.class)
+                                                                            );
+                                                                            Vector3i pos2 = new Vector3i(
+                                                                                    ctx.getArgument("x2", Integer.class),
+                                                                                    ctx.getArgument("y2", Integer.class),
+                                                                                    ctx.getArgument("z2", Integer.class)
+                                                                            );
+
+                                                                            World bukkitWorld = WorldKey.getWorld(worldName);
+
+                                                                            createFromRegion(ctx, bukkitWorld, newWorldName, pos1, pos2);
+                                                                            return Command.SINGLE_SUCCESS;
+                                                                        })))))))));
     }
 }

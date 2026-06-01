@@ -1,7 +1,11 @@
 package live.minehub.polarpaper.source;
 
 public interface PolarSource {
-    byte[] readBytes();
+    byte[] readBytes() throws Exception;
 
-    void saveBytes(byte[] save);
+    void saveBytes(byte[] save) throws Exception;
+
+    default void delete() throws Exception {
+        throw new UnsupportedOperationException("This PolarSource does not support deletion");
+    }
 }

@@ -35,6 +35,7 @@ import java.util.List;
 @ApiStatus.Internal
 public class PolarSection {
     public static final int BLOCK_PALETTE_SIZE = 4096;
+    public static final int BIOME_PALETTE_SIZE = 64;
 
     public enum LightContent {
         MISSING, EMPTY, FULL, PRESENT;
@@ -185,29 +186,17 @@ public class PolarSection {
         for (int i = 0; i < biomePalette().length; i++) {
             Identifier identifier = Identifier.tryParse(biomePalette()[i]);
             if (identifier == null) {
-                System.out.println("Failed to parse " + biomeHolderPalette[i]);
+                PolarPaper.logger().severe("Failed to parse " + biomeHolderPalette[i]);
                 biomeHolderPalette[i] = orThrow;
                 continue;
             }
             Holder.Reference<Biome> biome = registry.get(identifier).orElse(null);
             if (biome == null) {
-                System.out.println("Failed to get " + biomeHolderPalette[i]);
+                PolarPaper.logger().severe("Failed to get " + biomeHolderPalette[i]);
                 biomeHolderPalette[i] = orThrow;
                 continue;
             }
             biomeHolderPalette[i] = biome;
-        }
-
-        int bitsPerBlockEntry = (int) Math.ceil(Math.log(blockPalette.length) / Math.log(2));
-        int longBitsPerBlockEntry = bitsPerBlockEntry;
-        if (blockData != null) {
-            longBitsPerBlockEntry = PaletteUtil.getBitsForLongLength(blockData.length);
-        }
-
-        int bitsPerBiomeEntry = (int) Math.ceil(Math.log(biomePalette.length) / Math.log(2));
-        int longBitsPerBiomeEntry = bitsPerBiomeEntry;
-        if (biomeData != null) {
-            longBitsPerBiomeEntry = PaletteUtil.getBitsForLongLength(biomeData.length);
         }
 
         Strategy<BlockState> blockStrategy = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
@@ -215,6 +204,18 @@ public class PolarSection {
 
         Strategy<Holder<Biome>> biomeStrategy = Strategy.createForBiomes(registry.asHolderIdMap());
         PalettedContainer<Holder<Biome>> biomes = new PalettedContainer<>(orThrow, biomeStrategy, biomeHolderPalette);
+
+        int bitsPerBlockEntry = (int) Math.ceil(Math.log(blockPalette.length) / Math.log(2));
+        int longBitsPerBlockEntry = bitsPerBlockEntry;
+        if (blockData != null) {
+            longBitsPerBlockEntry = PaletteUtil.getBitsForLongLength(blockData.length, blockStrategy.entryCount());
+        }
+
+        int bitsPerBiomeEntry = (int) Math.ceil(Math.log(biomePalette.length) / Math.log(2));
+        int longBitsPerBiomeEntry = bitsPerBiomeEntry;
+        if (biomeData != null) {
+            longBitsPerBiomeEntry = PaletteUtil.getBitsForLongLength(biomeData.length, biomeStrategy.entryCount());
+        }
 
         biomes.data = getPalettedContainer(biomeHolderPalette, biomeData, bitsPerBiomeEntry, longBitsPerBiomeEntry, biomeStrategy);
         states.data = getPalettedContainer(materialPalette, blockData, bitsPerBlockEntry, longBitsPerBlockEntry, blockStrategy);
@@ -224,12 +225,12 @@ public class PolarSection {
         } catch (Exception e) {
             PolarPaper.logger().info("Biome Bits: " + bitsPerBiomeEntry);
             PolarPaper.logger().info("Biome Long Bits: " + longBitsPerBiomeEntry);
-            PolarPaper.logger().info("Biome Data Length: " + biomeData.length);
+            if (biomeData != null) PolarPaper.logger().info("Biome Data Length: " + biomeData.length);
             PolarPaper.logger().info("Biome Palette Length: " + biomePalette.length);
             PolarPaper.logger().info("----");
             PolarPaper.logger().info("Block Bits: " + bitsPerBlockEntry);
             PolarPaper.logger().info("Block Long Bits: " + longBitsPerBlockEntry);
-            PolarPaper.logger().info("Block Data Length: " + blockData.length);
+            if (blockData != null) PolarPaper.logger().info("Block Data Length: " + blockData.length);
             PolarPaper.logger().info("Block Palette Length: " + materialPalette.length);
             throw new RuntimeException(e);
         }

@@ -51,7 +51,7 @@ public class SetCenterCommand extends PolarCmd {
                     sender.sendMessage(Component.text("No source is defined for this world", NamedTextColor.RED));
                     return;
                 }
-                PolarWorld newPolarWorld = PolarReader.read(source.readBytes());
+                PolarWorld newPolarWorld = PolarReader.read(source);
                 newPolarWorld.userData(WorldUserData.writeSchematicOffset(center));
                 byte[] worldBytes = PolarWriter.write(newPolarWorld);
                 source.saveBytes(worldBytes);

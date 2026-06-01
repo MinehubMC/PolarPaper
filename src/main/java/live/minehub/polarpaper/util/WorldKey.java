@@ -1,11 +1,15 @@
 package live.minehub.polarpaper.util;
 
 import live.minehub.polarpaper.PolarPaper;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
+import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 
 public class WorldKey {
@@ -13,9 +17,9 @@ public class WorldKey {
     public static String getWorldName(Path path) {
         Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
-        return worldsFolder.toAbsolutePath().relativize(path.toAbsolutePath()).toString().replaceAll(".polar$", "")
+        return worldsFolder.toAbsolutePath().relativize(path.toAbsolutePath()).toString()
+                .replaceAll(".polar$", "")
                 .replace(" ", "_")
-                .replace("/", "_")
                 .toLowerCase();
     }
 
@@ -25,7 +29,10 @@ public class WorldKey {
      * @return null if no world found
      */
     public static @Nullable World getWorld(String worldName) {
-        worldName = worldName.toLowerCase().replace(" ", "_");
+        worldName = worldName
+                .replaceAll(".polar$", "")
+                .replace(" ", "_")
+                .toLowerCase();
 
         // try polar namespace
         NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
@@ -38,6 +45,36 @@ public class WorldKey {
         if (worldKey == null) return null;
         world = Bukkit.getWorld(worldKey);
         return world;
+    }
+
+    public static boolean isWithinWorldsFolder(Path path) {
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
+        Path worldsFolder = pluginFolder.resolve("worlds");
+        return path.normalize().startsWith(worldsFolder);
+    }
+
+    public static Path validatePath(CommandSender sender, String userPath) {
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
+        Path worldsFolder = pluginFolder.resolve("worlds");
+        userPath = userPath + (userPath.endsWith(".polar") ? "" : ".polar"); // ensure ends with .polar
+        Path path;
+        try {
+            path = worldsFolder.resolve(userPath);
+        } catch (InvalidPathException e) {
+            sender.sendMessage(Component.text("Invalid path", NamedTextColor.RED));
+            return null;
+        }
+
+        return validatePath(sender, path);
+    }
+
+    public static Path validatePath(CommandSender sender, Path path) {
+        if (!isWithinWorldsFolder(path)) {
+            sender.sendMessage(Component.text("Outside of worlds folder", NamedTextColor.RED));
+            return null;
+        }
+
+        return path;
     }
 
 }

@@ -95,8 +95,9 @@ public class PolarWriter {
     }
 
     private static void writeSection(@NotNull ByteBuf bb, @NotNull PolarSection section) {
-        bb.writeByte(section.isEmpty() ? 1 : 0);
-        if (section.isEmpty()) return;
+        boolean empty = section.isEmpty();
+        bb.writeByte(empty ? 1 : 0);
+        if (empty) return;
 
         // Blocks
         var blockPalette = section.blockPalette();

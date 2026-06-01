@@ -87,7 +87,7 @@ public abstract class PolarCmd {
                         if (!worldKey.toLowerCase().startsWith(s.getRemainingLowerCase())
                             && !world.getKey().getKey().toLowerCase().startsWith(s.getRemainingLowerCase())) continue;
 
-                        if (worldKey.contains(" ") && !greedy) {
+                        if ((worldKey.contains(" ") || worldKey.contains("/")) && !greedy) {
                             s.suggest("\"" + world.getKey() + "\"");
                         } else {
                             s.suggest(worldKey);

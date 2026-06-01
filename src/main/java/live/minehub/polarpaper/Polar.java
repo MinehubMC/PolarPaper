@@ -75,7 +75,7 @@ public class Polar {
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      * @see FilePolarSource#defaultFolder(String)
      */
-    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarSource source, @NotNull String worldName) {
+    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource source, @NotNull String worldName) {
         return createWorld(source, worldName, PolarWorldAccess.POLAR_PAPER_FEATURES);
     }
 
@@ -100,7 +100,7 @@ public class Polar {
      * @see BytesPolarSource
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public static CompletableFuture<@Nullable World> createWorld(PolarSource polarSource, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource polarSource, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         return createWorld(polarSource, worldName, config, worldAccess);
@@ -114,7 +114,7 @@ public class Polar {
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      */
-    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         return createWorld(polarWorld, worldName, config, worldAccess);
@@ -130,7 +130,7 @@ public class Polar {
      * @see FilePolarSource#defaultFolder(String)
      * @see BytesPolarSource
      */
-    public static CompletableFuture<@Nullable World> createWorld(PolarSource polarSource, @NotNull String worldName, @NotNull Config config) {
+    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource polarSource, @NotNull String worldName, @NotNull Config config) {
         return createWorld(polarSource, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
     }
 
@@ -141,7 +141,7 @@ public class Polar {
      * @param config Custom config for the polar world
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
-    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config) {
+    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config) {
         return createWorld(polarWorld, worldName, config, PolarWorldAccess.POLAR_PAPER_FEATURES);
     }
 
@@ -156,7 +156,14 @@ public class Polar {
      * @see BytesPolarSource
      */
     public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource source, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
-        byte[] worldBytes = source == null ? null : source.readBytes();
+        byte[] worldBytes;
+        try {
+            worldBytes = source == null ? null : source.readBytes();
+        } catch (Exception e) {
+            PolarPaper.logger().severe("Failed to load world " + worldName);
+            ExceptionUtil.log(e);
+            return null;
+        }
 
         return createWorld(new PolarStreamingGenerator(config, source, worldAccess), worldName, worldAccess).thenComposeAsync(world -> {
             if (world == null) return CompletableFuture.completedFuture(null);
@@ -169,11 +176,14 @@ public class Polar {
                                 return null;
                             }
 
-                            LOADING_WORLDS.remove(world.getKey());
                             return world;
                         });
             }
             return CompletableFuture.completedFuture(world);
+        }).whenComplete((result, ex) -> {
+            if (ex != null || result == null) return;
+            LOADING_WORLDS.remove(result.getKey());
+            startAutoSaveTask(result, config);
         });
     }
 
@@ -205,12 +215,12 @@ public class Polar {
                 }));
             }
 
-            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenApply(_ -> {
-                LOADING_WORLDS.remove(world.getKey());
-                return world;
-            });
+            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenApply(_ -> world);
         }).whenComplete((world, ex) -> {
-            if (world != null) startAutoSaveTask(world, config);
+            if (world != null) {
+                LOADING_WORLDS.remove(world.getKey());
+                startAutoSaveTask(world, config);
+            }
             if (ex != null) ExceptionUtil.log(ex);
         });
     }
@@ -412,7 +422,12 @@ public class Polar {
     public static void saveWorld(World world, Collection<PolarChunk> extraChunks, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config) {
         PolarWorld newPolarWorld = PolarWorld.convert(world, polarWorldAccess, blockSelector, config, extraChunks);
         byte[] worldBytes = PolarWriter.write(newPolarWorld);
-        polarSource.saveBytes(worldBytes);
+        try {
+            polarSource.saveBytes(worldBytes);
+        } catch (Exception e) {
+            PolarPaper.logger().severe("Failed to save world " + world.getKey().getKey());
+            ExceptionUtil.log(e);
+        }
     }
 
     public static CompletableFuture<@Nullable World> createPolarLevel(WorldCreator creator, Location spawnPos, Difficulty difficulty, Map<String, Object> gamerules, long time) {

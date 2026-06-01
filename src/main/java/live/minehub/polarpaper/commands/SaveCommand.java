@@ -65,14 +65,14 @@ public class SaveCommand extends PolarCmd {
 
         return TaskFutures.runAsync(() -> {
             Polar.saveWorld(bukkitWorld);
-            return true;
-        }).whenComplete((success, ex) -> {
-            if (!success || ex != null) {
+            return null;
+        }).handle((_, ex) -> {
+            if (ex != null) {
                 String errorMsg = String.format("Failed to save '%s'", bukkitWorld.getKey().getKey());
                 PolarPaper.logger().severe(errorMsg);
                 sender.sendMessage(Component.text(errorMsg, NamedTextColor.RED));
                 ExceptionUtil.log(ex);
-                return;
+                return false;
             }
 
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
@@ -84,6 +84,8 @@ public class SaveCommand extends PolarCmd {
                             .append(Component.text(ms, NamedTextColor.AQUA))
                             .append(Component.text("ms", NamedTextColor.AQUA))
             );
+
+            return true;
         });
     }
 

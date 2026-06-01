@@ -72,6 +72,11 @@ public class PolarStreamingGenerator extends PolarGenerator {
                 .append(Component.text(" Compression: ", NamedTextColor.AQUA))
                 .append(Component.text(getConfig().compression().name(), NamedTextColor.AQUA))
                 .appendNewline()
+                .append(Component.text(" Source: ", NamedTextColor.AQUA))
+                .append(Component.text(getSource() == null ? "None" : getSource().getClass().getSimpleName(), NamedTextColor.AQUA))
+                .appendNewline()
+                .append(Component.text(" Generator: STREAMING", NamedTextColor.AQUA))
+                .appendNewline()
                 .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
                 .append(Component.text(getConfig().spawnString(), NamedTextColor.AQUA));
 

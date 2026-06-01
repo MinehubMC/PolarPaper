@@ -26,12 +26,20 @@ public class PolarReader {
     private static final int MAX_BLOCK_PALETTE_SIZE = 16 * 16 * 16;
     private static final int MAX_BIOME_PALETTE_SIZE = 8 * 8 * 8;
 
-    public static @NotNull PolarWorld read(PolarSource source) {
-        return read(source.readBytes());
+    public static @NotNull PolarWorld read(PolarSource source) throws IOException {
+        try {
+            return read(source.readBytes());
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
     }
 
-    public static @NotNull PolarWorld read(PolarSource source, @NotNull PolarDataConverter dataConverter) {
-        return read(source.readBytes(), dataConverter);
+    public static @NotNull PolarWorld read(PolarSource source, @NotNull PolarDataConverter dataConverter) throws IOException {
+        try {
+            return read(source.readBytes(), dataConverter);
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
     }
 
     public static @NotNull PolarWorld read(byte @NotNull [] data) {

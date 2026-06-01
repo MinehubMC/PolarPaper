@@ -59,7 +59,7 @@ public class SetSpawnCommand extends PolarCmd {
 
             Config newConfig = config.toBuilder().spawn(spawnPos).build();
 
-            Config.writeToConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getName(), newConfig);
+            Config.writeToConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getKey().getKey(), newConfig);
 
             bukkitWorld.setSpawnLocation(spawnPos);
 

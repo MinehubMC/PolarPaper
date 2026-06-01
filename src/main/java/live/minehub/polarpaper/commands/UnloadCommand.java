@@ -98,7 +98,7 @@ public class UnloadCommand extends PolarCmd {
         String worldName = bukkitWorld.getKey().getKey();
         return TaskFutures.run(() -> {
             return Bukkit.unloadWorld(bukkitWorld, false);
-        }).whenComplete((success, ex) -> {
+        }).handle((success, ex) -> {
             if (!success || ex != null) {
                 if (!bukkitWorld.getPlayers().isEmpty()) {
                     ctx.getSource().getSender().sendMessage(
@@ -107,7 +107,7 @@ public class UnloadCommand extends PolarCmd {
                                     .append(Component.text(worldName, NamedTextColor.RED))
                                     .append(Component.text("'", NamedTextColor.RED))
                     );
-                    return;
+                    return false;
                 }
 
                 ctx.getSource().getSender().sendMessage(
@@ -117,7 +117,7 @@ public class UnloadCommand extends PolarCmd {
                                 .append(Component.text("'", NamedTextColor.RED))
                 );
 
-                return;
+                return false;
             }
 
             ctx.getSource().getSender().sendMessage(
@@ -126,6 +126,8 @@ public class UnloadCommand extends PolarCmd {
                             .append(Component.text(worldName, NamedTextColor.AQUA))
                             .append(Component.text("'", NamedTextColor.AQUA))
             );
+
+            return true;
         });
     }
 

@@ -64,7 +64,7 @@ public class InfoCommand extends PolarCmd {
             return Command.SINGLE_SUCCESS;
         }
 
-        return printInfo(ctx, player.getWorld().getName());
+        return printInfo(ctx, player.getWorld().getKey().toString());
     }
 
     private static int executeArgument(CommandContext<CommandSourceStack> ctx) {

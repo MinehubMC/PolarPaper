@@ -11,6 +11,7 @@ import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.*;
 import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.source.FilePolarSource;
+import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -62,7 +63,12 @@ public class ConvertCommand extends PolarCmd {
         Integer chunkRadius = ctx.getArgument("chunk radius", Integer.class);
 
         NamespacedKey newWorldKey = NamespacedKey.fromString(newWorldName, PolarPaper.getPlugin());
-        World newBukkitWorld = newWorldKey == null ? null : Bukkit.getWorld(newWorldKey);
+        if (newWorldKey == null) {
+            sender.sendMessage(Component.text("Invalid world name", NamedTextColor.RED));
+            return Command.SINGLE_SUCCESS;
+        }
+
+        World newBukkitWorld = Bukkit.getWorld(newWorldKey);
         if (newBukkitWorld != null) {
             sender.sendMessage(
                     Component.text()
@@ -78,7 +84,7 @@ public class ConvertCommand extends PolarCmd {
         sender.sendMessage(
                 Component.text()
                         .append(Component.text("Loading chunks in '", NamedTextColor.GRAY))
-                        .append(Component.text(newWorldName, NamedTextColor.GRAY))
+                        .append(Component.text(worldKey.toString(), NamedTextColor.GRAY))
                         .append(Component.text("'...", NamedTextColor.GRAY))
         );
 
@@ -104,22 +110,31 @@ public class ConvertCommand extends PolarCmd {
             sender.sendMessage(
                     Component.text()
                             .append(Component.text("Converting '", NamedTextColor.GRAY))
-                            .append(Component.text(newWorldName, NamedTextColor.GRAY))
+                            .append(Component.text(worldKey.toString(), NamedTextColor.GRAY))
                             .append(Component.text("'...", NamedTextColor.GRAY))
             );
 
-            Config config = Polar.updateConfig(bukkitWorld, newWorldName);
+            Config config = Polar.updateConfig(bukkitWorld, newWorldKey.getKey());
 
             Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
                 PolarWorld newPolarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.square(offsetX, offsetZ, chunkRadius), config);
                 byte[] polarBytes = PolarWriter.write(newPolarWorld);
-                FilePolarSource.defaultFolder(newWorldName).saveBytes(polarBytes);
+                try {
+                    FilePolarSource.defaultFolder(newWorldName).saveBytes(polarBytes);
+                } catch (Exception e) {
+                    sender.sendMessage(Component.text("Failed to save '" + worldKey.getKey() + "'"));
+                    PolarPaper.logger().severe("Failed to save: " + worldKey.getKey());
+                    ExceptionUtil.log(e);
+                    return;
+                }
 
                 int ms = (int) ((System.nanoTime() - before) / 1_000_000);
                 sender.sendMessage(
                         Component.text()
                                 .append(Component.text("Converted '", NamedTextColor.AQUA))
-                                .append(Component.text(worldKey.getKey(), NamedTextColor.AQUA))
+                                .append(Component.text(worldKey.toString(), NamedTextColor.AQUA))
+                                .append(Component.text("' to '", NamedTextColor.AQUA))
+                                .append(Component.text(newWorldKey.getKey(), NamedTextColor.AQUA))
                                 .append(Component.text("' in ", NamedTextColor.AQUA))
                                 .append(Component.text(ms, NamedTextColor.AQUA))
                                 .append(Component.text("ms. ", NamedTextColor.AQUA))

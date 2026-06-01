@@ -22,7 +22,6 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 
 public class LoadCommand extends PolarCmd {
@@ -40,23 +39,10 @@ public class LoadCommand extends PolarCmd {
     }
 
     protected static void loadWorld(CommandContext<CommandSourceStack> ctx, String worldPath) {
-        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-        Path worldsFolder = pluginFolder.resolve("worlds");
-        worldPath = worldPath + (worldPath.endsWith(".polar") ? "" : ".polar"); // ensure ends with .polar
-        Path path;
-        try {
-            path = worldsFolder.resolve(worldPath);
-        } catch (InvalidPathException e) {
-            ctx.getSource().getSender().sendMessage(Component.text("Invalid path", NamedTextColor.RED));
-            return;
-        }
-
+        Path path = WorldKey.validatePath(ctx.getSource().getSender(), worldPath);
+        if (path == null) return;
         if (!Files.exists(path)) {
             ctx.getSource().getSender().sendMessage(Component.text("File '" + path.getFileName() + "' does not exist", NamedTextColor.RED));
-            return;
-        }
-        if (!path.normalize().startsWith(worldsFolder)) {
-            ctx.getSource().getSender().sendMessage(Component.text("Outside of worlds folder", NamedTextColor.RED));
             return;
         }
 

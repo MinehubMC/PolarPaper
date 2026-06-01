@@ -6,6 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.Polar;
+import live.minehub.polarpaper.PolarPaper;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -18,6 +19,8 @@ public class ReloadConfigCommand extends PolarCmd {
     }
 
     protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
+        PolarPaper.getPlugin().reloadConfig();
+
         int numWorlds = 0;
         for (World bukkitWorld : Bukkit.getWorlds()) {
             if (!Config.isInConfig(bukkitWorld.getKey().getKey())) continue;

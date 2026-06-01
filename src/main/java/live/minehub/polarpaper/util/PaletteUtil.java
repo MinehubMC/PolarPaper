@@ -1,6 +1,5 @@
 package live.minehub.polarpaper.util;
 
-import live.minehub.polarpaper.PolarSection;
 import net.minecraft.world.level.chunk.Configuration;
 import net.minecraft.world.level.chunk.Strategy;
 
@@ -79,9 +78,9 @@ public final class PaletteUtil {
         }
     }
 
-    public static int getBitsForLongLength(int longLength) {
+    public static int getBitsForLongLength(int longLength, int stratEntryCount) {
         if (longLength == 1024) return 15;
-        return (longLength * 64) / PolarSection.BLOCK_PALETTE_SIZE;
+        return (longLength * 64) / stratEntryCount;
     }
 
 }

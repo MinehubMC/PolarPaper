@@ -40,6 +40,10 @@ public interface Setter {
             this.selector = selector;
         }
 
+        public org.bukkit.World getWorld() {
+            return world;
+        }
+
         public BlockSelector getBlockSelector() {
             return selector;
         }
@@ -72,7 +76,7 @@ public interface Setter {
 
             CraftEntity entity = nmsEntity.getBukkitEntity();
 
-            Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), t -> {
+            Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), _ -> {
                 PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, true);
                 event.callEvent();
                 if (!event.isCancelled()) {
@@ -86,7 +90,7 @@ public interface Setter {
             ServerLevel serverLevel = craftWorld.getHandle();
 
             // relight chunks and resend blocks to client
-            serverLevel.getChunkSource().getLightEngine().starlight$serverRelightChunks(chunksToRefresh, a -> {}, a -> {});
+            serverLevel.getChunkSource().getLightEngine().starlight$serverRelightChunks(chunksToRefresh, _ -> {}, _ -> {});
             for (ChunkPos c : chunksToRefresh) {
                 world.refreshChunk(c.x(), c.z());
             }
