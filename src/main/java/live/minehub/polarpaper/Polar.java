@@ -195,7 +195,9 @@ public class Polar {
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
     public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
-        return createWorld(new PolarStreamingGenerator(config, null, worldAccess), worldName, worldAccess).thenComposeAsync(world -> {
+        PolarStreamingGenerator generator = new PolarStreamingGenerator(config, null, worldAccess);
+        generator.setUserData(polarWorld.userData());
+        return createWorld(generator, worldName, worldAccess).thenComposeAsync(world -> {
             if (world == null) return CompletableFuture.completedFuture(null);
             ServerLevel level = ((CraftWorld) world).getHandle();
             List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -203,6 +205,9 @@ public class Polar {
                 NoUnloadLevelChunk levelChunk = chunk.createLevelChunk(level);
 
                 futures.add(TaskFutures.run(() -> {
+                    for (PolarChunk.BlockEntity blockEntity : chunk.blockEntities()) {
+                        PolarStreamLoader.addBlockEntity(blockEntity, levelChunk);
+                    }
                     PolarStreamLoader.insertChunk(level, levelChunk);
                     worldAccess.loadChunkData(world, levelChunk, chunk.userData());
                     return true;
