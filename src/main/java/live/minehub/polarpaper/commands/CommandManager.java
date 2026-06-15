@@ -19,7 +19,9 @@ public class CommandManager {
 
     private Component helpComponent = null;
     private final Map<String, PolarCmd> registeredCommands = new HashMap<>();
-    private final LiteralArgumentBuilder<CommandSourceStack> rootCmd = Commands.literal("polar");
+    private final LiteralArgumentBuilder<CommandSourceStack> rootCmd =
+            Commands.literal("polar")
+                    .requires(source -> source.getSender().hasPermission("polarpaper.use"));
 
     public void register(Commands registrar) {
         register(new BrowseCommand());
