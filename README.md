@@ -16,7 +16,7 @@ Polar is also a single plugin without requiring classloaders or a Paper fork
 
 Polar was originally developed for [Minestom](https://github.com/Minestom/Minestom), see the Minestom library [here](https://github.com/hollow-cube/polar)
 
-[Support Discord](https://discord.gg/5MrPmKqS7p)
+[Support Discord](https://discord.gg/n7fp52auB7)
 
 ## Permissions
 Permission nodes are simply `polarpaper.<subcommand>`, for example: `polarpaper.info` for `/polar info`
