@@ -19,6 +19,7 @@ import live.minehub.polarpaper.util.PolarConstants;
 import live.minehub.polarpaper.util.TaskFutures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.FullChunkStatus;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ThreadedLevelLightEngine;
 import net.minecraft.util.ProblemReporter;
@@ -267,6 +268,9 @@ public class PolarStreamLoader {
 
             Heightmap.primeHeightmaps(newLevelChunk, EnumSet.allOf(Heightmap.Types.class));
 
+            newLevelChunk.setFullStatus(() -> FullChunkStatus.ENTITY_TICKING);
+            newLevelChunk.runPostLoad();
+            newLevelChunk.setLoaded(true);
             newLevelChunk.registerAllBlockEntitiesAfterLevelLoad();
             newLevelChunk.registerTickContainerInLevel(serverLevel);
 
