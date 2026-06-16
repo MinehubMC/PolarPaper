@@ -13,7 +13,7 @@ public final class PolarPaperLoader implements PluginLoader {
     @Override
     public void classloader(PluginClasspathBuilder builder) {
         MavenLibraryResolver resolver = new MavenLibraryResolver();
-        resolver.addDependency(new Dependency(new DefaultArtifact("com.github.luben:zstd-jni:1.5.7-7"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact("com.github.luben:zstd-jni:1.5.7-11"), null));
         resolver.addRepository(new RemoteRepository.Builder("central", "default", MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR).build());
 
         builder.addLibrary(resolver);

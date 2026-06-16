@@ -8,9 +8,7 @@ import live.minehub.polarpaper.generator.PolarGenerator;
 import live.minehub.polarpaper.source.FilePolarSource;
 import live.minehub.polarpaper.util.ExceptionUtil;
 import live.minehub.polarpaper.util.WorldKey;
-import org.bukkit.Bukkit;
 import org.bukkit.World;
-import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
@@ -68,21 +66,20 @@ public final class PolarPaper extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        CraftServer craftServer = (CraftServer) Bukkit.getServer();
-        Path tempFolder = craftServer.getServer().storageSource.levelDirectory.path().resolve("dimensions").resolve(namespace());
-        if (Files.exists(tempFolder)) {
-            logger().info("Clearing temp directory");
-            try (Stream<Path> paths = Files.walk(tempFolder)) {
-                paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-            } catch (IOException e) {
-                logger().warning("Failed to delete temp directory");
-                ExceptionUtil.log(e);
-            }
-        }
-
         for (World world : getServer().getWorlds()) {
             PolarGenerator generator = PolarGenerator.fromWorld(world);
             if (generator == null) continue;
+
+            Path worldFolderPath = world.getWorldFolder().toPath();
+            if (Files.exists(worldFolderPath)) {
+                logger().info("Clearing temp files for " + world.getKey().getKey());
+                try (Stream<Path> paths = Files.walk(worldFolderPath)) {
+                    paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+                } catch (IOException e) {
+                    logger().warning("Failed to delete temp files for " + world.getKey().getKey());
+                    ExceptionUtil.log(e);
+                }
+            }
 
             if (!generator.getConfig().saveOnStop()) {
                 logger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getKey().getKey()));

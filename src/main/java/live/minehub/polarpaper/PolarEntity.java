@@ -11,6 +11,7 @@ import net.minecraft.util.ProblemReporter;
 import net.minecraft.util.datafix.fixes.References;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntitySpawnRequest;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.ValueInput;
@@ -90,7 +91,7 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         ValueInput tagValueInput = TagValueInput.create(problemReporter, ((CraftWorld) world).getHandle().registryAccess(), compound);
 
         Entity nmsEntity = EntityType
-                .create(tagValueInput, ((CraftWorld) world).getHandle(), EntitySpawnReason.LOAD)
+                .create(tagValueInput, ((CraftWorld) world).getHandle(), new EntitySpawnRequest(EntitySpawnReason.LOAD, false))
                 .orElse(null);
         if (nmsEntity == null) return null;
 
