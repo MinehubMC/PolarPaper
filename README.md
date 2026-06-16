@@ -21,16 +21,16 @@ Polar was originally developed for [Minestom](https://github.com/Minestom/Minest
 ## Permissions
 Permission nodes are simply `polarpaper.<subcommand>`, for example: `polarpaper.info` for `/polar info`
 
-`polarpaper.version` for the root command (/polar)
+`polarpaper.use` for the root command (/polar)
 
 ## Custom gamerules
 Polar provides a few custom gamerules that can be defined in the config:
-| Name          | Type    | Description                                 |
-| ------------- | ------- | ------------------------------------------- |
-| blockPhysics  | Boolean | Controls block placement/interaction rules  |
-| blockGravity  | Boolean | Allow gravity blocks to fall (sand, gravel) |
-| liquidPhysics | Boolean | Allow lava/water to flow                    |
-| coralDeath    | Boolean | Allow coral to die when not nearby water    |
+| Name          | Type    | Description                                                                                                |
+| ------------- | ------- | ---------------------------------------------------------------------------------------------------------- |
+| blockPhysics  | Boolean | Controls block placement/interaction rules                                                                 |
+| blockGravity  | Boolean | Allow gravity blocks to fall (sand, gravel)                                                                |
+| liquidPhysics | Boolean | Allow lava/water to flow                                                                                   |
+| blockFade     | Boolean | Controls block fading or disappearing (e.g. snow/ice melting, fire burning out, coral death, turtle eggs)  |
 
 # API
 Remember to add `polarpaper` to your depend list in plugin.yml if using as a plugin/compileOnly
