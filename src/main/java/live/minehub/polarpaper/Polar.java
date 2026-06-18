@@ -167,7 +167,7 @@ public class Polar {
             return null;
         }
 
-        return createWorld(new PolarStreamingGenerator(config, source, worldAccess), worldName, worldAccess).thenComposeAsync(world -> {
+        return createWorld(new PolarStreamingGenerator(config, source, worldAccess), worldName).thenComposeAsync(world -> {
             if (world == null) return CompletableFuture.completedFuture(null);
             if (worldBytes != null && worldBytes.length > 0) {
                 return PolarStreamLoader.stream(worldBytes, world, worldAccess)
@@ -199,7 +199,7 @@ public class Polar {
     public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
         PolarStreamingGenerator generator = new PolarStreamingGenerator(config, null, worldAccess);
         generator.setUserData(polarWorld.userData());
-        return createWorld(generator, worldName, worldAccess).thenComposeAsync(world -> {
+        return createWorld(generator, worldName).thenComposeAsync(world -> {
             if (world == null) return CompletableFuture.completedFuture(null);
             ServerLevel level = ((CraftWorld) world).getHandle();
             List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -237,12 +237,11 @@ public class Polar {
      *
      * @param generator Generator for the world
      * @param worldName The name for the polar world
-     * @param worldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      * @see PolarWorldAccess#POLAR_PAPER_FEATURES
      * @see PolarStreamingGenerator
      */
-    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarGenerator generator, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarGenerator generator, @NotNull String worldName) {
         worldName = worldName.toLowerCase().replace(" ", "_");
 
         NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
@@ -440,8 +439,6 @@ public class Polar {
     public static CompletableFuture<@Nullable World> createPolarLevel(WorldCreator creator, Location spawnPos, Difficulty difficulty, Map<String, Object> gamerules, long time) {
         CraftServer craftServer = (CraftServer) Bukkit.getServer();
 
-        boolean async = !craftServer.isPrimaryThread();
-
         // Check if already existing
         if (craftServer.getWorld(creator.key()) != null) {
             return CompletableFuture.completedFuture(null);
@@ -608,6 +605,8 @@ public class Polar {
 
             return serverLevel.getWorld();
         };
+
+        boolean async = !craftServer.isPrimaryThread();
         if (async) {
             return TaskFutures.run(initSupplier);
         } else {
