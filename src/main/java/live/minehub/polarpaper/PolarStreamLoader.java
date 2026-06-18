@@ -1,8 +1,6 @@
 package live.minehub.polarpaper;
 
-import ca.spottedleaf.concurrentutil.lock.ReentrantAreaLock;
-import ca.spottedleaf.moonrise.common.util.WorldUtil;
-import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
+import ca.spottedleaf.concurrentutil.util.ConcurrentUtil;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkTaskScheduler;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
@@ -44,16 +42,17 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.lang.invoke.VarHandle;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 
 import static live.minehub.polarpaper.util.ByteArrayUtil.getVarInt;
 
 public class PolarStreamLoader {
+    private PolarStreamLoader() {}
+
+    private static final VarHandle CHUNK_COMPLETION_ARRAY_HANDLE = ConcurrentUtil.getArrayHandle(NewChunkHolder.ChunkCompletion[].class);
+    private static final ChunkStatus[] ALL_STATUSES = ChunkStatus.getStatusList().toArray(new ChunkStatus[0]);
 
     public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarWorldAccess worldAccess) throws IOException {
         try {
@@ -124,7 +123,7 @@ public class PolarStreamLoader {
         for (int i = 0; i < chunkCount; i++) {
             try {
                 futures[i] = readChunk(world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
-            } catch (Throwable e) {
+            } catch (Exception e) {
                 return CompletableFuture.failedFuture(e);
             }
         }
@@ -166,7 +165,6 @@ public class PolarStreamLoader {
         NoUnloadLevelChunk newLevelChunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(chunkX, chunkZ), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
 
         newLevelChunk.tryMarkSaved();
-//        newLevelChunk.setLogUnsaved(true);
 
         int blockEntityCount = getVarInt(bb);
         for (int i = 0; i < blockEntityCount; i++) {
@@ -207,7 +205,6 @@ public class PolarStreamLoader {
     }
 
     protected static void insertChunk(ServerLevel serverLevel, NoUnloadLevelChunk newLevelChunk) {
-
         int chunkX = newLevelChunk.locX;
         int chunkZ = newLevelChunk.locZ;
         ChunkTaskScheduler chunkTaskScheduler = serverLevel.moonrise$getChunkTaskScheduler();
@@ -215,15 +212,12 @@ public class PolarStreamLoader {
 
         // Begin reflection hell :D
         try {
-            ReentrantAreaLock.Node lock1 = chunkTaskScheduler.schedulingLockArea.lock(chunkX, chunkZ);
-            ReentrantAreaLock.Node lock = chunkHolderManager.ticketLockArea.lock(chunkX, chunkZ);
-            Method getOrCreateChunkHolderMethod = chunkHolderManager.getClass().getDeclaredMethod("getOrCreateChunkHolder", int.class, int.class);
-            getOrCreateChunkHolderMethod.setAccessible(true);
-            NewChunkHolder newChunkHolder = (NewChunkHolder) getOrCreateChunkHolderMethod.invoke(chunkHolderManager, chunkX, chunkZ);
-            chunkHolderManager.ticketLockArea.unlock(lock);
-            chunkTaskScheduler.schedulingLockArea.unlock(lock1);
+            // Creates an entity chunk which also runs the private method "getOrCreateChunkHolder" for us
+            chunkHolderManager.getOrCreateEntityChunk(chunkX, chunkZ, false);
+            NewChunkHolder newChunkHolder = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
 
             newLevelChunk.needsDecoration = false;
+            newLevelChunk.mustNotSave = true;
             Field currentChunkField = newChunkHolder.getClass().getDeclaredField("currentChunk");
             currentChunkField.setAccessible(true);
             currentChunkField.set(newChunkHolder, newLevelChunk);
@@ -233,38 +227,21 @@ public class PolarStreamLoader {
             currentGenStatusField.setAccessible(true);
             currentGenStatusField.set(newChunkHolder, ChunkStatus.FULL);
 
-            Field vhField = NewChunkHolder.class.getDeclaredField("CHUNK_COMPLETION_ARRAY_HANDLE");
-            vhField.setAccessible(true);
-            VarHandle vh = (VarHandle) vhField.get(null);
-
-            Field allStatusesField = NewChunkHolder.class.getDeclaredField("ALL_STATUSES");
-            allStatusesField.setAccessible(true);
-            ChunkStatus[] allStatuses = (ChunkStatus[]) allStatusesField.get(null);
-
+            // Populate every status up to and including FULL
+            // This mirrors what replaceProtoChunk() does, but for all statuses including FULL
             Field chunkCompletionsField = NewChunkHolder.class.getDeclaredField("chunkCompletions");
             chunkCompletionsField.setAccessible(true);
             Object[] chunkCompletions = (Object[]) chunkCompletionsField.get(newChunkHolder);
+            for (ChunkStatus status : ALL_STATUSES) {
+                NewChunkHolder.ChunkCompletion completion = new NewChunkHolder.ChunkCompletion(newLevelChunk, status);
+                CHUNK_COMPLETION_ARRAY_HANDLE.setVolatile(chunkCompletions, status.getIndex(), completion);
 
-            Field loadedTicketLevelField = LevelChunk.class.getDeclaredField("loadedTicketLevel");
-            loadedTicketLevelField.setAccessible(true);
-            loadedTicketLevelField.set(newLevelChunk, true);
-
-            // Populate every status up to and including FULL
-            // This mirrors what replaceProtoChunk() does, but for all statuses including FULL
-            Constructor<?> completionCtor = NewChunkHolder.ChunkCompletion.class
-                    .getDeclaredConstructor(ChunkAccess.class, ChunkStatus.class);
-            completionCtor.setAccessible(true);
-
-            for (ChunkStatus status : allStatuses) {
-                Object completion = completionCtor.newInstance(newLevelChunk, status);
-                vh.setVolatile(chunkCompletions, status.getIndex(), completion);
-                if (status == ChunkStatus.FULL) break;
+                if (status == ChunkStatus.FULL) {
+                    Field lastChunkCompletionField = NewChunkHolder.class.getDeclaredField("lastChunkCompletion");
+                    lastChunkCompletionField.setAccessible(true);
+                    lastChunkCompletionField.set(newChunkHolder, completion);
+                }
             }
-
-            Object fullCompletion = completionCtor.newInstance(newLevelChunk, ChunkStatus.FULL);
-            Field lastChunkCompletionField = NewChunkHolder.class.getDeclaredField("lastChunkCompletion");
-            lastChunkCompletionField.setAccessible(true);
-            lastChunkCompletionField.set(newChunkHolder, fullCompletion);
 
             Heightmap.primeHeightmaps(newLevelChunk, EnumSet.allOf(Heightmap.Types.class));
 
@@ -273,31 +250,7 @@ public class PolarStreamLoader {
             newLevelChunk.setLoaded(true);
             newLevelChunk.registerAllBlockEntitiesAfterLevelLoad();
             newLevelChunk.registerTickContainerInLevel(serverLevel);
-
-            initializeEntityChunk(newChunkHolder);
-        } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException | NoSuchFieldException |
-                 InstantiationException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static ChunkEntitySlices initializeEntityChunk(NewChunkHolder holder) {
-        try {
-            Field entityChunkField = NewChunkHolder.class.getDeclaredField("entityChunk");
-            entityChunkField.setAccessible(true);
-
-            ChunkEntitySlices slices = new ChunkEntitySlices(
-                    holder.world, holder.chunkX, holder.chunkZ, holder.getChunkStatus(),
-                    holder.holderData, WorldUtil.getMinSection(holder.world), WorldUtil.getMaxSection(holder.world)
-            );
-            slices.setTransient(false);
-
-            entityChunkField.set(holder, slices);
-
-            holder.world.moonrise$getEntityLookup().entitySectionLoad(holder.chunkX, holder.chunkZ, slices);
-
-            return slices;
-        } catch (NoSuchFieldException | IllegalAccessException e) {
+        } catch (IllegalAccessException | NoSuchFieldException e) {
             throw new RuntimeException(e);
         }
     }
