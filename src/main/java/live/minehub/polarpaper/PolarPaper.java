@@ -4,9 +4,9 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import live.minehub.polarpaper.commands.CommandManager;
-import live.minehub.polarpaper.generator.PolarGenerator;
-import live.minehub.polarpaper.source.FilePolarSource;
-import live.minehub.polarpaper.util.ExceptionUtil;
+import live.minehub.polarpaper.core.config.Config;
+import live.minehub.polarpaper.core.generator.PolarGenerator;
+import live.minehub.polarpaper.core.source.FilePolarSource;
 import live.minehub.polarpaper.util.WorldKey;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
@@ -15,6 +15,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -60,7 +62,10 @@ public final class PolarPaper extends JavaPlugin {
             });
         } catch (IOException e) {
             logger().warning("Failed to load world on startup");
-            ExceptionUtil.log(e);
+            StringWriter sw = new StringWriter();
+            e.printStackTrace(new PrintWriter(sw));
+            String exceptionAsString = sw.toString();
+            logger().warning(exceptionAsString);
         }
     }
 
@@ -77,7 +82,10 @@ public final class PolarPaper extends JavaPlugin {
                     paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
                 } catch (IOException e) {
                     logger().warning("Failed to delete temp files for " + world.getKey().getKey());
-                    ExceptionUtil.log(e);
+                    StringWriter sw = new StringWriter();
+                    e.printStackTrace(new PrintWriter(sw));
+                    String exceptionAsString = sw.toString();
+                    logger().warning(exceptionAsString);
                 }
             }
 
@@ -85,7 +93,7 @@ public final class PolarPaper extends JavaPlugin {
                 logger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getKey().getKey()));
                 continue;
             }
-            if (Polar.isLoading(world)) {
+            if (Polar.isLoading(world.getKey())) {
                 logger().info(String.format("Not saving '%s' as it was not fully loaded", world.getKey().getKey()));
                 continue;
             }
@@ -101,10 +109,15 @@ public final class PolarPaper extends JavaPlugin {
     }
 
     public static PolarPaper getPlugin() {
-        return PolarPaper.getPlugin(PolarPaper.class);
+        return getPlugin(PolarPaper.class);
     }
     public static Logger logger() {
         return getPlugin().getLogger();
+    }
+
+    public static Path getConfigPath() {
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
+        return pluginFolder.resolve("config.yml");
     }
 
     public static void registerEvents() {

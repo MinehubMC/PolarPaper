@@ -8,10 +8,14 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import live.minehub.polarpaper.*;
-import live.minehub.polarpaper.generator.PolarGenerator;
-import live.minehub.polarpaper.source.FilePolarSource;
-import live.minehub.polarpaper.util.ExceptionUtil;
+import live.minehub.polarpaper.Polar;
+import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.core.config.Config;
+import live.minehub.polarpaper.core.generator.PolarGenerator;
+import live.minehub.polarpaper.core.world.BlockSelector;
+import live.minehub.polarpaper.core.world.PolarFeaturesWorldAccess;
+import live.minehub.polarpaper.core.world.PolarWorld;
+import live.minehub.polarpaper.core.world.PolarWriter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -26,12 +30,16 @@ import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.entity.Player;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public class ConvertCommand extends PolarCmd {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConvertCommand.class);
 
     public ConvertCommand() {
         super("convert", "Convert the current world to polar");
@@ -117,14 +125,13 @@ public class ConvertCommand extends PolarCmd {
             Config config = Polar.updateConfig(bukkitWorld, newWorldKey.getKey());
 
             Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
-                PolarWorld newPolarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, BlockSelector.square(offsetX, offsetZ, chunkRadius), config);
+                PolarWorld newPolarWorld = PolarWorld.convert(bukkitWorld, new PolarFeaturesWorldAccess(PolarPaper.getPlugin()), BlockSelector.square(offsetX, offsetZ, chunkRadius), config);
                 byte[] polarBytes = PolarWriter.write(newPolarWorld);
                 try {
-                    FilePolarSource.defaultFolder(newWorldName).saveBytes(polarBytes);
+                    Polar.getDefaultFolderSource(newWorldName).saveBytes(polarBytes);
                 } catch (Exception e) {
                     sender.sendMessage(Component.text("Failed to save '" + worldKey.getKey() + "'"));
-                    PolarPaper.logger().severe("Failed to save: " + worldKey.getKey());
-                    ExceptionUtil.log(e);
+                    LOGGER.error("Failed to save: " + worldKey.getKey(), e);
                     return;
                 }
 

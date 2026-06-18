@@ -7,13 +7,14 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Type;
 import java.net.URI;
@@ -28,6 +29,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public class VersionCommand extends PolarCmd {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(VersionCommand.class);
 
     private static final long CHECK_INTERVAL = 3 * 3_600_000L; // 3 hour in millis
     private static long LAST_UPDATED = -1L;
@@ -70,7 +73,7 @@ public class VersionCommand extends PolarCmd {
                 );
             }
         }).exceptionally(e -> {
-            ExceptionUtil.log(e);
+            LOGGER.error("Failed to get latest release", e);
             return null;
         });
 
@@ -114,8 +117,7 @@ public class VersionCommand extends PolarCmd {
                     .thenApply(HttpResponse::body)
                     .thenApply(body -> {
                         Gson gson = new Gson();
-                        Type listOfGithubRelease = new TypeToken<List<GithubRelease>>() {
-                        }.getType();
+                        Type listOfGithubRelease = new TypeToken<List<GithubRelease>>() {}.getType();
                         List<GithubRelease> releases = gson.fromJson(body, listOfGithubRelease);
                         for (GithubRelease release : releases) {
                             if (!release.prerelease) {
@@ -127,11 +129,11 @@ public class VersionCommand extends PolarCmd {
                         }
                         return null;
                     }).exceptionally(e -> {
-                        ExceptionUtil.log(e);
+                        LOGGER.error("Failed to get latest release", e);
                         return null;
                     });
         } catch (Exception e) {
-            ExceptionUtil.log(e);
+            LOGGER.error("Failed to get latest release", e);
             return null;
         }
     }

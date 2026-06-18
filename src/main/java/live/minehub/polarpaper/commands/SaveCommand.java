@@ -6,19 +6,22 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.generator.PolarGenerator;
-import live.minehub.polarpaper.util.ExceptionUtil;
-import live.minehub.polarpaper.util.TaskFutures;
+import live.minehub.polarpaper.core.generator.PolarGenerator;
+import live.minehub.polarpaper.core.util.TaskFutures;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 
 public class SaveCommand extends PolarCmd {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(SaveCommand.class);
 
     public SaveCommand() {
         super("save", "Save the polar world");
@@ -63,15 +66,14 @@ public class SaveCommand extends PolarCmd {
             Polar.updateConfig(bukkitWorld, bukkitWorld.getKey().getKey()); // config should only be updated synchronously
         });
 
-        return TaskFutures.runAsync(() -> {
+        return TaskFutures.runAsync(PolarPaper.getPlugin(), () -> {
             Polar.saveWorld(bukkitWorld);
             return null;
         }).handle((_, ex) -> {
             if (ex != null) {
                 String errorMsg = String.format("Failed to save '%s'", bukkitWorld.getKey().getKey());
-                PolarPaper.logger().severe(errorMsg);
+                LOGGER.error(errorMsg, ex);
                 sender.sendMessage(Component.text(errorMsg, NamedTextColor.RED));
-                ExceptionUtil.log(ex);
                 return false;
             }
 

@@ -2,7 +2,8 @@ package live.minehub.polarpaper.util;
 
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
-import live.minehub.polarpaper.PolarChunk;
+import live.minehub.polarpaper.core.util.CoordConversion;
+import live.minehub.polarpaper.core.world.PolarChunk;
 import live.minehub.polarpaper.schematic.Rotation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;

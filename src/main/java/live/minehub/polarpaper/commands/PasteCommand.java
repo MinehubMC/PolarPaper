@@ -7,23 +7,26 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.PolarReader;
-import live.minehub.polarpaper.PolarWorld;
+import live.minehub.polarpaper.core.world.PolarReader;
+import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.schematic.Rotation;
 import live.minehub.polarpaper.schematic.Schematic;
 import live.minehub.polarpaper.schematic.Setter;
-import live.minehub.polarpaper.util.ExceptionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.joml.Vector3i;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class PasteCommand extends PolarCmd {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PasteCommand.class);
 
     public PasteCommand() {
         super("paste", "Place a polar world like a schematic");
@@ -118,9 +121,8 @@ public class PasteCommand extends PolarCmd {
             }
             polarWorld = PolarReader.read(polarBytes);
         } catch (Exception e) {
-            PolarPaper.logger().severe("Failed to load world '" + worldName + ".polar'");
             player.sendMessage(Component.text("Failed to load world '" + worldName + ".polar'", NamedTextColor.RED));
-            ExceptionUtil.log(e);
+            LOGGER.error("Failed to load world '" + worldName + ".polar'", e);
             return Command.SINGLE_SUCCESS;
         }
 

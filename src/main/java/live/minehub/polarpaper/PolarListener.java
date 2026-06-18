@@ -2,7 +2,8 @@ package live.minehub.polarpaper;
 
 import io.papermc.paper.persistence.PersistentDataContainerView;
 import live.minehub.polarpaper.commands.WandCommand;
-import live.minehub.polarpaper.generator.PolarGenerator;
+import live.minehub.polarpaper.core.config.Config;
+import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.schematic.Schematic;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;

@@ -5,9 +5,9 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.generator.PolarGenerator;
+import live.minehub.polarpaper.core.config.Config;
+import live.minehub.polarpaper.core.generator.PolarGenerator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -59,7 +59,7 @@ public class SetSpawnCommand extends PolarCmd {
 
             Config newConfig = config.toBuilder().spawn(spawnPos).build();
 
-            Config.writeToConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getKey().getKey(), newConfig);
+            Config.writeToConfig(PolarPaper.getConfigPath(), PolarPaper.getPlugin().getConfig(), bukkitWorld.getKey().getKey(), newConfig);
 
             bukkitWorld.setSpawnLocation(spawnPos);
 

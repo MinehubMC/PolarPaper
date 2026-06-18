@@ -6,11 +6,11 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.generator.PolarGenerator;
-import live.minehub.polarpaper.util.FoliaUtil;
-import live.minehub.polarpaper.util.TaskFutures;
+import live.minehub.polarpaper.core.config.Config;
+import live.minehub.polarpaper.core.generator.PolarGenerator;
+import live.minehub.polarpaper.core.util.FoliaUtil;
+import live.minehub.polarpaper.core.util.TaskFutures;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -96,7 +96,7 @@ public class UnloadCommand extends PolarCmd {
 
     protected static CompletableFuture<Boolean> bukkitUnload(CommandContext<CommandSourceStack> ctx, World bukkitWorld) {
         String worldName = bukkitWorld.getKey().getKey();
-        return TaskFutures.run(() -> {
+        return TaskFutures.run(PolarPaper.getPlugin(), () -> {
             return Bukkit.unloadWorld(bukkitWorld, false);
         }).handle((success, ex) -> {
             if (!success || ex != null) {

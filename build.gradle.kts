@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.run)
     alias(libs.plugins.resource.paper)
     alias(libs.plugins.hangar.publish)
+    alias(libs.plugins.shadow)
 }
 
 val developmentVersion = "${libs.versions.minecraft.get()}.0"
@@ -20,6 +21,9 @@ repositories {
 dependencies {
     paperweight.paperDevBundle("${libs.versions.minecraft.get()}.build.+")
 
+    implementation(project(":core"))
+    implementation(project(":paper_26_1"))
+    implementation(project(":paper_latest"))
     compileOnly(libs.zstd)
 }
 
@@ -36,6 +40,10 @@ java {
 
     // Generate sources JAR
     withSourcesJar()
+}
+
+tasks.named("build") {
+    dependsOn(tasks.named("shadowJar"))
 }
 
 publishing {

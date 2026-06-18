@@ -5,17 +5,19 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.generator.PolarGenerator;
-import live.minehub.polarpaper.util.ExceptionUtil;
+import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.World;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DeleteCommand extends PolarCmd {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeleteCommand.class);
 
     public DeleteCommand() {
         super("delete", "Delete a polar world");
@@ -95,14 +97,12 @@ public class DeleteCommand extends PolarCmd {
 
         try {
             generator.getSource().delete();
+        } catch (UnsupportedOperationException _) {
+            ctx.getSource().getSender().sendMessage(Component.text("This world's source does not support deleting", NamedTextColor.RED));
+            return;
         } catch (Exception e) {
-            if (e instanceof UnsupportedOperationException) {
-                ctx.getSource().getSender().sendMessage(Component.text("This world's source does not support deleting", NamedTextColor.RED));
-            } else {
-                ctx.getSource().getSender().sendMessage(Component.text("Failed to delete world", NamedTextColor.RED));
-                PolarPaper.logger().severe("Failed to delete world: " + world.getKey().getKey());
-                ExceptionUtil.log(e);
-            }
+            ctx.getSource().getSender().sendMessage(Component.text("Failed to delete world", NamedTextColor.RED));
+            LOGGER.error("Failed to delete world: " + world.getKey().getKey(), e);
             return;
         }
 

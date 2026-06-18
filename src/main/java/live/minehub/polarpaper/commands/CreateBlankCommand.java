@@ -6,12 +6,11 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.generator.PolarGenerator;
-import live.minehub.polarpaper.source.FilePolarSource;
-import live.minehub.polarpaper.source.PolarSource;
+import live.minehub.polarpaper.core.config.Config;
+import live.minehub.polarpaper.core.generator.PolarGenerator;
+import live.minehub.polarpaper.core.source.PolarSource;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -45,7 +44,7 @@ public class CreateBlankCommand extends PolarCmd {
 
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config defaultConfig = Config.getDefaultConfig(fileConfig);
-        Config.writeToConfig(fileConfig, worldName, defaultConfig);
+        Config.writeToConfig(PolarPaper.getConfigPath(), fileConfig, worldName, defaultConfig);
 
         Polar.createWorld((PolarSource) null, worldName, defaultConfig).thenAccept(world -> {
             if (world == null) {
@@ -54,7 +53,7 @@ public class CreateBlankCommand extends PolarCmd {
             }
 
             PolarGenerator generator = PolarGenerator.fromWorld(world);
-            if (generator != null) generator.setSource(FilePolarSource.defaultFolder(worldName)); // change source to the path so it can be saved/autosaved properly
+            if (generator != null) generator.setSource(Polar.getDefaultFolderSource(worldName)); // change source to the path so it can be saved/autosaved properly
 
             ctx.getSource().getSender().sendMessage(
                     Component.text()

@@ -4,9 +4,9 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-import live.minehub.polarpaper.Config;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.core.config.Config;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -23,7 +23,7 @@ public class ReloadConfigCommand extends PolarCmd {
 
         int numWorlds = 0;
         for (World bukkitWorld : Bukkit.getWorlds()) {
-            if (!Config.isInConfig(bukkitWorld.getKey().getKey())) continue;
+            if (!Config.isInConfig(PolarPaper.getPlugin().getConfig(), bukkitWorld.getKey().getKey())) continue;
 
             Polar.reloadConfig(bukkitWorld);
 

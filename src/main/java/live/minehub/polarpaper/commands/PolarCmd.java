@@ -7,7 +7,7 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.generator.PolarGenerator;
+import live.minehub.polarpaper.core.generator.PolarGenerator;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 

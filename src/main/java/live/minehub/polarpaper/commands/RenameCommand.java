@@ -7,13 +7,14 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.generator.PolarGenerator;
-import live.minehub.polarpaper.util.ExceptionUtil;
+import live.minehub.polarpaper.core.generator.PolarGenerator;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,6 +22,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 public class RenameCommand extends PolarCmd {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RenameCommand.class);
 
     public RenameCommand() {
         super("rename", "Rename a polar world in the worlds folder");
@@ -81,8 +84,7 @@ public class RenameCommand extends PolarCmd {
                             .append(Component.text("'!", NamedTextColor.AQUA))
             );
         } catch (IOException e) {
-            PolarPaper.logger().warning("Failed to delete world: " + worldName);
-            ExceptionUtil.log(e);
+            LOGGER.error("Failed to delete world: " + worldName, e);
 
             ctx.getSource().getSender().sendMessage(
                     Component.text()

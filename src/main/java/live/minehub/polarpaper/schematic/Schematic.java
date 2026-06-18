@@ -1,12 +1,16 @@
 package live.minehub.polarpaper.schematic;
 
 import io.netty.buffer.Unpooled;
-import live.minehub.polarpaper.*;
-import live.minehub.polarpaper.userdata.EntityUtil;
-import live.minehub.polarpaper.userdata.WorldUserData;
+import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.core.userdata.EntityUtil;
+import live.minehub.polarpaper.core.userdata.WorldUserData;
+import live.minehub.polarpaper.core.util.CoordConversion;
+import live.minehub.polarpaper.core.util.PaletteUtil;
+import live.minehub.polarpaper.core.world.PolarChunk;
+import live.minehub.polarpaper.core.world.PolarEntity;
+import live.minehub.polarpaper.core.world.PolarSection;
+import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.util.BlockUtil;
-import live.minehub.polarpaper.util.CoordConversion;
-import live.minehub.polarpaper.util.PaletteUtil;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -59,14 +63,14 @@ public class Schematic {
 
         Vector3i finalOffset = offset;
         Bukkit.getGlobalRegionScheduler().execute(PolarPaper.getPlugin(), () -> {
-            for (Map.Entry<Vector3i, PolarChunk.BlockEntity> entry : blockEntityMap.entrySet()) {
+            for (Map.Entry<Vector3i, live.minehub.polarpaper.core.world.PolarChunk.BlockEntity> entry : blockEntityMap.entrySet()) {
                 Vector3i blockOffset = entry.getKey();
-                PolarChunk.BlockEntity blockEntity = entry.getValue();
+                live.minehub.polarpaper.core.world.PolarChunk.BlockEntity blockEntity = entry.getValue();
                 setter.setBlockEntity(blockOffset.x, blockOffset.y, blockOffset.z, blockEntity);
             }
 
             Set<ChunkPos> chunksToRefresh = new HashSet<>();
-            for (PolarChunk chunk : polarWorld.chunks()) {
+            for (live.minehub.polarpaper.core.world.PolarChunk chunk : polarWorld.chunks()) {
                 Vector3i chunkOffset = new Vector3i(chunk.x() * 16, 0, chunk.z() * 16)
                         .sub(finalOffset);
                 BlockUtil.rotatePos(chunkOffset, rotation);
@@ -86,7 +90,7 @@ public class Schematic {
         });
     }
 
-    private static void handleUserData(Setter setter, Vector3i pasteOffset, Rotation rotation, PolarChunk chunk, Vector3i offset) {
+    private static void handleUserData(Setter setter, Vector3i pasteOffset, Rotation rotation, live.minehub.polarpaper.core.world.PolarChunk chunk, Vector3i offset) {
         if (chunk.userData() == null || chunk.userData().length == 0) return;
 
         final var bb = Unpooled.wrappedBuffer(chunk.userData());
@@ -109,11 +113,11 @@ public class Schematic {
         }
     }
 
-    private static void pasteSection(PolarSection polarSection, Setter setter, Vector3i offset, Vector3i pasteOffset, Rotation rotation, IgnoreAir ignoreAir) {
+    private static void pasteSection(live.minehub.polarpaper.core.world.PolarSection polarSection, Setter setter, Vector3i offset, Vector3i pasteOffset, Rotation rotation, IgnoreAir ignoreAir) {
         // Blocks
         long[] blockDataLongs = polarSection.blockData();
-        int blockDataBits = blockDataLongs == null ? 0 : PaletteUtil.getBitsForLongLength(blockDataLongs.length, PolarSection.BLOCK_PALETTE_SIZE);
-        int[] blockData = new int[PolarSection.BLOCK_PALETTE_SIZE];
+        int blockDataBits = blockDataLongs == null ? 0 : PaletteUtil.getBitsForLongLength(blockDataLongs.length, live.minehub.polarpaper.core.world.PolarSection.BLOCK_PALETTE_SIZE);
+        int[] blockData = new int[live.minehub.polarpaper.core.world.PolarSection.BLOCK_PALETTE_SIZE];
         if (blockDataBits > 0) {
             PaletteUtil.unpack(blockData, blockDataLongs, blockDataBits);
         }

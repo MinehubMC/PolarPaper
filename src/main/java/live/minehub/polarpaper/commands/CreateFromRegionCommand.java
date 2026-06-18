@@ -7,10 +7,14 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import live.minehub.polarpaper.*;
+import live.minehub.polarpaper.Polar;
+import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.core.userdata.WorldUserData;
+import live.minehub.polarpaper.core.world.BlockSelector;
+import live.minehub.polarpaper.core.world.PolarFeaturesWorldAccess;
+import live.minehub.polarpaper.core.world.PolarWorld;
+import live.minehub.polarpaper.core.world.PolarWriter;
 import live.minehub.polarpaper.schematic.Schematic;
-import live.minehub.polarpaper.source.FilePolarSource;
-import live.minehub.polarpaper.userdata.WorldUserData;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -55,10 +59,10 @@ public class CreateFromRegionCommand extends PolarCmd {
         bukkitWorld.getChunksAtAsync((blockSelector.min().x / 16) - 1, (blockSelector.min().z / 16) - 1, (blockSelector.max().x / 16) + 1, (blockSelector.max().z / 16) + 1, false, () -> {
             Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
                 try {
-                    PolarWorld polarWorld = PolarWorld.convert(bukkitWorld, PolarWorldAccess.POLAR_PAPER_FEATURES, blockSelector);
+                    PolarWorld polarWorld = PolarWorld.convert(bukkitWorld, new PolarFeaturesWorldAccess(PolarPaper.getPlugin()), blockSelector);
                     polarWorld.userData(WorldUserData.writeSchematicOffset(finalSchemOffset));
                     byte[] worldBytes = PolarWriter.write(polarWorld);
-                    FilePolarSource.defaultFolder(newWorldName).saveBytes(worldBytes);
+                    Polar.getDefaultFolderSource(newWorldName).saveBytes(worldBytes);
                 } catch (Exception e) {
                     String errorMsg = String.format("Failed to create '%s', please check logs for error", newWorldName);
                     PolarPaper.logger().severe(errorMsg);
