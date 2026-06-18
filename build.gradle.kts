@@ -44,11 +44,17 @@ tasks {
     }
 }
 
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(25)) // Paper has a minimum Java version of 25
+allprojects {
+    plugins.withId("java") {
+        extensions.configure<JavaPluginExtension> {
+            toolchain {
+                languageVersion.set(JavaLanguageVersion.of(25))
+            }
+        }
     }
+}
 
+java {
     // Generate sources JAR
     withSourcesJar()
 }
