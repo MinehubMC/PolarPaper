@@ -37,7 +37,7 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         }
         Integer dataVersion = compound.getInt("DataVersion").orElse(null);
         if (dataVersion == null) return null;
-        compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().fixerUpper, compound, dataVersion, Bukkit.getUnsafe().getDataVersion());
+        compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().getFixerUpper(), compound, dataVersion, Bukkit.getUnsafe().getDataVersion());
 
         if (randomUUID) compound.remove("UUID"); // do not read UUID from bytes, instead use the default random uuid
         ListTag posTag = new ListTag();

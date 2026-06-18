@@ -41,8 +41,8 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.lang.reflect.Field;
 import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 
@@ -51,8 +51,31 @@ import static live.minehub.polarpaper.util.ByteArrayUtil.getVarInt;
 public class PolarStreamLoader {
     private PolarStreamLoader() {}
 
+    private static final VarHandle CURRENT_CHUNK_HANDLE;
+    private static final VarHandle CURRENT_GEN_STATUS_HANDLE;
+    private static final VarHandle CHUNK_COMPLETIONS_HANDLE;
+    private static final VarHandle LAST_CHUNK_COMPLETION_HANDLE;
     private static final VarHandle CHUNK_COMPLETION_ARRAY_HANDLE = ConcurrentUtil.getArrayHandle(NewChunkHolder.ChunkCompletion[].class);
     private static final ChunkStatus[] ALL_STATUSES = ChunkStatus.getStatusList().toArray(new ChunkStatus[0]);
+
+    static {
+        try {
+            CURRENT_CHUNK_HANDLE = MethodHandles
+                    .privateLookupIn(NewChunkHolder.class, MethodHandles.lookup())
+                    .findVarHandle(NewChunkHolder.class, "currentChunk", ChunkAccess.class);
+            CURRENT_GEN_STATUS_HANDLE = MethodHandles
+                    .privateLookupIn(NewChunkHolder.class, MethodHandles.lookup())
+                    .findVarHandle(NewChunkHolder.class, "currentGenStatus", ChunkStatus.class);
+            CHUNK_COMPLETIONS_HANDLE = MethodHandles
+                    .privateLookupIn(NewChunkHolder.class, MethodHandles.lookup())
+                    .findVarHandle(NewChunkHolder.class, "chunkCompletions", NewChunkHolder.ChunkCompletion[].class);
+            LAST_CHUNK_COMPLETION_HANDLE = MethodHandles
+                    .privateLookupIn(NewChunkHolder.class, MethodHandles.lookup())
+                    .findVarHandle(NewChunkHolder.class, "lastChunkCompletion", NewChunkHolder.ChunkCompletion.class);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarWorldAccess worldAccess) throws IOException {
         try {
@@ -211,48 +234,35 @@ public class PolarStreamLoader {
         ChunkHolderManager chunkHolderManager = chunkTaskScheduler.chunkHolderManager;
 
         // Begin reflection hell :D
-        try {
-            // Creates an entity chunk which also runs the private method "getOrCreateChunkHolder" for us
-            chunkHolderManager.getOrCreateEntityChunk(chunkX, chunkZ, false);
-            NewChunkHolder newChunkHolder = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
+        // Creates an entity chunk which also runs the private method "getOrCreateChunkHolder" for us
+        chunkHolderManager.getOrCreateEntityChunk(chunkX, chunkZ, false);
+        NewChunkHolder newChunkHolder = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
 
-            newLevelChunk.needsDecoration = false;
-            newLevelChunk.mustNotSave = true;
-            Field currentChunkField = newChunkHolder.getClass().getDeclaredField("currentChunk");
-            currentChunkField.setAccessible(true);
-            currentChunkField.set(newChunkHolder, newLevelChunk);
-            newLevelChunk.moonrise$setChunkHolder(newChunkHolder);
+        newLevelChunk.needsDecoration = false;
+        newLevelChunk.mustNotSave = true;
+        CURRENT_CHUNK_HANDLE.set(newChunkHolder, newLevelChunk);
+        CURRENT_GEN_STATUS_HANDLE.set(newChunkHolder, ChunkStatus.FULL);
+        newLevelChunk.moonrise$setChunkHolder(newChunkHolder);
 
-            Field currentGenStatusField = NewChunkHolder.class.getDeclaredField("currentGenStatus");
-            currentGenStatusField.setAccessible(true);
-            currentGenStatusField.set(newChunkHolder, ChunkStatus.FULL);
+        // Populate every status up to and including FULL
+        // This mirrors what replaceProtoChunk() does, but for all statuses including FULL
+        NewChunkHolder.ChunkCompletion[] chunkCompletions = (NewChunkHolder.ChunkCompletion[]) CHUNK_COMPLETIONS_HANDLE.get(newChunkHolder);
+        for (ChunkStatus status : ALL_STATUSES) {
+            NewChunkHolder.ChunkCompletion completion = new NewChunkHolder.ChunkCompletion(newLevelChunk, status);
+            CHUNK_COMPLETION_ARRAY_HANDLE.setVolatile(chunkCompletions, status.getIndex(), completion);
 
-            // Populate every status up to and including FULL
-            // This mirrors what replaceProtoChunk() does, but for all statuses including FULL
-            Field chunkCompletionsField = NewChunkHolder.class.getDeclaredField("chunkCompletions");
-            chunkCompletionsField.setAccessible(true);
-            Object[] chunkCompletions = (Object[]) chunkCompletionsField.get(newChunkHolder);
-            for (ChunkStatus status : ALL_STATUSES) {
-                NewChunkHolder.ChunkCompletion completion = new NewChunkHolder.ChunkCompletion(newLevelChunk, status);
-                CHUNK_COMPLETION_ARRAY_HANDLE.setVolatile(chunkCompletions, status.getIndex(), completion);
-
-                if (status == ChunkStatus.FULL) {
-                    Field lastChunkCompletionField = NewChunkHolder.class.getDeclaredField("lastChunkCompletion");
-                    lastChunkCompletionField.setAccessible(true);
-                    lastChunkCompletionField.set(newChunkHolder, completion);
-                }
+            if (status == ChunkStatus.FULL) {
+                LAST_CHUNK_COMPLETION_HANDLE.set(newChunkHolder, completion);
             }
-
-            Heightmap.primeHeightmaps(newLevelChunk, EnumSet.allOf(Heightmap.Types.class));
-
-            newLevelChunk.setFullStatus(() -> FullChunkStatus.ENTITY_TICKING);
-            newLevelChunk.runPostLoad();
-            newLevelChunk.setLoaded(true);
-            newLevelChunk.registerAllBlockEntitiesAfterLevelLoad();
-            newLevelChunk.registerTickContainerInLevel(serverLevel);
-        } catch (IllegalAccessException | NoSuchFieldException e) {
-            throw new RuntimeException(e);
         }
+
+        Heightmap.primeHeightmaps(newLevelChunk, EnumSet.allOf(Heightmap.Types.class));
+
+        newLevelChunk.setFullStatus(() -> FullChunkStatus.ENTITY_TICKING);
+        newLevelChunk.runPostLoad();
+        newLevelChunk.setLoaded(true);
+        newLevelChunk.registerAllBlockEntitiesAfterLevelLoad();
+        newLevelChunk.registerTickContainerInLevel(serverLevel);
     }
 
     public static void lightChunk(ServerLevel level, LevelChunk chunk) {

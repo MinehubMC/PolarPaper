@@ -3,32 +3,34 @@ package live.minehub.polarpaper.util;
 import net.minecraft.world.level.chunk.Configuration;
 import net.minecraft.world.level.chunk.Strategy;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 
 public final class PaletteUtil {
     private PaletteUtil() {}
 
-    private static final Method GET_CONFIGURATION_METHOD;
+    private static final MethodHandle GET_CONFIGURATION_HANDLE;
     static {
         try {
-            GET_CONFIGURATION_METHOD = Strategy.class.getDeclaredMethod("getConfigurationForBitCount", int.class);
-            GET_CONFIGURATION_METHOD.setAccessible(true);
-        } catch (NoSuchMethodException e) {
+            GET_CONFIGURATION_HANDLE = MethodHandles
+                    .privateLookupIn(Strategy.class, MethodHandles.lookup())
+                    .findVirtual(Strategy.class, "getConfigurationForBitCount", MethodType.methodType(Configuration.class, int.class));
+        } catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
 
     public static Configuration getConfigurationForBitCount(Strategy<?> strategy, int bits) {
         try {
-            return (Configuration) GET_CONFIGURATION_METHOD.invoke(strategy, bits);
-        } catch (IllegalAccessException | InvocationTargetException e) {
+            return (Configuration) GET_CONFIGURATION_HANDLE.invoke(strategy, bits);
+        } catch (Throwable e) {
             throw new RuntimeException(e);
         }
     }
 
     public static int bitsToRepresent(int n) {
-        assert n > 0;
+        if (n <= 0) throw new IllegalArgumentException("n must be greater than zero");
         return Integer.SIZE - Integer.numberOfLeadingZeros(n);
     }
 
@@ -49,8 +51,7 @@ public final class PaletteUtil {
             int entries = Math.min(intsPerLong, remaining);
 
             for (int j = 0; j < entries; j++) {
-                value |= ((long) ints[baseIndex + j] & mask)
-                        << (j * bitsPerEntry);
+                value |= (ints[baseIndex + j] & mask) << (j * bitsPerEntry);
             }
 
             longs[i] = value;
@@ -61,7 +62,7 @@ public final class PaletteUtil {
     }
 
     public static void unpack(int[] out, long[] in, int bitsPerEntry) {
-        assert in.length != 0 : "unpack input array is zero";
+        if (in.length == 0) throw new IllegalArgumentException("unpack input array is zero");
 
         final int intsPerLong = 64 / bitsPerEntry;
         final long mask = (1L << bitsPerEntry) - 1L;
