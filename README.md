@@ -12,6 +12,8 @@ Polar is a world format very similar to Slime, with the same advantages:
 
 Polar is also a single plugin without requiring classloaders or a Paper fork
 
+Polar currently supports versions 26.2, 26.1.2, and 1.21.11, and requires Java 25
+
 ### [Download the latest jar](https://github.com/MinehubMC/PolarPaper/releases/latest)
 
 Polar was originally developed for [Minestom](https://github.com/Minestom/Minestom), see the Minestom library [here](https://github.com/hollow-cube/polar)
@@ -122,8 +124,3 @@ Register events
 // add it to the depend list in your plugin.yml. However, you must manually register the plugin listeners:
 PolarPaper.registerEvents();
 ```
-
-### Versioning
-`<mc version>.<our version>`
-
-for example `1.21.4.1`

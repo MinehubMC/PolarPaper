@@ -8,6 +8,7 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
+import net.kyori.adventure.builder.AbstractBuilder;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -69,7 +70,7 @@ public class CommandManager {
 
         TextComponent.Builder builder = Component.text();
         getUsageRecursive(builder, build, 1);
-        helpComponent = builder.build();
+        helpComponent = ((AbstractBuilder<TextComponent>)builder).build();
 
         registrar.register(build);
     }

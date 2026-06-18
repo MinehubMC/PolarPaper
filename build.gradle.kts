@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
-val developmentVersion = "${libs.versions.minecraft.get()}.0"
+val developmentVersion = "2.0.0"
 
 version = getVersion()
 group = "live.minehub"
@@ -22,14 +22,25 @@ dependencies {
     paperweight.paperDevBundle("${libs.versions.minecraft.get()}.build.+")
 
     implementation(project(":core"))
-    implementation(project(":paper_26_1"))
     implementation(project(":paper_latest"))
+    implementation(project(":paper_26_1_2"))
+    implementation(project(":paper_1_21_11"))
     compileOnly(libs.zstd)
 }
 
 tasks {
     runServer {
         minecraftVersion(libs.versions.minecraft.get())
+//        minecraftVersion("1.21.11")
+//        minecraftVersion("26.1.2")
+    }
+
+    shadowJar {
+        archiveClassifier.set("")
+    }
+
+    jar {
+        enabled = false
     }
 }
 

@@ -3,6 +3,7 @@ package live.minehub.polarpaper.core.world;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.core.event.PolarEntitySpawnEvent;
+import live.minehub.polarpaper.core.userdata.EntitySerializer;
 import live.minehub.polarpaper.core.userdata.EntityUtil;
 import live.minehub.polarpaper.core.util.ByteArrayUtil;
 import net.minecraft.core.BlockPos;
@@ -44,8 +45,10 @@ public class PolarFeaturesWorldAccess implements PolarWorldAccess {
     private static final byte PERSISTENT_DATA_CONTAINER_VERSION = 2;
 
     private final Plugin plugin;
-    public PolarFeaturesWorldAccess(Plugin plugin) {
+    private final EntitySerializer entitySerializer;
+    public PolarFeaturesWorldAccess(Plugin plugin, EntitySerializer entitySerializer) {
        this.plugin = plugin;
+       this.entitySerializer = entitySerializer;
     }
 
     @Override
@@ -62,7 +65,7 @@ public class PolarFeaturesWorldAccess implements PolarWorldAccess {
         List<net.minecraft.world.entity.Entity> successEntities = new ArrayList<>();
 
         for (PolarEntity polarEntity : entities) {
-            net.minecraft.world.entity.Entity entity = polarEntity.toNMSEntity(world, polarEntity.getLocation(world, chunk.locX, chunk.locZ), true);
+            net.minecraft.world.entity.Entity entity = polarEntity.toNMSEntity(entitySerializer, world, polarEntity.getLocation(world, chunk.locX, chunk.locZ), true);
             if (entity == null) continue;
 
             CraftEntity bukkitEntity = entity.getBukkitEntity();
@@ -97,7 +100,7 @@ public class PolarFeaturesWorldAccess implements PolarWorldAccess {
 
         for (@NotNull Entity entity : entities) {
             if (entity.getType() == EntityType.PLAYER) continue;
-            CompletableFuture<@Nullable PolarEntity> entityFuture = EntityUtil.entityToPolarEntity(entity, plugin);
+            CompletableFuture<@Nullable PolarEntity> entityFuture = EntityUtil.entityToPolarEntity(entity, plugin, entitySerializer);
             entityFutures.add(entityFuture);
         }
 

@@ -9,7 +9,6 @@ import live.minehub.polarpaper.core.userdata.EntityUtil;
 import live.minehub.polarpaper.core.util.ByteArrayUtil;
 import live.minehub.polarpaper.core.util.LightUtil;
 import live.minehub.polarpaper.core.util.PaletteUtil;
-import live.minehub.polarpaper.core.world.PolarSection.LightContent;
 import net.kyori.adventure.key.Key;
 import net.minecraft.nbt.*;
 import org.jetbrains.annotations.Contract;
@@ -34,7 +33,7 @@ public class PolarReader {
         }
     }
 
-    public static @NotNull PolarWorld read(PolarSource source, @NotNull live.minehub.polarpaper.core.world.PolarDataConverter dataConverter) throws IOException {
+    public static @NotNull PolarWorld read(PolarSource source, @NotNull PolarDataConverter dataConverter) throws IOException {
         try {
             return read(source.readBytes(), dataConverter);
         } catch (Exception e) {
@@ -43,10 +42,10 @@ public class PolarReader {
     }
 
     public static @NotNull PolarWorld read(byte @NotNull [] data) {
-        return read(data, live.minehub.polarpaper.core.world.PolarDataConverter.DEFAULT);
+        return read(data, PolarDataConverter.DEFAULT);
     }
 
-    public static @NotNull PolarWorld read(byte @NotNull [] data, @NotNull live.minehub.polarpaper.core.world.PolarDataConverter dataConverter) {
+    public static @NotNull PolarWorld read(byte @NotNull [] data, @NotNull PolarDataConverter dataConverter) {
         ByteBuf bb = Unpooled.wrappedBuffer(data);
 
         int magic = bb.readInt();
@@ -87,7 +86,7 @@ public class PolarReader {
         }
 
         int chunkCount = getVarInt(uncompressed);
-        List<live.minehub.polarpaper.core.world.PolarChunk> chunks = new ArrayList<>(chunkCount);
+        List<PolarChunk> chunks = new ArrayList<>(chunkCount);
         for (int i = 0; i < chunkCount; i++) {
             chunks.add(readChunk(dataConverter, version, dataVersion, uncompressed, maxSection - minSection + 1));
         }
@@ -95,17 +94,17 @@ public class PolarReader {
         return new PolarWorld(version, dataVersion, compression, minSection, maxSection, userData, chunks);
     }
 
-    protected static @NotNull live.minehub.polarpaper.core.world.PolarChunk readChunk(@NotNull live.minehub.polarpaper.core.world.PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb, int sectionCount) {
+    protected static @NotNull PolarChunk readChunk(@NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb, int sectionCount) {
         var chunkX = getVarInt(bb);
         var chunkZ = getVarInt(bb);
 
-        var sections = new live.minehub.polarpaper.core.world.PolarSection[sectionCount];
+        var sections = new PolarSection[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
             sections[i] = readSection(dataConverter, version, dataVersion, bb);
         }
 
         int blockEntityCount = getVarInt(bb);
-        live.minehub.polarpaper.core.world.PolarChunk.BlockEntity[] blockEntities = new live.minehub.polarpaper.core.world.PolarChunk.BlockEntity[blockEntityCount];
+        PolarChunk.BlockEntity[] blockEntities = new PolarChunk.BlockEntity[blockEntityCount];
         for (int i = 0; i < blockEntityCount; i++) {
             blockEntities[i] = readBlockEntity(dataConverter, dataVersion, bb);
         }
@@ -142,7 +141,7 @@ public class PolarReader {
             userData = ByteArrayUtil.outputArray(newData);
         }
 
-        return new live.minehub.polarpaper.core.world.PolarChunk(
+        return new PolarChunk(
                 chunkX, chunkZ,
                 sections,
                 blockEntities,
@@ -152,9 +151,9 @@ public class PolarReader {
     }
 
     protected static int @NotNull [][] readHeightmaps(ByteBuf bb) {
-        int[][] heightmaps = new int[live.minehub.polarpaper.core.world.PolarChunk.MAX_HEIGHTMAPS][];
+        int[][] heightmaps = new int[PolarChunk.MAX_HEIGHTMAPS][];
         int heightmapMask = bb.readInt();
-        for (int i = 0; i < live.minehub.polarpaper.core.world.PolarChunk.MAX_HEIGHTMAPS; i++) {
+        for (int i = 0; i < PolarChunk.MAX_HEIGHTMAPS; i++) {
             if ((heightmapMask & (1 << i)) == 0)
                 continue;
 
@@ -162,17 +161,17 @@ public class PolarReader {
             if (packed.length == 0) {
                 heightmaps[i] = new int[0];
             } else {
-                int bitsPerEntry = packed.length * 64 / live.minehub.polarpaper.core.world.PolarChunk.HEIGHTMAP_SIZE;
-                heightmaps[i] = new int[live.minehub.polarpaper.core.world.PolarChunk.HEIGHTMAP_SIZE];
+                int bitsPerEntry = packed.length * 64 / PolarChunk.HEIGHTMAP_SIZE;
+                heightmaps[i] = new int[PolarChunk.HEIGHTMAP_SIZE];
                 PaletteUtil.unpack(heightmaps[i], packed, bitsPerEntry);
             }
         }
         return heightmaps;
     }
 
-    protected static @NotNull live.minehub.polarpaper.core.world.PolarSection readSection(@NotNull live.minehub.polarpaper.core.world.PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb) {
+    protected static @NotNull PolarSection readSection(@NotNull PolarDataConverter dataConverter, short version, int dataVersion, @NotNull ByteBuf bb) {
         // If section is empty exit immediately
-        if (bb.readByte() == 1) return new live.minehub.polarpaper.core.world.PolarSection();
+        if (bb.readByte() == 1) return new PolarSection();
 
         String[] blockPalette = getStringList(bb, MAX_BLOCK_PALETTE_SIZE);
         if (dataVersion < dataConverter.dataVersion()) {
@@ -202,17 +201,17 @@ public class PolarReader {
 
         byte[] blockLight;
         byte[] skyLight;
-        LightContent blockLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
-                ? LightContent.VALUES[bb.readByte()]
-                : ((bb.readByte() == 1) ? LightContent.PRESENT : LightContent.MISSING);
-        blockLight = LightUtil.getLightArray(blockLightContent, blockLightContent == LightContent.PRESENT ? getLightData(bb) : null);
-        LightContent skyLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
-                ? LightContent.VALUES[bb.readByte()]
-                : (bb.readByte() == 1 ? LightContent.PRESENT : LightContent.MISSING);
-        skyLight = LightUtil.getLightArray(skyLightContent, skyLightContent == LightContent.PRESENT ? getLightData(bb) : null);
+        PolarSection.LightContent blockLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
+                ? PolarSection.LightContent.VALUES[bb.readByte()]
+                : ((bb.readByte() == 1) ? PolarSection.LightContent.PRESENT : PolarSection.LightContent.MISSING);
+        blockLight = LightUtil.getLightArray(blockLightContent, blockLightContent == PolarSection.LightContent.PRESENT ? getLightData(bb) : null);
+        PolarSection.LightContent skyLightContent = version >= PolarWorld.VERSION_IMPROVED_LIGHT
+                ? PolarSection.LightContent.VALUES[bb.readByte()]
+                : (bb.readByte() == 1 ? PolarSection.LightContent.PRESENT : PolarSection.LightContent.MISSING);
+        skyLight = LightUtil.getLightArray(skyLightContent, skyLightContent == PolarSection.LightContent.PRESENT ? getLightData(bb) : null);
 
 
-        return new live.minehub.polarpaper.core.world.PolarSection(
+        return new PolarSection(
                 blockPalette, blockData,
                 biomePalette, biomeData,
                 blockLightContent, blockLight,
@@ -238,20 +237,19 @@ public class PolarReader {
         }
     }
 
-    protected static @NotNull live.minehub.polarpaper.core.world.PolarChunk.BlockEntity readBlockEntity(@NotNull live.minehub.polarpaper.core.world.PolarDataConverter dataConverter, int dataVersion, @NotNull ByteBuf bb) {
+    protected static @NotNull PolarChunk.BlockEntity readBlockEntity(@NotNull PolarDataConverter dataConverter, int dataVersion, @NotNull ByteBuf bb) {
         int posIndex = bb.readInt();
         String id = getStringOptional(bb);
 
-        ByteBufInputStream bbis = new ByteBufInputStream(bb);
-
-        CompoundTag nbt = new CompoundTag();
-        if (bb.readByte() == 1) {
-            try {
+        CompoundTag nbt;
+        try (ByteBufInputStream bbis = new ByteBufInputStream(bb)) {
+            nbt = new CompoundTag();
+            if (bb.readByte() == 1) {
                 nbt = (CompoundTag) NbtIo.readAnyTag(bbis, NbtAccounter.unlimitedHeap());
                 fixSignNBT(nbt);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
             }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
 
         if (dataVersion < dataConverter.dataVersion()) {
@@ -262,7 +260,7 @@ public class PolarReader {
             if (nbt.isEmpty()) nbt = null;
         }
 
-        return new live.minehub.polarpaper.core.world.PolarChunk.BlockEntity(
+        return new PolarChunk.BlockEntity(
                 posIndex,
                 id, nbt
         );

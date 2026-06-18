@@ -1,24 +1,17 @@
 package live.minehub.polarpaper.core.world;
 
 import ca.spottedleaf.moonrise.common.PlatformHooks;
-import com.mojang.logging.LogUtils;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
+import live.minehub.polarpaper.core.userdata.EntitySerializer;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.*;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.ProblemReporter;
 import net.minecraft.util.datafix.fixes.References;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.entity.EntitySpawnRequest;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.level.storage.TagValueInput;
-import net.minecraft.world.level.storage.ValueInput;
 import org.bukkit.*;
-import org.bukkit.craftbukkit.CraftWorld;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.ByteArrayInputStream;
@@ -28,13 +21,13 @@ import java.util.Locale;
 
 public record PolarEntity(double x, double y, double z, float yaw, float pitch, byte[] bytes) {
 
-    public @Nullable Entity toNMSEntity(World world, Location spawnLocation, boolean randomUUID) {
+    public @Nullable Entity toNMSEntity(EntitySerializer entitySerializer, World world, Location spawnLocation, boolean randomUUID) {
         ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
         DataInputStream dataInput = new DataInputStream(inputStream);
         CompoundTag compound;
         try {
             compound = NbtIo.read(dataInput, NbtAccounter.unlimitedHeap());
-        } catch (IOException e) {
+        } catch (IOException _) {
 //                ExceptionUtil.log(e);
             return null;
         }
@@ -90,13 +83,7 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
             compound.put("block_pos", blockPosTag);
         }
 
-
-        ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "deserialiseEntity", LogUtils.getLogger());
-        ValueInput tagValueInput = TagValueInput.create(problemReporter, ((CraftWorld) world).getHandle().registryAccess(), compound);
-
-        Entity nmsEntity = EntityType
-                .create(tagValueInput, ((CraftWorld) world).getHandle(), new EntitySpawnRequest(EntitySpawnReason.LOAD, false))
-                .orElse(null);
+        Entity nmsEntity = entitySerializer.compoundToEntity(world, compound);
         if (nmsEntity == null) return null;
 
         return nmsEntity;

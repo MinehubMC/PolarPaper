@@ -37,8 +37,6 @@ import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Locale;
@@ -48,8 +46,6 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
 public class NoSaveLevelCreatorImpl implements NoSaveLevelCreator {
-    private static final Logger LOGGER = LoggerFactory.getLogger(NoSaveLevelCreatorImpl.class);
-
     @Override
     public CompletableFuture<@Nullable World> createLevel(Plugin plugin, WorldCreator creator, Location spawnPos, Difficulty difficulty, Map<String, Object> gamerules, long time) {
         CraftServer craftServer = (CraftServer) Bukkit.getServer();

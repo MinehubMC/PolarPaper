@@ -13,9 +13,9 @@ import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.world.BlockSelector;
-import live.minehub.polarpaper.core.world.PolarFeaturesWorldAccess;
 import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.core.world.PolarWriter;
+import live.minehub.polarpaper.nms.VersionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -125,7 +125,7 @@ public class ConvertCommand extends PolarCmd {
             Config config = Polar.updateConfig(bukkitWorld, newWorldKey.getKey());
 
             Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
-                PolarWorld newPolarWorld = PolarWorld.convert(bukkitWorld, new PolarFeaturesWorldAccess(PolarPaper.getPlugin()), BlockSelector.square(offsetX, offsetZ, chunkRadius), config);
+                PolarWorld newPolarWorld = PolarWorld.convert(bukkitWorld, VersionUtil.getPolarFeaturesWorldAccess(), BlockSelector.square(offsetX, offsetZ, chunkRadius), config);
                 byte[] polarBytes = PolarWriter.write(newPolarWorld);
                 try {
                     Polar.getDefaultFolderSource(newWorldName).saveBytes(polarBytes);

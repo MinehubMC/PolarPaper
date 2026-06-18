@@ -1,6 +1,7 @@
 rootProject.name = "polarpaper"
 
 
-include("paper_26_1")
-include("paper_latest")
 include("core")
+include("paper_latest")
+include("paper_26_1_2")
+include("paper_1_21_11")

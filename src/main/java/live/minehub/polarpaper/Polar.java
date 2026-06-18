@@ -68,7 +68,7 @@ public class Polar {
      * @see Polar#getDefaultFolderSource(String)
      */
     public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource source, @NotNull String worldName) {
-        return createWorld(source, worldName, new PolarFeaturesWorldAccess(PolarPaper.getPlugin()));
+        return createWorld(source, worldName, VersionUtil.getPolarFeaturesWorldAccess());
     }
 
     /**
@@ -78,7 +78,7 @@ public class Polar {
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
     public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName) {
-        return createWorld(polarWorld, worldName, new PolarFeaturesWorldAccess(PolarPaper.getPlugin()));
+        return createWorld(polarWorld, worldName, VersionUtil.getPolarFeaturesWorldAccess());
     }
 
     /**
@@ -123,7 +123,7 @@ public class Polar {
      * @see BytesPolarSource
      */
     public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource polarSource, @NotNull String worldName, @NotNull Config config) {
-        return createWorld(polarSource, worldName, config, new PolarFeaturesWorldAccess(PolarPaper.getPlugin()));
+        return createWorld(polarSource, worldName, config, VersionUtil.getPolarFeaturesWorldAccess());
     }
 
     /**
@@ -134,7 +134,7 @@ public class Polar {
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
     public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config) {
-        return createWorld(polarWorld, worldName, config, new PolarFeaturesWorldAccess(PolarPaper.getPlugin()));
+        return createWorld(polarWorld, worldName, config, VersionUtil.getPolarFeaturesWorldAccess());
     }
 
     /**
@@ -281,7 +281,7 @@ public class Polar {
 
         if (autosaveIntervalTicks == -1) return;
 
-        ScheduledTask autosaveTask = Bukkit.getAsyncScheduler().runAtFixedRate(PolarPaper.getPlugin(), (t) -> {
+        ScheduledTask autosaveTask = Bukkit.getAsyncScheduler().runAtFixedRate(PolarPaper.getPlugin(), t -> {
             long before = System.nanoTime();
             String savingMsg = String.format("Autosaving '%s'...", world.getKey().getKey());
             PolarPaper.logger().info(savingMsg);

@@ -69,7 +69,6 @@ public class VersionCommand extends PolarCmd {
                         .append(Component.text("Download", NamedTextColor.BLUE, TextDecoration.UNDERLINED)
                                 .clickEvent(ClickEvent.openUrl(downloadUrl))
                                 .hoverEvent(HoverEvent.showText(Component.text("Click to download"))))
-                        .build()
                 );
             }
         }).exceptionally(e -> {

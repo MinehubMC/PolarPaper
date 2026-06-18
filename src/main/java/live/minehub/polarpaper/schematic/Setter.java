@@ -2,8 +2,10 @@ package live.minehub.polarpaper.schematic;
 
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.event.PolarEntitySpawnEvent;
+import live.minehub.polarpaper.core.userdata.EntitySerializer;
 import live.minehub.polarpaper.core.userdata.EntityUtil;
 import live.minehub.polarpaper.core.world.PolarEntity;
+import live.minehub.polarpaper.nms.VersionUtil;
 import live.minehub.polarpaper.util.BlockUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -12,8 +14,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.entity.CraftEntity;
+import org.joml.Vector2i;
 import org.joml.Vector3i;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 public interface Setter {
@@ -72,7 +77,8 @@ public interface Setter {
         public void spawnEntity(PolarEntity polarEntity, Location spawnLocation) {
             if (!selector.test(spawnLocation.blockX(), spawnLocation.blockY(), spawnLocation.blockZ())) return;
 
-            net.minecraft.world.entity.Entity nmsEntity = polarEntity.toNMSEntity(world, spawnLocation, true);
+            EntitySerializer entitySerializer = VersionUtil.getEntitySerializer();
+            net.minecraft.world.entity.Entity nmsEntity = polarEntity.toNMSEntity(entitySerializer, world, spawnLocation, true);
             if (nmsEntity == null) return;
 
             CraftEntity entity = nmsEntity.getBukkitEntity();
@@ -86,15 +92,23 @@ public interface Setter {
             });
         }
 
-        public void refreshChunks(Set<ChunkPos> chunksToRefresh) {
+        public void refreshChunks(Set<Vector2i> chunksToRefresh) {
             CraftWorld craftWorld = (CraftWorld) world;
             ServerLevel serverLevel = craftWorld.getHandle();
 
             // relight chunks and resend blocks to client
-            serverLevel.getChunkSource().getLightEngine().starlight$serverRelightChunks(chunksToRefresh, _ -> {}, _ -> {});
-            for (ChunkPos c : chunksToRefresh) {
-                world.refreshChunk(c.x(), c.z());
+            serverLevel.getChunkSource().getLightEngine().starlight$serverRelightChunks(vecsToChunkPos(chunksToRefresh), _ -> {}, _ -> {});
+            for (Vector2i c : chunksToRefresh) {
+                world.refreshChunk(c.x(), c.y());
             }
+        }
+
+        private List<ChunkPos> vecsToChunkPos(Set<Vector2i> vecs) {
+            List<ChunkPos> chunkPos = new ArrayList<>(vecs.size());
+            for (Vector2i vec : vecs) {
+                chunkPos.add(new ChunkPos(vec.x(), vec.y()));
+            }
+            return chunkPos;
         }
     }
 

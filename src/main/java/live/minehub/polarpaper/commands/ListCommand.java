@@ -8,6 +8,7 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
+import net.kyori.adventure.builder.AbstractBuilder;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -92,7 +93,7 @@ public class ListCommand extends PolarCmd {
             }
         }
 
-        ctx.getSource().getSender().sendMessage(builder.build());
+        ctx.getSource().getSender().sendMessage(((AbstractBuilder<TextComponent>)builder).build());
 
         return Command.SINGLE_SUCCESS;
     }

@@ -5,6 +5,7 @@ import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.userdata.WorldUserData;
 import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.core.world.PolarWorldAccess;
+import net.kyori.adventure.builder.AbstractBuilder;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -82,7 +83,7 @@ public class PolarStreamingGenerator extends PolarGenerator {
             builder.append(Component.text(offset.x + ", " + offset.y + ", " + offset.z, NamedTextColor.AQUA));
         }
 
-        return builder.build();
+        return ((AbstractBuilder<TextComponent>)builder).build();
     }
 
     @Override

@@ -11,13 +11,13 @@ import live.minehub.polarpaper.core.world.PolarEntity;
 import live.minehub.polarpaper.core.world.PolarSection;
 import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.util.BlockUtil;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.joml.Vector2i;
 import org.joml.Vector3i;
 
 import java.util.*;
@@ -69,7 +69,7 @@ public class Schematic {
                 setter.setBlockEntity(blockOffset.x, blockOffset.y, blockOffset.z, blockEntity);
             }
 
-            Set<ChunkPos> chunksToRefresh = new HashSet<>();
+            Set<Vector2i> chunksToRefresh = new HashSet<>();
             for (live.minehub.polarpaper.core.world.PolarChunk chunk : polarWorld.chunks()) {
                 Vector3i chunkOffset = new Vector3i(chunk.x() * 16, 0, chunk.z() * 16)
                         .sub(finalOffset);
@@ -81,7 +81,7 @@ public class Schematic {
 
                 for (int x = -1; x <= 1; x++) {
                     for (int z = -1; z <= 1; z++) {
-                        chunksToRefresh.add(new ChunkPos(cX + x, cZ + z));
+                        chunksToRefresh.add(new Vector2i(cX + x, cZ + z));
                     }
                 }
             }
@@ -127,7 +127,7 @@ public class Schematic {
         for (int i = 0; i < rawBlockPalette.length; i++) {
             try {
                 materialPalette[i] = ((CraftBlockData) Bukkit.getServer().createBlockData(rawBlockPalette[i])).getState();
-            } catch (IllegalArgumentException e) {
+            } catch (IllegalArgumentException _) {
                 PolarPaper.logger().warning("Failed to parse block state: " + rawBlockPalette[i]);
                 materialPalette[i] = Blocks.AIR.defaultBlockState();
             }

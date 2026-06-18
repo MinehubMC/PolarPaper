@@ -11,9 +11,9 @@ import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.userdata.WorldUserData;
 import live.minehub.polarpaper.core.world.BlockSelector;
-import live.minehub.polarpaper.core.world.PolarFeaturesWorldAccess;
 import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.core.world.PolarWriter;
+import live.minehub.polarpaper.nms.VersionUtil;
 import live.minehub.polarpaper.schematic.Schematic;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
@@ -59,7 +59,7 @@ public class CreateFromRegionCommand extends PolarCmd {
         bukkitWorld.getChunksAtAsync((blockSelector.min().x / 16) - 1, (blockSelector.min().z / 16) - 1, (blockSelector.max().x / 16) + 1, (blockSelector.max().z / 16) + 1, false, () -> {
             Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
                 try {
-                    PolarWorld polarWorld = PolarWorld.convert(bukkitWorld, new PolarFeaturesWorldAccess(PolarPaper.getPlugin()), blockSelector);
+                    PolarWorld polarWorld = PolarWorld.convert(bukkitWorld, VersionUtil.getPolarFeaturesWorldAccess(), blockSelector);
                     polarWorld.userData(WorldUserData.writeSchematicOffset(finalSchemOffset));
                     byte[] worldBytes = PolarWriter.write(polarWorld);
                     Polar.getDefaultFolderSource(newWorldName).saveBytes(worldBytes);

@@ -146,14 +146,6 @@ public record Config(
         }
     }
 
-    public @NotNull List<Map<String, ?>> gamerulesList() {
-        List<Map<String, ?>> gamerules = new ArrayList<>();
-        for (Map.Entry<String, Object> entry : gamerules().entrySet()) {
-            gamerules.add(Map.of(entry.getKey(), entry.getValue()));
-        }
-        return gamerules;
-    }
-
     public Builder toBuilder() {
         return new Builder(this);
     }
@@ -210,7 +202,7 @@ public record Config(
                 }
 
                 Object gameRuleValue = world.getGameRuleValue(gamerule);
-                Object gameRuleDefault = gamerule.getDefaultValue();
+                Object gameRuleDefault = world.getGameRuleDefault(gamerule); // 1.21.11 depends on this deprecated method
                 if (gameRuleValue != gameRuleDefault) {
                     gamerule(name, gameRuleValue);
                 } else {
@@ -578,9 +570,9 @@ public record Config(
         }
 
         private @NotNull Map<String, Object> convertYmlGamerules(List<Map<?, ?>> ymlGamerules) {
+            if (ymlGamerules == null) return Map.of();
             Map<String, Object> gamerules = new HashMap<>();
 
-            if (ymlGamerules == null) return gamerules;
             for (Map<?, ?> ymlGamerule : ymlGamerules) {
                 for (Map.Entry<?, ?> entry : ymlGamerule.entrySet()) {
                     if (!(entry.getKey() instanceof String key)) continue;
@@ -592,7 +584,7 @@ public record Config(
         }
 
         private @NotNull List<Map<String, ?>> gamerulesList(Map<String, Object> gamerules) {
-            List<Map<String, ?>> gamerulesList = new ArrayList<>();
+            List<Map<String, ?>> gamerulesList = new ArrayList<>(gamerules.size());
             for (Map.Entry<String, Object> entry : gamerules.entrySet()) {
                 gamerulesList.add(Map.of(entry.getKey(), entry.getValue()));
             }

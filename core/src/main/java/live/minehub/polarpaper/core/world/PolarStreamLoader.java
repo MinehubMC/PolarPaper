@@ -7,6 +7,7 @@ import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightEngine;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightInterface;
+import com.mojang.logging.LogUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
@@ -149,8 +150,10 @@ public class PolarStreamLoader {
         CompletableFuture<Void>[] futures = new CompletableFuture[chunkCount];
         for (int i = 0; i < chunkCount; i++) {
             try {
-                futures[i] = readChunk(plugin, world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
-            } catch (Exception e) {
+                CompletableFuture<Void> future = readChunk(plugin, world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
+                if (future.isCompletedExceptionally()) throw future.exceptionNow();
+                futures[i] = future;
+            } catch (Throwable e) {
                 return CompletableFuture.failedFuture(e);
             }
         }
@@ -284,7 +287,7 @@ public class PolarStreamLoader {
         int z = CoordConversion.chunkBlockIndexGetZ(posIndex);
 
         BlockState blockState = chunk.getBlockState(x, y, z);
-        BlockPos blockPos = new BlockPos(chunk.getPos().x() * 16 + x, y, chunk.getPos().z() * 16 + z);
+        BlockPos blockPos = new BlockPos(chunk.locX * 16 + x, y, chunk.locZ * 16 + z);
 
         if (!(blockState.getBlock() instanceof EntityBlock entityBlock)) {
 //            PolarPaper.logger().warning("Block " + blockState + " does not have a block entity");
@@ -302,9 +305,8 @@ public class PolarStreamLoader {
         var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
 
         // Load NBT data into the block entity
-        blockEntity.loadWithComponents(
-                TagValueInput.create(ProblemReporter.DISCARDING, registryAccess, nbt)
-        );
+        ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "addBlockEntity", LogUtils.getLogger());
+        blockEntity.loadWithComponents(TagValueInput.create(problemReporter, registryAccess, nbt));
 
         if (chunk instanceof LevelChunk levelChunk) {
             blockEntity.setLevel(levelChunk.getLevel());
