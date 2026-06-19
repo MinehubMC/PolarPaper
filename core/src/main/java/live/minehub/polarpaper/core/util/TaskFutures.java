@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.core.util;
 
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +18,19 @@ public class TaskFutures {
     public static <T> CompletableFuture<T> runAsync(Plugin plugin, Supplier<T> runnable) {
         CompletableFuture<T> future = new CompletableFuture<>();
         Bukkit.getAsyncScheduler().runNow(plugin, _ -> {
+            try {
+                future.complete(runnable.get());
+            } catch (Exception e) {
+                LOGGER.error("Task failed exceptionally: ", e);
+                future.completeExceptionally(e);
+            }
+        });
+        return future;
+    }
+
+    public static <T> CompletableFuture<T> runRegion(Plugin plugin, World world, int chunkX, int chunkZ, Supplier<T> runnable) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        Bukkit.getRegionScheduler().execute(plugin, world, chunkX, chunkZ, () -> {
             try {
                 future.complete(runnable.get());
             } catch (Exception e) {

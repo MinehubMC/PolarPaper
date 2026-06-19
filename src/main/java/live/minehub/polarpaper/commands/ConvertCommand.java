@@ -149,7 +149,7 @@ public class ConvertCommand extends PolarCmd {
                                         .clickEvent(ClickEvent.runCommand("/polar load " + worldKey.getKey()))
                                         .hoverEvent(HoverEvent.showText(Component.text()
                                                 .append(Component.text("Click to run ", NamedTextColor.AQUA))
-                                                .append(Component.text("/polar load " + worldKey.getKey())))))
+                                                .append(Component.text("/polar load " + newWorldKey.getKey())))))
                 );
             });
         });

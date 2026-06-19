@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
-val developmentVersion = "2.0.0"
+val developmentVersion = "2.0.1"
 
 version = getVersion()
 group = "live.minehub"
@@ -29,10 +29,11 @@ dependencies {
 }
 
 tasks {
+    runPaper.folia.registerTask()
     runServer {
-        minecraftVersion(libs.versions.minecraft.get())
+//        minecraftVersion(libs.versions.minecraft.get())
 //        minecraftVersion("1.21.11")
-//        minecraftVersion("26.1.2")
+        minecraftVersion("26.1.2")
     }
 
     shadowJar {

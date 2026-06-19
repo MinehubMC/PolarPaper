@@ -194,7 +194,7 @@ public class PolarStreamLoader {
 
         NoUnloadLevelChunk newLevelChunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(chunkX, chunkZ), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
 
-        newLevelChunk.tryMarkSaved();
+        Bukkit.getRegionScheduler().execute(plugin, world, chunkX, chunkZ, newLevelChunk::tryMarkSaved);
 
         int blockEntityCount = getVarInt(bb);
         for (int i = 0; i < blockEntityCount; i++) {
@@ -211,7 +211,7 @@ public class PolarStreamLoader {
 
         boolean finalLightPresent = lightPresent;
 
-        return TaskFutures.run(plugin, () -> {
+        return TaskFutures.runRegion(plugin, world, chunkX, chunkZ, () -> {
             insertChunk(serverLevel, newLevelChunk);
             worldAccess.loadChunkData(world, newLevelChunk, userData);
 

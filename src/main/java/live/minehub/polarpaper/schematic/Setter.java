@@ -77,13 +77,15 @@ public interface Setter {
         public void spawnEntity(PolarEntity polarEntity, Location spawnLocation) {
             if (!selector.test(spawnLocation.blockX(), spawnLocation.blockY(), spawnLocation.blockZ())) return;
 
+            spawnLocation.setWorld(world);
+
             EntitySerializer entitySerializer = VersionUtil.getEntitySerializer();
             net.minecraft.world.entity.Entity nmsEntity = polarEntity.toNMSEntity(entitySerializer, world, spawnLocation, true);
             if (nmsEntity == null) return;
 
             CraftEntity entity = nmsEntity.getBukkitEntity();
 
-            Bukkit.getGlobalRegionScheduler().run(PolarPaper.getPlugin(), _ -> {
+            Bukkit.getRegionScheduler().run(PolarPaper.getPlugin(), spawnLocation, _ -> {
                 PolarEntitySpawnEvent event = new PolarEntitySpawnEvent(polarEntity, entity, spawnLocation, true);
                 event.callEvent();
                 if (!event.isCancelled()) {
@@ -99,7 +101,9 @@ public interface Setter {
             // relight chunks and resend blocks to client
             serverLevel.getChunkSource().getLightEngine().starlight$serverRelightChunks(vecsToChunkPos(chunksToRefresh), _ -> {}, _ -> {});
             for (Vector2i c : chunksToRefresh) {
-                world.refreshChunk(c.x(), c.y());
+                Bukkit.getRegionScheduler().execute(PolarPaper.getPlugin(), world, c.x(), c.y(), () -> {
+                    world.refreshChunk(c.x(), c.y());
+                });
             }
         }
 

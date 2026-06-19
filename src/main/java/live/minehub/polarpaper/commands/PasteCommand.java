@@ -133,7 +133,7 @@ public class PasteCommand extends PolarCmd {
             Schematic.paste(polarWorld, setter, pasteOffset, rotation, ignoreAir);
         } catch (Exception e) {
             String errorMsg = "Failed to paste schematic, please check logs for error";
-            PolarPaper.logger().severe(errorMsg);
+            LOGGER.error(errorMsg, e);
             ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
             return Command.SINGLE_SUCCESS;
         }
