@@ -287,7 +287,7 @@ public record PolarChunk(
             if (!(biomeHolder.value() instanceof Biome biome)) continue;
             Identifier key = biomeRegistry.getKey(biome);
             if (key == null) continue;
-            String biomeString = key.getPath();
+            String biomeString = key.toString();
             biomePaletteStrings.add(biomeString);
         }
 
