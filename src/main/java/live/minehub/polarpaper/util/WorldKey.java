@@ -49,11 +49,16 @@ public class WorldKey {
     }
 
     public static @Nullable World getWorld(Identifier id) {
-        // try polar namespace
-        NamespacedKey worldKey = NamespacedKey.fromString(id.getPath(), PolarPaper.getPlugin());
-        if (worldKey == null) return null;
-        World world = Bukkit.getWorld(worldKey);
-        if (world != null) return world;
+        NamespacedKey worldKey;
+        World world;
+
+        if (id.getNamespace().equals(Identifier.DEFAULT_NAMESPACE)) {
+            // try polar namespace
+            worldKey = NamespacedKey.fromString(id.getPath(), PolarPaper.getPlugin());
+            if (worldKey == null) return null;
+            world = Bukkit.getWorld(worldKey);
+            if (world != null) return world;
+        }
 
         worldKey = new NamespacedKey(id.getNamespace(), id.getPath());
         world = Bukkit.getWorld(worldKey);
