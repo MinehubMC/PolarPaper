@@ -2,6 +2,7 @@ package live.minehub.polarpaper.commands;
 
 import ca.spottedleaf.concurrentutil.util.Priority;
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -46,6 +47,18 @@ public class ConvertCommand extends PolarCmd {
     }
 
     private int execute(CommandContext<CommandSourceStack> ctx) {
+        boolean saveLight = false;
+        try {
+            saveLight = ctx.getArgument("save light", Boolean.class);
+        } catch (IllegalArgumentException ignored) {}
+        return execute(ctx, saveLight);
+    }
+
+    private int executeWithLight(CommandContext<CommandSourceStack> ctx) {
+        return execute(ctx, ctx.getArgument("save light", Boolean.class));
+    }
+
+    private int execute(CommandContext<CommandSourceStack> ctx, boolean saveLight) {
         CommandSender sender = ctx.getSource().getSender();
         // Being ran from console
         if (!(sender instanceof Player player)) return Command.SINGLE_SUCCESS;
@@ -105,9 +118,9 @@ public class ConvertCommand extends PolarCmd {
         for (int x = -chunkRadius; x <= chunkRadius; x++) {
             for (int z = -chunkRadius; z <= chunkRadius; z++) {
                 CompletableFuture<Void> future = new CompletableFuture<>();
-                // FEATURES status as we do not need light
-                // should be changed to FULL if/when light saving is added
-                level.moonrise$getChunkTaskScheduler().scheduleChunkLoad(x + offsetX, z + offsetZ, ChunkStatus.FEATURES, true, Priority.LOW, _ -> {
+                // FULL required when saving light; FEATURES sufficient otherwise
+                ChunkStatus status = saveLight ? ChunkStatus.FULL : ChunkStatus.FEATURES;
+                level.moonrise$getChunkTaskScheduler().scheduleChunkLoad(x + offsetX, z + offsetZ, status, true, Priority.LOW, _ -> {
                     future.complete(null);
                 });
                 futures.add(future);
@@ -122,7 +135,7 @@ public class ConvertCommand extends PolarCmd {
                             .append(Component.text("'...", NamedTextColor.GRAY))
             );
 
-            Config config = Polar.updateConfig(bukkitWorld, newWorldKey.getKey());
+            Config config = Polar.updateConfig(bukkitWorld, newWorldKey.getKey()).toBuilder().saveLight(saveLight).build();
 
             Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
                 PolarWorld newPolarWorld = PolarWorld.convert(bukkitWorld, VersionUtil.getPolarFeaturesWorldAccess(), BlockSelector.square(offsetX, offsetZ, chunkRadius), config);
@@ -146,7 +159,7 @@ public class ConvertCommand extends PolarCmd {
                                 .append(Component.text(ms, NamedTextColor.AQUA))
                                 .append(Component.text("ms. ", NamedTextColor.AQUA))
                                 .append(Component.text("Click to load now", NamedTextColor.WHITE, TextDecoration.UNDERLINED)
-                                        .clickEvent(ClickEvent.runCommand("/polar load " + worldKey.getKey()))
+                                        .clickEvent(ClickEvent.runCommand("/polar load " + newWorldKey.getKey()))
                                         .hoverEvent(HoverEvent.showText(Component.text()
                                                 .append(Component.text("Click to run ", NamedTextColor.AQUA))
                                                 .append(Component.text("/polar load " + newWorldKey.getKey())))))
@@ -161,7 +174,7 @@ public class ConvertCommand extends PolarCmd {
     protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
         ctx.getSource().getSender().sendMessage(
                 Component.text()
-                        .append(Component.text("Usage: /polar convert <new worldname> <chunk radius> (While in a non-polar world) to convert the chunks around you", NamedTextColor.RED))
+                        .append(Component.text("Usage: /polar convert <new world name> <chunk radius> [save light] (While in a non-polar world) to convert the chunks around you", NamedTextColor.RED))
         );
         return Command.SINGLE_SUCCESS;
     }
@@ -169,7 +182,17 @@ public class ConvertCommand extends PolarCmd {
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
         builder.then(Commands.argument("new world name", StringArgumentType.string())
+                .suggests((ctx, b) -> {
+                    if (ctx.getSource().getSender() instanceof Player player) {
+                        b.suggest(player.getWorld().getKey().value());
+                    }
+                    return b.buildFuture();
+                })
                 .then(Commands.argument("chunk radius", IntegerArgumentType.integer(1))
-                        .executes(this::execute)));
+                        .executes(this::execute)
+                        .then(Commands.argument("save light", BoolArgumentType.bool())
+                                .executes(this::executeWithLight))
+                )
+        );
     }
 }

@@ -190,13 +190,13 @@ public class PolarSection {
         for (int i = 0; i < biomePalette().length; i++) {
             Identifier identifier = Identifier.tryParse(biomePalette()[i]);
             if (identifier == null) {
-                LOGGER.warn("Failed to parse {}", biomeHolderPalette[i]);
+                LOGGER.warn("Failed to parse biome key: {}", biomePalette()[i]);
                 biomeHolderPalette[i] = orThrow;
                 continue;
             }
             Holder.Reference<Biome> biome = registry.get(identifier).orElse(null);
             if (biome == null) {
-                LOGGER.warn("Failed to get {}", biomeHolderPalette[i]);
+                LOGGER.warn("Failed to get biome: {}", biomePalette()[i]);
                 biomeHolderPalette[i] = orThrow;
                 continue;
             }
