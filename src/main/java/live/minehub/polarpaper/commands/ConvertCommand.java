@@ -146,7 +146,7 @@ public class ConvertCommand extends PolarCmd {
                                 .append(Component.text(ms, NamedTextColor.AQUA))
                                 .append(Component.text("ms. ", NamedTextColor.AQUA))
                                 .append(Component.text("Click to load now", NamedTextColor.WHITE, TextDecoration.UNDERLINED)
-                                        .clickEvent(ClickEvent.runCommand("/polar load " + worldKey.getKey()))
+                                        .clickEvent(ClickEvent.runCommand("/polar load " + newWorldKey.getKey()))
                                         .hoverEvent(HoverEvent.showText(Component.text()
                                                 .append(Component.text("Click to run ", NamedTextColor.AQUA))
                                                 .append(Component.text("/polar load " + newWorldKey.getKey())))))
