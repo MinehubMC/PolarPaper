@@ -8,6 +8,8 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
+import net.minecraft.commands.arguments.IdentifierArgument;
+import net.minecraft.resources.Identifier;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
@@ -73,8 +75,8 @@ public abstract class PolarCmd {
                 });
     }
 
-    public RequiredArgumentBuilder<CommandSourceStack, String> createWorldNameArgument(boolean greedy, boolean onlyPolar) {
-        return Commands.argument("world name", greedy ? StringArgumentType.greedyString() : StringArgumentType.string())
+    public RequiredArgumentBuilder<CommandSourceStack, Identifier> createWorldNameArgument(boolean onlyPolar) {
+        return Commands.argument("world name", IdentifierArgument.id())
                 .suggests((_, s) -> {
                     for (World world : Bukkit.getWorlds()) {
                         if (onlyPolar) {
@@ -87,11 +89,7 @@ public abstract class PolarCmd {
                         if (!worldKey.toLowerCase().startsWith(s.getRemainingLowerCase())
                             && !world.getKey().getKey().toLowerCase().startsWith(s.getRemainingLowerCase())) continue;
 
-                        if ((worldKey.contains(" ") || worldKey.contains("/")) && !greedy) {
-                            s.suggest("\"" + world.getKey() + "\"");
-                        } else {
-                            s.suggest(worldKey);
-                        }
+                        s.suggest(worldKey);
                     }
                     return s.buildFuture();
                 });

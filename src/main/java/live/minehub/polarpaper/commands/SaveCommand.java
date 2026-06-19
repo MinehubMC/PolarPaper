@@ -8,10 +8,11 @@ import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.util.TaskFutures;
+import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.minecraft.resources.Identifier;
 import org.bukkit.Bukkit;
-import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.slf4j.Logger;
@@ -27,16 +28,15 @@ public class SaveCommand extends PolarCmd {
         super("save", "Save the polar world");
     }
 
-    protected static CompletableFuture<Boolean> saveWorld(CommandContext<CommandSourceStack> ctx, String worldName) {
+    protected static CompletableFuture<Boolean> saveWorld(CommandContext<CommandSourceStack> ctx, Identifier worldId) {
         CommandSender sender = ctx.getSource().getSender();
 
-        NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
-        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
+        World bukkitWorld = WorldKey.getWorld(worldId);
         if (bukkitWorld == null) {
             sender.sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                             .append(Component.text("' does not exist!", NamedTextColor.RED))
             );
             return CompletableFuture.completedFuture(false);
@@ -47,7 +47,7 @@ public class SaveCommand extends PolarCmd {
             sender.sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                             .append(Component.text("' is not a polar world!", NamedTextColor.RED))
             );
             return CompletableFuture.completedFuture(false);
@@ -56,7 +56,7 @@ public class SaveCommand extends PolarCmd {
         sender.sendMessage(
                 Component.text()
                         .append(Component.text("Saving '", NamedTextColor.GRAY))
-                        .append(Component.text(worldName, NamedTextColor.GRAY))
+                        .append(Component.text(worldId.getPath(), NamedTextColor.GRAY))
                         .append(Component.text("'...", NamedTextColor.GRAY))
         );
 
@@ -81,7 +81,7 @@ public class SaveCommand extends PolarCmd {
             sender.sendMessage(
                     Component.text()
                             .append(Component.text("Saved '", NamedTextColor.AQUA))
-                            .append(Component.text(worldName, NamedTextColor.AQUA))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.AQUA))
                             .append(Component.text("' in ", NamedTextColor.AQUA))
                             .append(Component.text(ms, NamedTextColor.AQUA))
                             .append(Component.text("ms", NamedTextColor.AQUA))
@@ -92,8 +92,8 @@ public class SaveCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world name", String.class);
-        saveWorld(ctx, worldName);
+        Identifier worldId = ctx.getArgument("world name", Identifier.class);
+        saveWorld(ctx, worldId);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -108,7 +108,7 @@ public class SaveCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(createWorldNameArgument(true, true)
+        builder.then(createWorldNameArgument(true)
                 .executes(SaveCommand::run));
     }
 }

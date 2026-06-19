@@ -11,6 +11,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.minecraft.resources.Identifier;
 import org.bukkit.World;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,14 +25,14 @@ public class DeleteCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world name", String.class);
+        Identifier worldId = ctx.getArgument("world name", Identifier.class);
 
-        World world = WorldKey.getWorld(worldName);
+        World world = WorldKey.getWorld(worldId);
         if (world == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("'", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                             .append(Component.text("' does not exist", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
@@ -43,14 +44,14 @@ public class DeleteCommand extends PolarCmd {
     }
 
     private static int confirmMessage(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world name", String.class);
+        Identifier worldId = ctx.getArgument("world name", Identifier.class);
 
-        World world = WorldKey.getWorld(worldName);
+        World world = WorldKey.getWorld(worldId);
         if (world == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("'", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                             .append(Component.text("' does not exist", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
@@ -70,10 +71,10 @@ public class DeleteCommand extends PolarCmd {
                 Component.text()
                         .append(Component.text("Confirm deleting ", NamedTextColor.AQUA))
                         .append(Component.text("'", NamedTextColor.AQUA))
-                        .append(Component.text(worldName, NamedTextColor.AQUA))
+                        .append(Component.text(worldId.getPath(), NamedTextColor.AQUA))
                         .append(Component.text("'? ", NamedTextColor.AQUA))
                         .append(Component.text("CONFIRM", NamedTextColor.GREEN, TextDecoration.UNDERLINED)
-                                .clickEvent(ClickEvent.runCommand("/polar delete \"" + worldName + "\" confirm")))
+                                .clickEvent(ClickEvent.runCommand("/polar delete " + worldId.getPath() + " confirm")))
         );
 
         return Command.SINGLE_SUCCESS;
@@ -127,7 +128,7 @@ public class DeleteCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(createWorldNameArgument(false, true)
+        builder.then(createWorldNameArgument(true)
                 .executes(DeleteCommand::confirmMessage)
                 .then(Commands.literal("confirm")
                     .executes(DeleteCommand::run)));

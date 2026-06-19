@@ -3,6 +3,7 @@ package live.minehub.polarpaper.util;
 import live.minehub.polarpaper.PolarPaper;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.minecraft.resources.Identifier;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
@@ -43,6 +44,18 @@ public class WorldKey {
         // try minecraft namespace
         worldKey = NamespacedKey.fromString(worldName);
         if (worldKey == null) return null;
+        world = Bukkit.getWorld(worldKey);
+        return world;
+    }
+
+    public static @Nullable World getWorld(Identifier id) {
+        // try polar namespace
+        NamespacedKey worldKey = NamespacedKey.fromString(id.getPath(), PolarPaper.getPlugin());
+        if (worldKey == null) return null;
+        World world = Bukkit.getWorld(worldKey);
+        if (world != null) return world;
+
+        worldKey = new NamespacedKey(id.getNamespace(), id.getPath());
         world = Bukkit.getWorld(worldKey);
         return world;
     }

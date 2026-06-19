@@ -6,8 +6,10 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
+import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.minecraft.resources.Identifier;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
@@ -20,15 +22,13 @@ public class InfoCommand extends PolarCmd {
         super("info", "Get info for a polar world");
     }
 
-    protected static int printInfo(CommandContext<CommandSourceStack> ctx, String worldName) {
-        worldName = worldName.toLowerCase().replace(" ", "_");
-        NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
-        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
+    protected static int printInfo(CommandContext<CommandSourceStack> ctx, Identifier worldId) {
+        World bukkitWorld = WorldKey.getWorld(worldId);
         if (bukkitWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("'", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                             .append(Component.text("' does not exist", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
@@ -39,7 +39,7 @@ public class InfoCommand extends PolarCmd {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("'", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                             .append(Component.text("' is not a polar world", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
@@ -64,17 +64,18 @@ public class InfoCommand extends PolarCmd {
             return Command.SINGLE_SUCCESS;
         }
 
-        return printInfo(ctx, player.getWorld().getKey().toString());
+        NamespacedKey worldKey = player.getWorld().getKey();
+        return printInfo(ctx, Identifier.fromNamespaceAndPath(worldKey.namespace(), worldKey.getKey()));
     }
 
     private static int executeArgument(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world name", String.class);
-        return printInfo(ctx, worldName);
+        Identifier worldId = ctx.getArgument("world name", Identifier.class);
+        return printInfo(ctx, worldId);
     }
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(createWorldNameArgument(true, true)
+        builder.then(createWorldNameArgument(true)
                 .executes(InfoCommand::executeArgument));
     }
 }

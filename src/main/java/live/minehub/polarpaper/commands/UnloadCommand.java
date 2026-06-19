@@ -11,10 +11,11 @@ import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.util.FoliaUtil;
 import live.minehub.polarpaper.core.util.TaskFutures;
+import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.minecraft.resources.Identifier;
 import org.bukkit.Bukkit;
-import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 
 import java.util.concurrent.CompletableFuture;
@@ -26,19 +27,19 @@ public class UnloadCommand extends PolarCmd {
     }
 
     protected static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world name", String.class);
-        unload(ctx, worldName, false, false);
+        Identifier worldId = ctx.getArgument("world name", Identifier.class);
+        unload(ctx, worldId, false, false);
         return Command.SINGLE_SUCCESS;
     }
 
     protected static int runOverrided(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world name", String.class);
+        Identifier worldId = ctx.getArgument("world name", Identifier.class);
         Boolean override = ctx.getArgument("save", Boolean.class);
-        unload(ctx, worldName, true, override);
+        unload(ctx, worldId, true, override);
         return Command.SINGLE_SUCCESS;
     }
 
-    protected static CompletableFuture<Boolean> unload(CommandContext<CommandSourceStack> ctx, String worldName, boolean saveOverrided, boolean save) {
+    protected static CompletableFuture<Boolean> unload(CommandContext<CommandSourceStack> ctx, Identifier worldId, boolean saveOverrided, boolean save) {
         if (FoliaUtil.isFolia()) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
@@ -47,13 +48,12 @@ public class UnloadCommand extends PolarCmd {
             return CompletableFuture.completedFuture(false);
         }
 
-        NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
-        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
+        World bukkitWorld = WorldKey.getWorld(worldId);
         if (bukkitWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                             .append(Component.text("' already not loaded!", NamedTextColor.RED))
             );
             return CompletableFuture.completedFuture(false);
@@ -64,7 +64,7 @@ public class UnloadCommand extends PolarCmd {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                             .append(Component.text("' is not a polar world!", NamedTextColor.RED))
             );
             return CompletableFuture.completedFuture(false);
@@ -79,7 +79,7 @@ public class UnloadCommand extends PolarCmd {
         }
 
         if (shouldSave) {
-            return SaveCommand.saveWorld(ctx, worldName).thenCompose(success -> {
+            return SaveCommand.saveWorld(ctx, worldId).thenCompose(success -> {
                 if (!success) return CompletableFuture.completedFuture(false);
                 return bukkitUnload(ctx, bukkitWorld);
             });
@@ -143,7 +143,7 @@ public class UnloadCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(createWorldNameArgument(false, true)
+        builder.then(createWorldNameArgument(true)
                 .executes(UnloadCommand::run)
                 .then(Commands.argument("save", BoolArgumentType.bool())
                         .executes(UnloadCommand::runOverrided)));

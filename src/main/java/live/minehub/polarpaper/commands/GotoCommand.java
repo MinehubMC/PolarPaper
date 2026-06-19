@@ -13,6 +13,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.minecraft.resources.Identifier;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -30,36 +31,36 @@ public class GotoCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world name", String.class);
+        Identifier worldId = ctx.getArgument("world name", Identifier.class);
 
         CommandSender sender = ctx.getSource().getSender();
         Entity executor = ctx.getSource().getExecutor();
         if (!(executor instanceof Player player)) return Command.SINGLE_SUCCESS;
 
-        World bukkitWorld = WorldKey.getWorld(worldName);
+        World bukkitWorld = WorldKey.getWorld(worldId);
         if (bukkitWorld == null) {
             Path pluginFolder = PolarPaper.getPlugin().getDataPath();
             Path worldsFolder = pluginFolder.resolve("worlds");
-            Path path = worldsFolder.resolve(worldName + ".polar");
+            Path path = worldsFolder.resolve(worldId.getPath() + ".polar");
 
             if (Files.exists(path)) { // world exists, just isn't loaded
                 sender.sendMessage(Component.text()
                         .append(Component.text("World '", NamedTextColor.RED))
-                        .append(Component.text(worldName, NamedTextColor.RED))
+                        .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                         .append(Component.text("' is not loaded.", NamedTextColor.RED))
                         .appendNewline()
                         .append(Component.text("Use ", NamedTextColor.AQUA))
                         .append(Component.text()
                                         .append(Component.text("/polar load ", NamedTextColor.WHITE))
-                                        .append(Component.text(worldName, NamedTextColor.WHITE))
-                                        .clickEvent(ClickEvent.runCommand("/polar load " + worldName))
+                                        .append(Component.text(worldId.getPath(), NamedTextColor.WHITE))
+                                        .clickEvent(ClickEvent.runCommand("/polar load " + worldId.getPath()))
                                         .hoverEvent(HoverEvent.showText(Component.text("Click to load world")))
                                         .decorate(TextDecoration.UNDERLINED))
                         .append(Component.text(" to load it now", NamedTextColor.AQUA)));
             } else {
                 sender.sendMessage(Component.text()
                         .append(Component.text("World '", NamedTextColor.RED))
-                        .append(Component.text(worldName, NamedTextColor.RED))
+                        .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                         .append(Component.text("' does not exist or is not loaded!", NamedTextColor.RED)));
             }
 
@@ -101,7 +102,7 @@ public class GotoCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(createWorldNameArgument(true, false)
+        builder.then(createWorldNameArgument(false)
             .executes(GotoCommand::run));
     }
 }

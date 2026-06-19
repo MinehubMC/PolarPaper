@@ -8,10 +8,10 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
+import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Bukkit;
-import org.bukkit.NamespacedKey;
+import net.minecraft.resources.Identifier;
 import org.bukkit.World;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,31 +30,30 @@ public class RenameCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world name", String.class);
+        Identifier worldId = ctx.getArgument("world name", Identifier.class);
         String newWorldName = ctx.getArgument("new world name", String.class);
 
-        NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
-        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
+        World bukkitWorld = WorldKey.getWorld(worldId);
         if (bukkitWorld != null) {
             PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
             if (polarGenerator == null) {
                 ctx.getSource().getSender().sendMessage(
                         Component.text()
                                 .append(Component.text("Not renaming non-polar world '", NamedTextColor.RED))
-                                .append(Component.text(worldName, NamedTextColor.RED))
+                                .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                                 .append(Component.text("'", NamedTextColor.RED))
                 );
             } else {
                 UnloadCommand.bukkitUnload(ctx, bukkitWorld).thenAccept(success -> {
                     if (success) {
-                        renameWorld(ctx, worldName, newWorldName);
+                        renameWorld(ctx, worldId.getPath(), newWorldName);
                     }
                 });
             }
             return Command.SINGLE_SUCCESS;
         }
 
-        renameWorld(ctx, worldName, newWorldName);
+        renameWorld(ctx, worldId.getPath(), newWorldName);
 
         return Command.SINGLE_SUCCESS;
     }

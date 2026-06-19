@@ -10,6 +10,7 @@ import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.minecraft.resources.Identifier;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 
@@ -20,17 +21,17 @@ public class ReloadCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world name", String.class);
+        Identifier worldId = ctx.getArgument("world name", Identifier.class);
 
         CommandSender sender = ctx.getSource().getSender();
 
-        World bukkitWorld = WorldKey.getWorld(worldName);
+        World bukkitWorld = WorldKey.getWorld(worldId);
         PolarGenerator generator = PolarGenerator.fromWorld(bukkitWorld);
         if (generator == null) {
             sender.sendMessage(
                     Component.text()
                             .append(Component.text("World '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                             .append(Component.text("' is not a polar world!", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
@@ -44,7 +45,7 @@ public class ReloadCommand extends PolarCmd {
 
         String newWorldName = bukkitWorld.getKey().toString().replace(PolarPaper.getPlugin().namespace() + ":", "");
 
-        UnloadCommand.unload(ctx, worldName, false, false).thenAccept(success -> {
+        UnloadCommand.unload(ctx, worldId, false, false).thenAccept(success -> {
             if (!success) return;
 
             LoadCommand.loadWorld(ctx, source, newWorldName);
@@ -64,7 +65,7 @@ public class ReloadCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(createWorldNameArgument(true, true)
+        builder.then(createWorldNameArgument(true)
                 .executes(ReloadCommand::run));
     }
 }

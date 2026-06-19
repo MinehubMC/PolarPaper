@@ -21,6 +21,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.minecraft.resources.Identifier;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
@@ -139,7 +140,7 @@ public class CreateFromRegionCommand extends PolarCmd {
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
         builder.then(Commands.argument("new world name", StringArgumentType.string())
                 .executes(CreateFromRegionCommand::run)
-                .then(createWorldNameArgument(false, false)
+                .then(createWorldNameArgument(false)
                         .then(Commands.argument("x1", IntegerArgumentType.integer())
                                 .then(Commands.argument("y1", IntegerArgumentType.integer())
                                         .then(Commands.argument("z1", IntegerArgumentType.integer())
@@ -147,7 +148,7 @@ public class CreateFromRegionCommand extends PolarCmd {
                                                         .then(Commands.argument("y2", IntegerArgumentType.integer())
                                                                 .then(Commands.argument("z2", IntegerArgumentType.integer())
                                                                         .executes(ctx -> {
-                                                                            String worldName = ctx.getArgument("world name", String.class);
+                                                                            Identifier worldId = ctx.getArgument("world name", Identifier.class);
                                                                             String newWorldName = ctx.getArgument("new world name", String.class);
 
                                                                             Vector3i pos1 = new Vector3i(
@@ -161,7 +162,7 @@ public class CreateFromRegionCommand extends PolarCmd {
                                                                                     ctx.getArgument("z2", Integer.class)
                                                                             );
 
-                                                                            World bukkitWorld = WorldKey.getWorld(worldName);
+                                                                            World bukkitWorld = WorldKey.getWorld(worldId);
 
                                                                             createFromRegion(ctx, bukkitWorld, newWorldName, pos1, pos2);
                                                                             return Command.SINGLE_SUCCESS;

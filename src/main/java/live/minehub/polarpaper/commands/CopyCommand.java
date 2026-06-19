@@ -16,6 +16,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.minecraft.resources.Identifier;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 
@@ -31,7 +32,7 @@ public class CopyCommand extends PolarCmd {
     public static int run(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
 
-        String worldName = ctx.getArgument("world name", String.class);
+        Identifier worldId = ctx.getArgument("world name", Identifier.class);
         String newWorldPath = ctx.getArgument("new world path", String.class);
 
         Path path = WorldKey.validatePath(sender, newWorldPath);
@@ -43,12 +44,12 @@ public class CopyCommand extends PolarCmd {
 
         String newWorldName = WorldKey.getWorldName(path);
 
-        World bukkitWorld = WorldKey.getWorld(worldName);
+        World bukkitWorld = WorldKey.getWorld(worldId);
         if (bukkitWorld == null) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("'", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                             .append(Component.text("' does not exist", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
@@ -59,7 +60,7 @@ public class CopyCommand extends PolarCmd {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("'", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text(worldId.getPath(), NamedTextColor.RED))
                             .append(Component.text("' is not a polar world", NamedTextColor.RED))
             );
             return Command.SINGLE_SUCCESS;
@@ -71,7 +72,7 @@ public class CopyCommand extends PolarCmd {
             return Command.SINGLE_SUCCESS;
         }
 
-        SaveCommand.saveWorld(ctx, worldName).thenAccept(success -> {
+        SaveCommand.saveWorld(ctx, worldId).thenAccept(success -> {
             if (!success) {
                 sender.sendMessage(Component.text("Failed to save world before copying", NamedTextColor.RED));
                 return;
@@ -96,15 +97,15 @@ public class CopyCommand extends PolarCmd {
                 sender.sendMessage(
                         Component.text()
                                 .append(Component.text("Copied '", NamedTextColor.AQUA))
-                                .append(Component.text(worldName, NamedTextColor.AQUA))
+                                .append(Component.text(worldId.getPath(), NamedTextColor.AQUA))
                                 .append(Component.text("' to '", NamedTextColor.AQUA))
                                 .append(Component.text(newWorldName, NamedTextColor.AQUA))
                                 .append(Component.text("'. ", NamedTextColor.AQUA))
                                 .append(Component.text("Click to teleport", NamedTextColor.WHITE, TextDecoration.UNDERLINED)
-                                        .clickEvent(ClickEvent.runCommand("/polar goto " + worldName))
+                                        .clickEvent(ClickEvent.runCommand("/polar goto " + worldId))
                                         .hoverEvent(HoverEvent.showText(Component.text()
                                                 .append(Component.text("Click to run ", NamedTextColor.AQUA))
-                                                .append(Component.text("/polar goto " + worldName)))))
+                                                .append(Component.text("/polar goto " + worldId)))))
                 );
             });
         });
@@ -123,7 +124,7 @@ public class CopyCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(createWorldNameArgument(false, true)
+        builder.then(createWorldNameArgument(true)
                 .then(Commands.argument("new world path", StringArgumentType.greedyString())
                         .executes(CopyCommand::run)));
     }
