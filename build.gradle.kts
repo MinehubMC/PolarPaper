@@ -83,7 +83,7 @@ publishing {
 
     publications {
         create<MavenPublication>("shadow") {
-            from(components["java"])
+            from(components["shadow"])
         }
     }
 }
