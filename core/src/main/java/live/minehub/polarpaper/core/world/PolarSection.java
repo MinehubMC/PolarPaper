@@ -249,7 +249,8 @@ public class PolarSection {
              );
          } else {
              Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, bits);
-             int requiredLength = Mth.roundToward(data.length * bits, 64) / 64;
+             int valuesPerLong = (char)(64 / configuration.bitsInMemory());
+             int requiredLength = (strategy.entryCount() + valuesPerLong - 1) / valuesPerLong;
 
              long[] packed;
              if (!configuration.alwaysRepack() && configuration.bitsInMemory() == bits && data.length == requiredLength) {
@@ -267,9 +268,7 @@ public class PolarSection {
                          configuration.createPalette(strategy, Arrays.asList(palette))
                  );
              } catch (SimpleBitStorage.InitializationException e) {
-                 LOGGER.info("Bits in memory: {}", configuration.bitsInMemory());
-                 LOGGER.info("Bits in storage: {}", configuration.bitsInStorage());
-                 LOGGER.info("Bits: {}", bits);
+                 LOGGER.info("Bits: {}, {}, {}", configuration.bitsInMemory(), configuration.bitsInStorage(), bits);
                  LOGGER.info("Strategy Entry Count: {}", strategy.entryCount());
                  LOGGER.info("Data: {}", Arrays.toString(data));
                  LOGGER.info("Packed: {}", Arrays.toString(packed));
