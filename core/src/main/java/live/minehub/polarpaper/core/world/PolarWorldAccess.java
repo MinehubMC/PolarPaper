@@ -8,12 +8,12 @@ import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.generator.ChunkGenerator;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Provides access to user world data for the polar loader to get and set user
@@ -24,8 +24,7 @@ import java.util.Set;
  */
 @SuppressWarnings("unused")
 public interface PolarWorldAccess {
-    PolarWorldAccess NOOP = new PolarWorldAccess() {
-    };
+    Plugin getPlugin();
 
     // TODO: these
 //    /**
@@ -82,7 +81,7 @@ public interface PolarWorldAccess {
      * @param userData A buffer to write user data to save
      */
     default void saveChunkData(@NotNull ChunkAccess chunk,
-                               @NotNull Set<Map.Entry<BlockPos, BlockEntity>> blockEntities, @NotNull Entity[] entities,
+                               @NotNull Map<BlockPos, BlockEntity> blockEntities, @NotNull Entity[] entities,
                                @NotNull ByteBuf userData) {
     }
 

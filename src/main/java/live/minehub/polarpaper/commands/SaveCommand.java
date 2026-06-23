@@ -7,7 +7,6 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
-import live.minehub.polarpaper.core.util.TaskFutures;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -66,17 +65,7 @@ public class SaveCommand extends PolarCmd {
             Polar.updateConfig(bukkitWorld, bukkitWorld.getKey().getKey()); // config should only be updated synchronously
         });
 
-        return TaskFutures.runAsync(PolarPaper.getPlugin(), () -> {
-            Polar.saveWorld(bukkitWorld);
-            return null;
-        }).handle((_, ex) -> {
-            if (ex != null) {
-                String errorMsg = String.format("Failed to save '%s'", bukkitWorld.getKey().getKey());
-                LOGGER.error(errorMsg, ex);
-                sender.sendMessage(Component.text(errorMsg, NamedTextColor.RED));
-                return false;
-            }
-
+        return Polar.saveWorld(bukkitWorld).thenApply(_ -> {
             int ms = (int) ((System.nanoTime() - before) / 1_000_000);
             sender.sendMessage(
                     Component.text()
@@ -88,6 +77,11 @@ public class SaveCommand extends PolarCmd {
             );
 
             return true;
+        }).exceptionally(e -> {
+            String errorMsg = String.format("Failed to save '%s'", bukkitWorld.getKey().getKey());
+            LOGGER.error(errorMsg, e);
+            sender.sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+            return null;
         });
     }
 

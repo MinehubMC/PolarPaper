@@ -1,4 +1,4 @@
-package live.minehub.polarpaper.core.world;
+package live.minehub.polarpaper.util;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -6,6 +6,8 @@ import live.minehub.polarpaper.core.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.core.userdata.EntitySerializer;
 import live.minehub.polarpaper.core.userdata.EntityUtil;
 import live.minehub.polarpaper.core.util.ByteArrayUtil;
+import live.minehub.polarpaper.core.world.PolarEntity;
+import live.minehub.polarpaper.core.world.PolarWorldAccess;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -28,16 +30,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Provides features implemented by polar paper specifically not available in the standard polar format. Currently
- * entities and the chunk persistent data container.
+ * Provides features not available in the standard polar format.
+ * Currently entities and the chunk's persistent data.
  */
-public class PolarFeaturesWorldAccess implements PolarWorldAccess {
+public class EntitiesWorldAccess implements PolarWorldAccess {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(PolarFeaturesWorldAccess.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(EntitiesWorldAccess.class);
 
     // Current version of the features chunk data
     private static final byte CURRENT_FEATURES_VERSION = 2;
@@ -46,9 +47,14 @@ public class PolarFeaturesWorldAccess implements PolarWorldAccess {
 
     private final Plugin plugin;
     private final EntitySerializer entitySerializer;
-    public PolarFeaturesWorldAccess(Plugin plugin, EntitySerializer entitySerializer) {
+    public EntitiesWorldAccess(Plugin plugin, EntitySerializer entitySerializer) {
        this.plugin = plugin;
        this.entitySerializer = entitySerializer;
+    }
+
+    @Override
+    public Plugin getPlugin() {
+        return plugin;
     }
 
     @Override
@@ -93,7 +99,7 @@ public class PolarFeaturesWorldAccess implements PolarWorldAccess {
 
     @Override
     public void saveChunkData(@NotNull ChunkAccess chunk,
-                              @NotNull Set<Map.Entry<BlockPos, BlockEntity>> blockEntities,
+                              @NotNull Map<BlockPos, BlockEntity> blockEntities,
                               @NotNull Entity[] entities, @NotNull ByteBuf userData) {
         List<CompletableFuture<@Nullable PolarEntity>> entityFutures = new ArrayList<>();
         List<@NotNull PolarEntity> polarEntities = new ArrayList<>();

@@ -14,8 +14,12 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.minecraft.resources.Identifier;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SaveZSTDCommand extends PolarCmd {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(SaveZSTDCommand.class);
 
     public SaveZSTDCommand() {
         super("savezstd", "Save with every levels of ZSTD");
@@ -59,30 +63,25 @@ public class SaveZSTDCommand extends PolarCmd {
             Polar.updateConfig(bukkitWorld, bukkitWorld.getKey().getKey()); // config should only be updated synchronously
         });
 
-        Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
+        for (int i = 0; i <= 22; i++) {
+            long before = System.nanoTime();
 
-            for (int i = 0; i <= 22; i++) {
-                long before = System.nanoTime();
+            PolarGenerator generator = PolarGenerator.fromWorld(bukkitWorld);
+            generator.setConfig(generator.getConfig().toBuilder().compressionLevel(i).build());
 
-                PolarGenerator generator = PolarGenerator.fromWorld(bukkitWorld);
-                generator.setConfig(generator.getConfig().toBuilder().compressionLevel(i).build());
-
-                BytesPolarSource source = new BytesPolarSource();
-                try {
-                    Polar.saveWorld(bukkitWorld, source);
-                } catch (Exception e) {
-                    String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getKey().getKey());
-                    PolarPaper.logger().severe(errorMsg);
-                    ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
-                    return;
-                }
-
-                double ms = ((int) ((System.nanoTime() - before) / 1_000_0)) / 100.0;
-                PolarPaper.logger().info("level: %s, %s bytes, %sms".formatted(i, source.bytes().length, ms));
+            BytesPolarSource source = new BytesPolarSource();
+            try {
+                Polar.saveWorld(bukkitWorld, source);
+            } catch (Exception e) {
+                String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getKey().getKey());
+                LOGGER.error(errorMsg, e);
+                ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                return Command.SINGLE_SUCCESS;
             }
 
-
-        });
+            double ms = ((int) ((System.nanoTime() - before) / 1_000_0)) / 100.0;
+            LOGGER.info("level: {}, {} bytes, {}ms", i, source.bytes().length, ms);
+        }
 
         return Command.SINGLE_SUCCESS;
     }

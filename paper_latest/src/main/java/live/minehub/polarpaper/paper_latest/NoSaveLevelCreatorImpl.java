@@ -8,6 +8,7 @@ import com.google.gson.JsonPrimitive;
 import io.papermc.paper.world.PaperWorldLoader;
 import live.minehub.polarpaper.core.NoSaveLevelCreator;
 import live.minehub.polarpaper.core.config.Config;
+import live.minehub.polarpaper.core.util.TaskFutures;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
@@ -216,7 +217,7 @@ public class NoSaveLevelCreatorImpl implements NoSaveLevelCreator {
 
         boolean async = !craftServer.isPrimaryThread();
         if (async) {
-            return live.minehub.polarpaper.core.util.TaskFutures.run(plugin, initSupplier);
+            return TaskFutures.runSync(plugin, initSupplier);
         } else {
             return CompletableFuture.completedFuture(initSupplier.get());
         }

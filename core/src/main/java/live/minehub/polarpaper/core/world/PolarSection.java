@@ -6,6 +6,7 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 import net.minecraft.util.SimpleBitStorage;
 import net.minecraft.util.ZeroBitStorage;
 import net.minecraft.world.level.biome.Biome;
@@ -209,13 +210,13 @@ public class PolarSection {
         Strategy<Holder<Biome>> biomeStrategy = Strategy.createForBiomes(registry.asHolderIdMap());
         PalettedContainer<Holder<Biome>> biomes = new PalettedContainer<>(orThrow, biomeStrategy, biomeHolderPalette);
 
-        int bitsPerBlockEntry = (int) Math.ceil(Math.log(blockPalette.length) / Math.log(2));
+        int bitsPerBlockEntry = Mth.ceillog2(blockPalette.length);
         int longBitsPerBlockEntry = bitsPerBlockEntry;
         if (blockData != null) {
             longBitsPerBlockEntry = PaletteUtil.getBitsForLongLength(blockData.length, blockStrategy.entryCount());
         }
 
-        int bitsPerBiomeEntry = (int) Math.ceil(Math.log(biomePalette.length) / Math.log(2));
+        int bitsPerBiomeEntry = Mth.ceillog2(biomePalette.length);
         int longBitsPerBiomeEntry = bitsPerBiomeEntry;
         if (biomeData != null) {
             longBitsPerBiomeEntry = PaletteUtil.getBitsForLongLength(biomeData.length, biomeStrategy.entryCount());
@@ -228,12 +229,10 @@ public class PolarSection {
             return new LevelChunkSection(states, biomes);
         } catch (Exception e) {
             LOGGER.info("Biome Bits: {}", bitsPerBiomeEntry);
-            LOGGER.info("Biome Long Bits: {}", longBitsPerBiomeEntry);
             if (biomeData != null) LOGGER.info("Biome Data Length: {}", biomeData.length);
             LOGGER.info("Biome Palette Length: {}", biomePalette.length);
             LOGGER.info("----");
             LOGGER.info("Block Bits: {}", bitsPerBlockEntry);
-            LOGGER.info("Block Long Bits: {}", longBitsPerBlockEntry);
             if (blockData != null) LOGGER.info("Block Data Length: {}", blockData.length);
             LOGGER.info("Block Palette Length: {}", materialPalette.length);
             throw new RuntimeException(e);
@@ -241,7 +240,7 @@ public class PolarSection {
     }
 
      private static <T> PalettedContainer.Data<T> getPalettedContainer(T[] palette, long[] data, int bits, int longBits, Strategy<T> strategy) {
-         if (data == null || bits == 0 || longBits == 0) {
+         if (data == null || data.length == 0 || bits == 0) {
              Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, 0);
              return new PalettedContainer.Data<>(
                      configuration,
@@ -249,17 +248,16 @@ public class PolarSection {
                      configuration.createPalette(strategy, List.of(palette[0]))
              );
          } else {
-             int valuesPerLong = (char) (64 / bits);
-             int expectedDataLength = (strategy.entryCount() + valuesPerLong - 1) / valuesPerLong;
-
              Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, bits);
+             int requiredLength = Mth.roundToward(data.length * bits, 64) / 64;
+
              long[] packed;
-             if (configuration.alwaysRepack() || configuration.bitsInMemory() != bits || data.length != expectedDataLength || bits != longBits) {
+             if (!configuration.alwaysRepack() && configuration.bitsInMemory() == bits && data.length == requiredLength) {
+                 packed = data.clone(); // only clone if not repacked
+             } else {
                  int[] unpacked = new int[strategy.entryCount()];
                  PaletteUtil.unpack(unpacked, data, longBits);
                  packed = PaletteUtil.pack(unpacked, configuration.bitsInMemory());
-             } else {
-                 packed = data.clone(); // only clone if not repacked
              }
 
              try {
@@ -272,10 +270,10 @@ public class PolarSection {
                  LOGGER.info("Bits in memory: {}", configuration.bitsInMemory());
                  LOGGER.info("Bits in storage: {}", configuration.bitsInStorage());
                  LOGGER.info("Bits: {}", bits);
-                 LOGGER.info("Data Length: {}", data.length);
-                 LOGGER.info("Packed Length: {}", packed.length);
-                 LOGGER.info("Palette Length: {}", palette.length);
                  LOGGER.info("Strategy Entry Count: {}", strategy.entryCount());
+                 LOGGER.info("Data: {}", Arrays.toString(data));
+                 LOGGER.info("Packed: {}", Arrays.toString(packed));
+                 LOGGER.info("Palette: {}", Arrays.toString(palette));
                  throw new RuntimeException(e);
              }
          }

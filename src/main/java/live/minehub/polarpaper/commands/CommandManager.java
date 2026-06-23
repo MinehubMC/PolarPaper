@@ -7,16 +7,19 @@ import com.mojang.brigadier.tree.CommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import live.minehub.polarpaper.PolarPaper;
 import net.kyori.adventure.builder.AbstractBuilder;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class CommandManager {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CommandManager.class);
 
     private Component helpComponent = null;
     private final Map<String, PolarCmd> registeredCommands = new HashMap<>();
@@ -78,7 +81,7 @@ public class CommandManager {
     private void register(PolarCmd polarCmd) {
         boolean contains = registeredCommands.containsKey(polarCmd.getName());
         if (contains) {
-            PolarPaper.logger().warning("Already registered command with name: " + polarCmd.getName());
+            LOGGER.warn("Already registered command with name: {}", polarCmd.getName());
             return;
         }
         registeredCommands.put(polarCmd.getName(), polarCmd);

@@ -51,7 +51,8 @@ public final class PaletteUtil {
             int entries = Math.min(intsPerLong, remaining);
 
             for (int j = 0; j < entries; j++) {
-                value |= (ints[baseIndex + j] & mask) << (j * bitsPerEntry);
+                value |= ((long) ints[baseIndex + j] & mask)
+                        << (j * bitsPerEntry);
             }
 
             longs[i] = value;

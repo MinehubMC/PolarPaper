@@ -82,27 +82,27 @@ public class PolarStreamLoader {
         }
     }
 
-    public static CompletableFuture<Void> stream(Plugin plugin, PolarSource source, World world, @NotNull PolarWorldAccess worldAccess) throws IOException {
+    public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarWorldAccess worldAccess) throws IOException {
         try {
-            return stream(plugin, source.readBytes(), world, worldAccess);
+            return stream(source.readBytes(), world, worldAccess);
         } catch (Exception e) {
             throw new IOException(e);
         }
     }
 
-    public static CompletableFuture<Void> stream(Plugin plugin, PolarSource source, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) throws IOException {
+    public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) throws IOException {
         try {
-            return stream(plugin, source.readBytes(), world, dataConverter, worldAccess);
+            return stream(source.readBytes(), world, dataConverter, worldAccess);
         } catch (Exception e) {
             throw new IOException(e);
         }
     }
 
-    public static CompletableFuture<Void> stream(Plugin plugin, byte @NotNull [] data, World world, @NotNull PolarWorldAccess worldAccess) {
-        return stream(plugin, data, world, PolarDataConverter.DEFAULT, worldAccess);
+    public static CompletableFuture<Void> stream(byte @NotNull [] data, World world, @NotNull PolarWorldAccess worldAccess) {
+        return stream(data, world, PolarDataConverter.DEFAULT, worldAccess);
     }
 
-    public static CompletableFuture<Void> stream(Plugin plugin, byte @NotNull [] data, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) {
+    public static CompletableFuture<Void> stream(byte @NotNull [] data, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) {
         ByteBuf bb = Unpooled.wrappedBuffer(data);
 
         int magic = bb.readInt();
@@ -150,7 +150,7 @@ public class PolarStreamLoader {
         CompletableFuture<Void>[] futures = new CompletableFuture[chunkCount];
         for (int i = 0; i < chunkCount; i++) {
             try {
-                CompletableFuture<Void> future = readChunk(plugin, world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
+                CompletableFuture<Void> future = readChunk(worldAccess.getPlugin(), world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
                 if (future.isCompletedExceptionally()) throw future.exceptionNow();
                 futures[i] = future;
             } catch (Throwable e) {

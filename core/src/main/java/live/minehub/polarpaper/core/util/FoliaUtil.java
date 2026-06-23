@@ -1,13 +1,23 @@
 package live.minehub.polarpaper.core.util;
 
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
 
 public class FoliaUtil {
 
-    public static void scheduleOnEntityIfFolia(Entity entity, Plugin plugin, Runnable runnable) {
+    public static void scheduleOnEntityIfFolia(Plugin plugin, Entity entity, Runnable runnable) {
         if (isFolia()) {
             entity.getScheduler().execute(plugin, runnable, null, 1L);
+        } else {
+            runnable.run();
+        }
+    }
+
+    public static void scheduleOnRegionIfFolia(Plugin plugin, World world, int chunkX, int chunkZ, Runnable runnable) {
+        if (isFolia()) {
+            Bukkit.getRegionScheduler().execute(plugin, world, chunkX, chunkZ, runnable);
         } else {
             runnable.run();
         }

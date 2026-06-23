@@ -8,7 +8,6 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Polar;
-import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.userdata.WorldUserData;
 import live.minehub.polarpaper.core.world.BlockSelector;
 import live.minehub.polarpaper.core.world.PolarWorld;
@@ -22,15 +21,20 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.minecraft.resources.Identifier;
-import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.joml.Vector3i;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.CompletableFuture;
 
 public class CreateFromRegionCommand extends PolarCmd {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CreateFromRegionCommand.class);
 
     public CreateFromRegionCommand() {
         super("createfromregion", "Create a polar world from the selected region");
@@ -57,48 +61,50 @@ public class CreateFromRegionCommand extends PolarCmd {
 
         // TODO: option to center the world
 
-        bukkitWorld.getChunksAtAsync((blockSelector.min().x / 16) - 1, (blockSelector.min().z / 16) - 1, (blockSelector.max().x / 16) + 1, (blockSelector.max().z / 16) + 1, false, () -> {
-            Bukkit.getAsyncScheduler().runNow(PolarPaper.getPlugin(), _ -> {
-                try {
-                    PolarWorld polarWorld = PolarWorld.convert(bukkitWorld, VersionUtil.getPolarFeaturesWorldAccess(), blockSelector);
-                    polarWorld.userData(WorldUserData.writeSchematicOffset(finalSchemOffset));
-                    byte[] worldBytes = PolarWriter.write(polarWorld);
-                    Polar.getDefaultFolderSource(newWorldName).saveBytes(worldBytes);
-                } catch (Exception e) {
-                    String errorMsg = String.format("Failed to create '%s', please check logs for error", newWorldName);
-                    PolarPaper.logger().severe(errorMsg);
-                    ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
-                    return;
-                }
+        CompletableFuture<PolarWorld> future = PolarWorld.convert(bukkitWorld, VersionUtil.getPolarFeaturesWorldAccess(), blockSelector, true);
+        future.thenAcceptAsync(polarWorld -> {
+            polarWorld.userData(WorldUserData.writeSchematicOffset(finalSchemOffset));
+            byte[] worldBytes = PolarWriter.write(polarWorld);
+            try {
+                Polar.getDefaultFolderSource(newWorldName).saveBytes(worldBytes);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }).whenComplete((_, e) -> {
+            if (e != null) {
+                String errorMsg = String.format("Failed to create '%s', please check logs for error", newWorldName);
+                LOGGER.error(errorMsg, e);
+                ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
+                return;
+            }
 
-                int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-                ctx.getSource().getSender().sendMessage(
-                        Component.text()
-                                .append(Component.text("Converted '", NamedTextColor.AQUA))
-                                .append(Component.text(newWorldName, NamedTextColor.AQUA))
-                                .append(Component.text("' in ", NamedTextColor.AQUA))
-                                .append(Component.text(ms, NamedTextColor.AQUA))
-                                .append(Component.text("ms. ", NamedTextColor.AQUA))
-                                .append(Component.text("\nUse ", NamedTextColor.AQUA))
-                                .append(
-                                        Component.text()
-                                                .append(Component.text("/polar paste ", NamedTextColor.WHITE))
-                                                .append(Component.text(newWorldName, NamedTextColor.WHITE))
-                                                .clickEvent(ClickEvent.runCommand("/polar paste " + newWorldName))
-                                                .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
-                                                .decorate(TextDecoration.UNDERLINED))
-                                .append(Component.text(" to paste it now", NamedTextColor.AQUA))
-                                .append(Component.text("\nUse ", NamedTextColor.AQUA))
-                                .append(
-                                        Component.text()
-                                                .append(Component.text("/polar load ", NamedTextColor.WHITE))
-                                                .append(Component.text(newWorldName, NamedTextColor.WHITE))
-                                                .clickEvent(ClickEvent.runCommand("/polar load " + newWorldName))
-                                                .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
-                                                .decorate(TextDecoration.UNDERLINED))
-                                .append(Component.text(" to load it now", NamedTextColor.AQUA))
-                );
-            });
+            int ms = (int) ((System.nanoTime() - before) / 1_000_000);
+            ctx.getSource().getSender().sendMessage(
+                    Component.text()
+                            .append(Component.text("Converted '", NamedTextColor.AQUA))
+                            .append(Component.text(newWorldName, NamedTextColor.AQUA))
+                            .append(Component.text("' in ", NamedTextColor.AQUA))
+                            .append(Component.text(ms, NamedTextColor.AQUA))
+                            .append(Component.text("ms. ", NamedTextColor.AQUA))
+                            .append(Component.text("\nUse ", NamedTextColor.AQUA))
+                            .append(
+                                    Component.text()
+                                            .append(Component.text("/polar paste ", NamedTextColor.WHITE))
+                                            .append(Component.text(newWorldName, NamedTextColor.WHITE))
+                                            .clickEvent(ClickEvent.runCommand("/polar paste " + newWorldName))
+                                            .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
+                                            .decorate(TextDecoration.UNDERLINED))
+                            .append(Component.text(" to paste it now", NamedTextColor.AQUA))
+                            .append(Component.text("\nUse ", NamedTextColor.AQUA))
+                            .append(
+                                    Component.text()
+                                            .append(Component.text("/polar load ", NamedTextColor.WHITE))
+                                            .append(Component.text(newWorldName, NamedTextColor.WHITE))
+                                            .clickEvent(ClickEvent.runCommand("/polar load " + newWorldName))
+                                            .hoverEvent(HoverEvent.showText(Component.text("Click to run")))
+                                            .decorate(TextDecoration.UNDERLINED))
+                            .append(Component.text(" to load it now", NamedTextColor.AQUA))
+            );
         });
     }
 

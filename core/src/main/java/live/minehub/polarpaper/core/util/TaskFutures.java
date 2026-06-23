@@ -1,5 +1,6 @@
 package live.minehub.polarpaper.core.util;
 
+import ca.spottedleaf.moonrise.common.util.TickThread;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
@@ -41,7 +42,11 @@ public class TaskFutures {
         return future;
     }
 
-    public static <T> CompletableFuture<T> run(Plugin plugin, Supplier<T> runnable) {
+    /**
+     * If already on the tick thread, immediately runs the runnable. Otherwise, schedules the task on the global region scheduler
+     */
+    public static <T> CompletableFuture<T> runSync(Plugin plugin, Supplier<T> runnable) {
+        if (TickThread.isTickThread()) return CompletableFuture.completedFuture(runnable.get());
         CompletableFuture<T> future = new CompletableFuture<>();
         Bukkit.getGlobalRegionScheduler().execute(plugin, () -> {
             try {

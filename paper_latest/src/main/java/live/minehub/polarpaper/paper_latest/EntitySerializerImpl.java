@@ -41,7 +41,7 @@ public class EntitySerializerImpl implements EntitySerializer {
     @Override
     public CompletableFuture<byte @Nullable []> entityToBytes(Entity entity, Plugin plugin) {
         CompletableFuture<byte @Nullable []> byteArrayFuture = new CompletableFuture<>();
-        FoliaUtil.scheduleOnEntityIfFolia(entity, plugin, () -> {
+        FoliaUtil.scheduleOnEntityIfFolia(plugin, entity, () -> {
             if (entity.getType() == EntityType.PLAYER) {
                 byteArrayFuture.complete(null);
                 return;

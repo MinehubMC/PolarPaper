@@ -19,10 +19,14 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.craftbukkit.block.data.CraftBlockData;
 import org.joml.Vector2i;
 import org.joml.Vector3i;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 public class Schematic {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Schematic.class);
 
     public static final NamespacedKey POS_1_KEY = new NamespacedKey("polarpaper", "pos1");
     public static final NamespacedKey POS_2_KEY = new NamespacedKey("polarpaper", "pos2");
@@ -128,7 +132,7 @@ public class Schematic {
             try {
                 materialPalette[i] = ((CraftBlockData) Bukkit.getServer().createBlockData(rawBlockPalette[i])).getState();
             } catch (IllegalArgumentException _) {
-                PolarPaper.logger().warning("Failed to parse block state: " + rawBlockPalette[i]);
+                LOGGER.warn("Failed to parse block state: " + rawBlockPalette[i]);
                 materialPalette[i] = Blocks.AIR.defaultBlockState();
             }
         }

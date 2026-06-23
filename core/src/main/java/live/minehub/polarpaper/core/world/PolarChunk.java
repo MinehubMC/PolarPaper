@@ -1,5 +1,6 @@
 package live.minehub.polarpaper.core.world;
 
+import ca.spottedleaf.concurrentutil.util.Priority;
 import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
@@ -7,10 +8,7 @@ import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightEngine;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import live.minehub.polarpaper.core.util.ByteArrayUtil;
-import live.minehub.polarpaper.core.util.CoordConversion;
-import live.minehub.polarpaper.core.util.LightUtil;
-import live.minehub.polarpaper.core.util.PaletteUtil;
+import live.minehub.polarpaper.core.util.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
@@ -21,11 +19,13 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.BitStorage;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.*;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.lighting.LevelLightEngine;
 import net.minecraft.world.ticks.LevelChunkTicks;
 import org.bukkit.Bukkit;
@@ -37,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 public record PolarChunk(
         int x,
@@ -142,10 +143,11 @@ public record PolarChunk(
      * @param chunkX The X coordinate of the chunk in the bukkit world
      * @param chunkZ The Z coordinate of the chunk in the bukkit world
      * @param blockSelector Used to filter which blocks are converted
-     * @return The new PolarChunk
+     * @param loadChunks Whether to load chunks
+     * @return The new PolarChunk, null if bukkit world chunk is empty
      */
-    public static PolarChunk convert(World world, int chunkX, int chunkZ, live.minehub.polarpaper.core.world.PolarWorldAccess worldAccess, live.minehub.polarpaper.core.world.BlockSelector blockSelector) {
-        return convert(world, chunkX, chunkZ, worldAccess, blockSelector, false);
+    public static CompletableFuture<@Nullable PolarChunk> convert(World world, int chunkX, int chunkZ, PolarWorldAccess worldAccess, BlockSelector blockSelector, boolean loadChunks) {
+        return convert(world, chunkX, chunkZ, worldAccess, blockSelector, false, loadChunks);
     }
 
     /**
@@ -155,21 +157,60 @@ public record PolarChunk(
      * @param chunkZ The Z coordinate of the chunk in the bukkit world
      * @param blockSelector Used to filter which blocks are converted
      * @param saveLight Whether to save light data
-     * @return The new PolarChunk
+     * @param loadChunks Whether to load chunks
+     * @return The new PolarChunk, null if bukkit world chunk is empty
      */
-    public static PolarChunk convert(World world, int chunkX, int chunkZ, live.minehub.polarpaper.core.world.PolarWorldAccess worldAccess, live.minehub.polarpaper.core.world.BlockSelector blockSelector, boolean saveLight) {
-        ServerLevel chunkSystemServerLevel = ((CraftWorld) world).getHandle();
-        ChunkHolderManager chunkHolderManager = chunkSystemServerLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
+    public static CompletableFuture<@Nullable PolarChunk> convert(World world, int chunkX, int chunkZ, PolarWorldAccess worldAccess, BlockSelector blockSelector, boolean saveLight, boolean loadChunks) {
+        CompletableFuture<@Nullable PolarChunk> future = new CompletableFuture<>();
+
+        ServerLevel serverLevel = ((CraftWorld) world).getHandle();
+
+        ChunkHolderManager chunkHolderManager = serverLevel.moonrise$getChunkTaskScheduler().chunkHolderManager;
         NewChunkHolder chunkHolder = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
-        ChunkAccess chunkAccess = chunkHolder.getCurrentChunk();
-        ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
-        return convert(chunkAccess, entityChunk, worldAccess, blockSelector, saveLight ? chunkSystemServerLevel.getLightEngine() : null);
+        if (chunkHolder != null && chunkHolder.getCurrentChunk() != null) {
+            if (isChunkEmpty(chunkHolder)) return CompletableFuture.completedFuture(null);
+
+            ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
+            CompletableFuture.supplyAsync(() -> convert(world, chunkHolder.getCurrentChunk(), entityChunk, worldAccess, blockSelector, saveLight))
+                    .thenAccept(a -> a.thenAccept(future::complete))
+                    .exceptionally(e -> {
+                        LOGGER.info("Failed to convert world", e);
+                        return null;
+                    });
+            return future;
+        }
+
+        // Chunk is not already loaded
+
+        if (!loadChunks) return CompletableFuture.completedFuture(null);
+
+        // FULL required when saving light; FEATURES sufficient otherwise
+        ChunkStatus status = saveLight ? ChunkStatus.FULL : ChunkStatus.FEATURES;
+        serverLevel.moonrise$getChunkTaskScheduler().scheduleChunkLoad(chunkX, chunkZ, status, true, Priority.LOW, chunkAccess -> {
+            NewChunkHolder chunkHolder2 = chunkHolderManager.getChunkHolder(chunkX, chunkZ);
+            if (isChunkEmpty(chunkHolder2)) {
+                future.complete(null);
+                return;
+            }
+
+            ChunkEntitySlices entityChunk = chunkHolder2.getEntityChunk();
+
+            CompletableFuture.supplyAsync(() -> convert(world, chunkAccess, entityChunk, worldAccess, blockSelector, saveLight))
+                    .thenAccept(a -> a.thenAccept(future::complete))
+                    .exceptionally(e -> {
+                        LOGGER.info("Failed to convert world", e);
+                        return null;
+                    });
+        });
+
+        return future;
     }
 
-
-    public static PolarChunk convert(ChunkAccess chunkAccess, ChunkEntitySlices entityChunk, live.minehub.polarpaper.core.world.PolarWorldAccess worldAccess, live.minehub.polarpaper.core.world.BlockSelector blockSelector, @Nullable LevelLightEngine lightEngine) {
+    public static CompletableFuture<@Nullable PolarChunk> convert(World world, ChunkAccess chunkAccess, @Nullable ChunkEntitySlices entityChunk, PolarWorldAccess worldAccess, BlockSelector blockSelector, boolean saveLight) {
         int chunkX = chunkAccess.locX;
         int chunkZ = chunkAccess.locZ;
+        ServerLevel serverLevel = ((CraftWorld) world).getHandle();
+        LevelLightEngine lightEngine = saveLight ? serverLevel.getLightEngine() : null;
 
         Registry<Biome> biomeRegistry = MinecraftServer.getServer().registryAccess().lookupOrThrow(Registries.BIOME);
 
@@ -183,27 +224,33 @@ public record PolarChunk(
         }
 
         var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
-        Set<Map.Entry<BlockPos, net.minecraft.world.level.block.entity.BlockEntity>> blockEntities = chunkAccess.blockEntities.entrySet();
         List<PolarChunk.BlockEntity> polarBlockEntities = new ArrayList<>();
-        for (Map.Entry<BlockPos, net.minecraft.world.level.block.entity.BlockEntity> entry : blockEntities) {
-            BlockPos blockPos = entry.getKey();
-            net.minecraft.world.level.block.entity.BlockEntity blockEntity = entry.getValue();
+        Map<BlockPos, net.minecraft.world.level.block.entity.BlockEntity> blockEntities = new HashMap<>();
 
-            if (blockPos == null || blockEntity == null) continue;
-            if (!blockSelector.test(blockPos.getX(), blockPos.getY(), blockPos.getZ())) continue;
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        FoliaUtil.scheduleOnRegionIfFolia(worldAccess.getPlugin(), world, chunkX, chunkZ, () -> {
+            for (BlockPos blockPos : chunkAccess.getBlockEntitiesPos()) {
+                net.minecraft.world.level.block.entity.BlockEntity blockEntity = chunkAccess.getBlockEntity(blockPos);
 
-            CompoundTag compoundTag = blockEntity.saveWithFullMetadata(registryAccess);
+                if (blockEntity == null) continue;
+                if (!blockSelector.test(blockPos.getX(), blockPos.getY(), blockPos.getZ())) continue;
 
-            Optional<String> id = compoundTag.getString("id");
-            if (id.isEmpty()) {
-                LOGGER.warn("No ID in block entity data at: {}", blockPos);
-                LOGGER.warn("Compound tag: {}", compoundTag);
-                continue;
+                CompoundTag compoundTag = blockEntity.saveWithFullMetadata(registryAccess);
+
+                Optional<String> id = compoundTag.getString("id");
+                if (id.isEmpty()) {
+                    LOGGER.warn("No ID in block entity data at: {}", blockPos);
+                    LOGGER.warn("Compound tag: {}", compoundTag);
+                    continue;
+                }
+
+                int index = CoordConversion.chunkBlockIndex(blockPos.getX(), blockPos.getY(), blockPos.getZ());
+                polarBlockEntities.add(new BlockEntity(index, id.get(), compoundTag));
+                blockEntities.put(blockPos, blockEntity);
             }
 
-            int index = CoordConversion.chunkBlockIndex(blockPos.getX(), blockPos.getY(), blockPos.getZ());
-            polarBlockEntities.add(new PolarChunk.BlockEntity(index, id.get(), compoundTag));
-        }
+            future.complete(null);
+        });
 
         int[][] heightMaps = new int[PolarChunk.MAX_HEIGHTMAPS][0];
         worldAccess.saveHeightmaps(chunkAccess, heightMaps);
@@ -218,14 +265,17 @@ public record PolarChunk(
         worldAccess.saveChunkData(chunkAccess, blockEntities, entitiesArray, userDataOutput);
         byte[] userData = ByteArrayUtil.outputArray(userDataOutput);
 
-        return new PolarChunk(
+        return future.thenApply(_ -> new PolarChunk(
                 chunkX,
                 chunkZ,
                 sections,
-                polarBlockEntities.toArray(new PolarChunk.BlockEntity[0]),
+                polarBlockEntities.toArray(new BlockEntity[0]),
                 heightMaps,
                 userData
-        );
+        )).exceptionally(e -> {
+            LOGGER.error("Failed to convert chunk", e);
+            return null;
+        });
     }
 
     private static PolarSection convertSection(int chunkX, int chunkZ, LevelChunkSection chunkAccessSection, Registry<Biome> biomeRegistry, live.minehub.polarpaper.core.world.BlockSelector blockSelector, int minSection, int sectionI, @Nullable LevelLightEngine lightEngine) {
@@ -270,7 +320,7 @@ public record PolarChunk(
             blockBitStorage.set(index, airIndex);
         }
 
-        int bitsPerEntry = (int) Math.ceil(Math.log(blockPaletteStrings.size()) / Math.log(2));
+        int bitsPerEntry = Mth.ceillog2(blockPaletteStrings.size());
         if (blockBitStorage.getBits() != 0 && bitsPerEntry != blockBitStorage.getBits()) {
             // repack
             int[] ints = new int[blockBitStorage.getSize()];
@@ -313,12 +363,42 @@ public record PolarChunk(
             }
         }
 
+        if (blockData.length == 0) {
+            blockPaletteStrings = List.of("minecraft:air");
+            blockData = null;
+        }
+        if (biomeData.length == 0){
+            biomePaletteStrings = List.of("minecraft:plains");
+            biomeData = null;
+        }
+
         return new PolarSection(
                 blockPaletteStrings.toArray(new String[0]), blockData,
                 biomePaletteStrings.toArray(new String[0]), biomeData,
                 blockLightContent, blockLight,
                 skyLightContent, skyLight
         );
+    }
+
+    public static boolean isChunkEmpty(NewChunkHolder chunkHolder) {
+        ChunkAccess chunkAccess = chunkHolder.getCurrentChunk();
+        ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
+
+        // if any entities that should be saved, return false
+        if (entityChunk != null) {
+            for (net.minecraft.world.entity.Entity nmsEntity : entityChunk.getAllEntities()) {
+                if (!nmsEntity.shouldBeSaved()) continue;
+                return false;
+            }
+        }
+
+        // if any non-air sections, return false
+        for (LevelChunkSection section : chunkAccess.getSections()) {
+            if (section.hasOnlyAir()) continue;
+            return false;
+        }
+
+        return true;
     }
 
     private static PolarSection createEmptySection(int chunkX, int chunkZ, int minSection, int sectionI, @Nullable LevelLightEngine lightEngine) {

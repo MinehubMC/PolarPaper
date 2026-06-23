@@ -3,7 +3,7 @@ package live.minehub.polarpaper.nms;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.userdata.EntitySerializer;
-import live.minehub.polarpaper.core.world.PolarFeaturesWorldAccess;
+import live.minehub.polarpaper.util.EntitiesWorldAccess;
 import org.bukkit.Difficulty;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -29,8 +29,8 @@ public class VersionUtil {
         };
     }
 
-    public static PolarFeaturesWorldAccess getPolarFeaturesWorldAccess() {
-        return new PolarFeaturesWorldAccess(PolarPaper.getPlugin(), getEntitySerializer());
+    public static EntitiesWorldAccess getPolarFeaturesWorldAccess() {
+        return new EntitiesWorldAccess(PolarPaper.getPlugin(), getEntitySerializer());
     }
 
     public static EntitySerializer getEntitySerializer() {

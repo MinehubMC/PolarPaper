@@ -20,8 +20,12 @@ import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.joml.Vector3i;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SetCenterCommand extends PolarCmd {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(SetCenterCommand.class);
 
     public SetCenterCommand() {
         super("setcenter", "Set the schematic center of the current polar world");
@@ -57,7 +61,7 @@ public class SetCenterCommand extends PolarCmd {
                 source.saveBytes(worldBytes);
             } catch (Exception e) {
                 String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getKey().getKey());
-                PolarPaper.logger().severe(errorMsg);
+                LOGGER.error(errorMsg, e);
                 sender.sendMessage(Component.text(errorMsg, NamedTextColor.RED));
                 return;
             }

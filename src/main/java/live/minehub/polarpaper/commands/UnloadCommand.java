@@ -96,7 +96,7 @@ public class UnloadCommand extends PolarCmd {
 
     protected static CompletableFuture<Boolean> bukkitUnload(CommandContext<CommandSourceStack> ctx, World bukkitWorld) {
         String worldName = bukkitWorld.getKey().getKey();
-        return TaskFutures.run(PolarPaper.getPlugin(), () -> {
+        return TaskFutures.runSync(PolarPaper.getPlugin(), () -> {
             return Bukkit.unloadWorld(bukkitWorld, false);
         }).handle((success, ex) -> {
             if (!success || ex != null) {
