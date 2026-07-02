@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
-val developmentVersion = "2.1.1"
+val developmentVersion = "2.1.2"
 
 version = getVersion()
 group = "live.minehub"
@@ -103,6 +103,8 @@ fun getVersion(): String {
 paperPluginYaml {
     name = project.name
     version = project.version.toString()
+    authors = listOf("emortaldev")
+    website = "https://github.com/MinehubMC/PolarPaper"
     description = "Polar world format for Paper"
     apiVersion = libs.versions.minecraft.get()
 
