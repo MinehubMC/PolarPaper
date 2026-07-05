@@ -307,17 +307,27 @@ public record PolarChunk(
         }
 
         int airIndex = blockPaletteStrings.indexOf("minecraft:air");
+        boolean airAppended = false;
         if (airIndex == -1) {
             blockPaletteStrings.add("minecraft:air");
             airIndex = blockPaletteStrings.size() - 1;
+            airAppended = true;
         }
 
         // TODO: measure time impact of this
         BitStorage blockBitStorage = blockPaletteData.storage().copy();
+        boolean anyExcluded = false;
         for (int index = 0; index < blockBitStorage.getSize(); ++index) {
             boolean included = blockSelector.test(index, chunkX, chunkZ, minSection + sectionI);
             if (included) continue;
+            anyExcluded = true;
             blockBitStorage.set(index, airIndex);
+        }
+
+        // We drop the speculative air entry if nothing was actually culled to it.
+        // A uniform non-air section keeps its single-entry palette instead of an unused air slot.
+        if (airAppended && !anyExcluded) {
+            blockPaletteStrings.remove(blockPaletteStrings.size() - 1);
         }
 
         int bitsPerEntry = Mth.ceillog2(blockPaletteStrings.size());
@@ -364,11 +374,9 @@ public record PolarChunk(
         }
 
         if (blockData.length == 0) {
-            blockPaletteStrings = List.of("minecraft:air");
             blockData = null;
         }
         if (biomeData.length == 0){
-            biomePaletteStrings = List.of("minecraft:plains");
             biomeData = null;
         }
 
