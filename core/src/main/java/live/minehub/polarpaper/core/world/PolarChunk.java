@@ -231,27 +231,32 @@ public record PolarChunk(
 
         CompletableFuture<Void> future = new CompletableFuture<>();
         FoliaUtil.scheduleOnRegionIfFolia(worldAccess.getPlugin(), world, chunkX, chunkZ, () -> {
-            for (BlockPos blockPos : chunkAccess.getBlockEntitiesPos()) {
-                net.minecraft.world.level.block.entity.BlockEntity blockEntity = chunkAccess.getBlockEntity(blockPos);
+            try {
+                for (BlockPos blockPos : chunkAccess.getBlockEntitiesPos()) {
+                    net.minecraft.world.level.block.entity.BlockEntity blockEntity = getBlockEntity(chunkAccess, blockPos);
 
-                if (blockEntity == null) continue;
-                if (!blockSelector.test(blockPos.getX(), blockPos.getY(), blockPos.getZ())) continue;
+                    if (blockEntity == null) continue;
+                    if (!blockSelector.test(blockPos.getX(), blockPos.getY(), blockPos.getZ())) continue;
 
-                CompoundTag compoundTag = blockEntity.saveWithFullMetadata(registryAccess);
+                    CompoundTag compoundTag = blockEntity.saveWithFullMetadata(registryAccess);
 
-                Optional<String> id = compoundTag.getString("id");
-                if (id.isEmpty()) {
-                    LOGGER.warn("No ID in block entity data at: {}", blockPos);
-                    LOGGER.warn("Compound tag: {}", compoundTag);
-                    continue;
+                    Optional<String> id = compoundTag.getString("id");
+                    if (id.isEmpty()) {
+                        LOGGER.warn("No ID in block entity data at: {}", blockPos);
+                        LOGGER.warn("Compound tag: {}", compoundTag);
+                        continue;
+                    }
+
+                    int index = CoordConversion.chunkBlockIndex(blockPos.getX(), blockPos.getY(), blockPos.getZ());
+                    polarBlockEntities.add(new BlockEntity(index, id.get(), compoundTag));
+                    blockEntities.put(blockPos, blockEntity);
                 }
 
-                int index = CoordConversion.chunkBlockIndex(blockPos.getX(), blockPos.getY(), blockPos.getZ());
-                polarBlockEntities.add(new BlockEntity(index, id.get(), compoundTag));
-                blockEntities.put(blockPos, blockEntity);
+                future.complete(null);
+            } catch (Exception e) {
+                // the future is what the rest of the conversion waits on, so it has to be completed either way
+                future.completeExceptionally(e);
             }
-
-            future.complete(null);
         });
 
         int[][] heightMaps = new int[PolarChunk.MAX_HEIGHTMAPS][0];
@@ -278,6 +283,20 @@ public record PolarChunk(
             LOGGER.error("Failed to convert chunk", e);
             return null;
         });
+    }
+
+    /**
+     * Reads a block entity out of a chunk that is being converted
+     * <p>
+     * While the server is stopping this goes straight to the chunk's own block entities. The captured block entities
+     * that {@link LevelChunk#getBlockEntity} looks at first live in region data on Folia, which the thread stopping
+     * the server cannot reach, and nothing is capturing block entities by then anyway
+     */
+    private static net.minecraft.world.level.block.entity.@Nullable BlockEntity getBlockEntity(ChunkAccess chunkAccess, BlockPos blockPos) {
+        if (ShutdownExecutor.isRunning() && chunkAccess instanceof LevelChunk levelChunk) {
+            return levelChunk.getBlockEntities().get(blockPos);
+        }
+        return chunkAccess.getBlockEntity(blockPos);
     }
 
     private static PolarSection convertSection(int chunkX, int chunkZ, LevelChunkSection chunkAccessSection, Registry<Biome> biomeRegistry, live.minehub.polarpaper.core.world.BlockSelector blockSelector, int minSection, int sectionI, @Nullable LevelLightEngine lightEngine) {
