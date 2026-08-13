@@ -7,6 +7,8 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.core.source.FilePolarSource;
+import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.world.PolarReader;
 import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.schematic.Rotation;
@@ -20,7 +22,6 @@ import org.joml.Vector3i;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -113,13 +114,9 @@ public class PasteCommand extends PolarCmd {
 
         PolarWorld polarWorld;
         try {
-            byte[] polarBytes;
-            try {
-                polarBytes = Files.readAllBytes(path);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            polarWorld = PolarReader.read(polarBytes);
+            PolarSource source = new FilePolarSource(path);
+            PolarReader polarReader = new PolarReader();
+            polarWorld = polarReader.read(source);
         } catch (Exception e) {
             player.sendMessage(Component.text("Failed to load world '" + worldName + ".polar'", NamedTextColor.RED));
             LOGGER.error("Failed to load world '" + worldName + ".polar'", e);

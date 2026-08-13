@@ -1,9 +1,15 @@
 package live.minehub.polarpaper.core.source;
 
-public interface PolarSource {
-    byte[] readBytes() throws Exception;
+import java.io.IOException;
+import java.lang.foreign.MemorySegment;
+import java.nio.channels.ReadableByteChannel;
 
-    void saveBytes(byte[] save) throws Exception;
+public interface PolarSource {
+    ReadableByteChannel read() throws IOException;
+
+    void save(MemorySegment segment) throws IOException;
+
+    long size();
 
     default void delete() throws Exception {
         throw new UnsupportedOperationException("This PolarSource does not support deletion");

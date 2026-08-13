@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.core.userdata;
 
-import io.netty.buffer.ByteBuf;
+import live.minehub.polarpaper.core.util.MemorySegmentReader;
+import live.minehub.polarpaper.core.util.MemorySegmentWriter;
 import live.minehub.polarpaper.core.world.PolarEntity;
 import net.minecraft.server.level.ServerLevel;
 import org.bukkit.Location;
@@ -12,18 +13,12 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static live.minehub.polarpaper.core.util.ByteArrayUtil.*;
-
 public class EntityUtil {
-    private static final Logger LOGGER = LoggerFactory.getLogger(EntityUtil.class);
-
     private EntityUtil() {
 
     }
@@ -46,31 +41,31 @@ public class EntityUtil {
         return spawned;
     }
 
-    public static List<PolarEntity> getEntities(ByteBuf bb) {
+    public static List<PolarEntity> getEntities(MemorySegmentReader reader) {
         List<PolarEntity> polarEntities = new ArrayList<>();
-        int entityCount = getVarInt(bb);
+        int entityCount = reader.readVarInt();
         for (int i = 0; i < entityCount; i++) {
-            final var x = bb.readDouble();
-            final var y = bb.readDouble();
-            final var z = bb.readDouble();
-            final var yaw = bb.readFloat();
-            final var pitch = bb.readFloat();
-            final var bytes = getByteArray(bb);
+            final var x = reader.readDouble();
+            final var y = reader.readDouble();
+            final var z = reader.readDouble();
+            final var yaw = reader.readFloat();
+            final var pitch = reader.readFloat();
+            final var bytes = reader.readByteArray();
             polarEntities.add(new PolarEntity(x, y, z, yaw, pitch, bytes));
         }
 
         return polarEntities;
     }
 
-    public static void writeEntities(List<@NotNull PolarEntity> entities, @NotNull ByteBuf data) {
-        writeVarInt(entities.size(), data);
+    public static void writeEntities(List<@NotNull PolarEntity> entities, @NotNull MemorySegmentWriter data) {
+        data.writeVarInt(entities.size());
         for (@NotNull PolarEntity entity : entities) {
             data.writeDouble(entity.x());
             data.writeDouble(entity.y());
             data.writeDouble(entity.z());
             data.writeFloat(entity.yaw());
             data.writeFloat(entity.pitch());
-            writeByteArray(entity.bytes(), data);
+            data.writeByteArray(entity.bytes());
         }
     }
 

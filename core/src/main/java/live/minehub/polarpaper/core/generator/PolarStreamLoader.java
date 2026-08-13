@@ -1,4 +1,4 @@
-package live.minehub.polarpaper.core.world;
+package live.minehub.polarpaper.core.generator;
 
 import ca.spottedleaf.concurrentutil.lock.ReentrantAreaLock;
 import ca.spottedleaf.concurrentutil.util.ConcurrentUtil;
@@ -11,13 +11,17 @@ import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightEngine;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightInterface;
 import com.mojang.logging.LogUtils;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import live.minehub.polarpaper.core.generator.PolarGenerator;
-import live.minehub.polarpaper.core.generator.PolarStreamingGenerator;
+import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.source.PolarSource;
+import live.minehub.polarpaper.core.userdata.WorldUserData;
 import live.minehub.polarpaper.core.util.CoordConversion;
+import live.minehub.polarpaper.core.util.MemorySegmentReader;
 import live.minehub.polarpaper.core.util.TaskFutures;
+import live.minehub.polarpaper.core.world.*;
+import net.kyori.adventure.builder.AbstractBuilder;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.FullChunkStatus;
@@ -40,26 +44,28 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.CraftWorld;
-import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.joml.Vector3i;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.EOFException;
 import java.io.IOException;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
 import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 
-import static live.minehub.polarpaper.core.util.ByteArrayUtil.getVarInt;
-
-public class PolarStreamLoader {
+public class PolarStreamLoader extends PolarGenerator {
     private static final Logger LOGGER = LoggerFactory.getLogger(PolarStreamLoader.class);
-
-    private PolarStreamLoader() {}
 
     private static final MethodHandle GET_OR_CREATE_CHUNK_HOLDER_HANDLE;
     private static final VarHandle CURRENT_CHUNK_HANDLE;
@@ -96,88 +102,106 @@ public class PolarStreamLoader {
         }
     }
 
-    public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarWorldAccess worldAccess) throws IOException {
-        try {
-            return stream(source.readBytes(), world, worldAccess);
-        } catch (Exception e) {
-            throw new IOException(e);
+    private final @NotNull PolarDataConverter dataConverter;
+    private short version;
+    private int dataVersion;
+    private byte[] userData = new byte[0];
+    public PolarStreamLoader(@NotNull Config config, @Nullable PolarSource polarSource, @NotNull PolarWorldAccess worldAccess, @NotNull PolarDataConverter dataConverter) {
+        super(config, polarSource, worldAccess);
+        this.dataConverter = dataConverter;
+
+        this.dataVersion = dataConverter.defaultDataVersion();
+    }
+
+    //https://github.com/hollow-cube/polar/blob/main/src/main/java/net/hollowcube/polar/StreamingPolarLoader.java#L64
+    public void load(@NotNull World world) throws IOException {
+        if (getSource() == null) return;
+
+        try (Arena dstArena = Arena.ofConfined()) {
+            final MemorySegment dst;
+
+            dev.hallock.zstd.Zstd zstd = dev.hallock.zstd.Zstd.zstd();
+            try (Arena srcArena = Arena.ofConfined();
+                 ReadableByteChannel channel = getSource().read()) {
+
+                long fileSize = getSource().size();
+
+                final MemorySegment src;
+
+                if (channel instanceof FileChannel fileChannel) {
+                    src = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0L, fileSize, srcArena);
+                } else {
+                    final MemorySegment segment = srcArena.allocate(fileSize);
+                    long offset = 0L; // readFully, but for large files
+                    while (offset < fileSize) {
+                        long n = channel.read(segment.asSlice(offset, fileSize - offset).asByteBuffer());
+                        if (n < 0) {
+                            throw new EOFException("Unexpected EOF: expected " + fileSize + " bytes, got " + offset);
+                        }
+                        offset += n;
+                    }
+                    src = segment.asReadOnly();
+                }
+
+                MemorySegmentReader reader = new MemorySegmentReader(src);
+
+                var magic = reader.readInt();
+                assertThat(magic == PolarConstants.MAGIC_NUMBER, "Invalid magic number");
+
+                this.version = reader.readShort();
+                PolarReader.validateVersion(version);
+
+                this.dataVersion = reader.readVarInt();
+
+                var compressionByte = reader.readByte();
+                PolarWorld.CompressionType compression = PolarWorld.CompressionType.fromId(compressionByte);
+                assertThat(compression != null, "Invalid compression type");
+
+                int dataLength = reader.readVarInt();
+
+                switch (compression) {
+                    case NONE -> {
+                        readData(src.asSlice(reader.getOffset()), world);
+                        return;
+                    }
+                    // src should be unreachable following the dst copy.
+                    case ZSTD -> {
+                        var decompression = dstArena.allocate(dataLength);
+                        zstd.decompress(decompression, dataLength, src.asSlice(reader.getOffset()), fileSize - reader.getOffset());
+                        dst = decompression.asReadOnly();
+                    }
+                    default -> throw new UnsupportedOperationException(
+                            "Unsupported compression type: " + compression
+                    );
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw e;
+            }
+            // Now we can just read the dst buffer without having to worry about the extra footprint of src
+            readData(dst, world);
         }
     }
 
-    public static CompletableFuture<Void> stream(PolarSource source, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) throws IOException {
-        try {
-            return stream(source.readBytes(), world, dataConverter, worldAccess);
-        } catch (Exception e) {
-            throw new IOException(e);
-        }
-    }
+    private void readData(MemorySegment segment, World world) {
+        MemorySegmentReader reader = new MemorySegmentReader(segment);
 
-    public static CompletableFuture<Void> stream(byte @NotNull [] data, World world, @NotNull PolarWorldAccess worldAccess) {
-        return stream(data, world, PolarDataConverter.DEFAULT, worldAccess);
-    }
-
-    public static CompletableFuture<Void> stream(byte @NotNull [] data, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess) {
-        ByteBuf bb = Unpooled.wrappedBuffer(data);
-
-        int magic = bb.readInt();
-        assertThat(magic == PolarConstants.MAGIC_NUMBER, "Invalid magic number");
-
-        short version = bb.readShort();
-        PolarReader.validateVersion(version);
-
-        PolarGenerator polarGenerator = PolarGenerator.fromWorld(world);
-        if (polarGenerator == null) return CompletableFuture.completedFuture(null);
-        if (!(polarGenerator instanceof PolarStreamingGenerator voidGenerator)) return CompletableFuture.completedFuture(null);
-        voidGenerator.setVersion(version);
-
-        int dataVersion = version >= PolarConstants.VERSION_DATA_CONVERTER
-                ? getVarInt(bb)
-                : dataConverter.defaultDataVersion();
-
-        voidGenerator.setDataVersion(dataVersion);
-
-        byte compressionByte = bb.readByte();
-        PolarWorld.CompressionType compression = PolarWorld.CompressionType.fromId(compressionByte);
-        assertThat(compression != null, "Invalid compression type");
-
-        int compressedDataLength = getVarInt(bb);
-
-        // Replace the buffer with a "decompressed" version.
-        ByteBuf uncompressed = PolarReader.decompressBuffer(bb, compression, compressedDataLength);
-
-        byte minSection = uncompressed.readByte();
-        byte maxSection = uncompressed.readByte();
+        byte minSection = reader.readByte();
+        byte maxSection = reader.readByte();
         assertThat(minSection < maxSection, "Invalid section range");
 
-        // User (world) data
-        byte[] userData = new byte[0];
-        if (version > PolarConstants.VERSION_WORLD_USERDATA) {
-            int userDataLength = getVarInt(uncompressed);
-            byte[] bytes = new byte[userDataLength];
-            uncompressed.readBytes(bytes);
-            userData = bytes;
-        }
+        this.userData = reader.readByteArray();
 
-        voidGenerator.setUserData(userData);
-
-        int chunkCount = getVarInt(uncompressed);
-        CompletableFuture<Void>[] futures = new CompletableFuture[chunkCount];
+        int chunkCount = reader.readVarInt();
         for (int i = 0; i < chunkCount; i++) {
-            try {
-                CompletableFuture<Void> future = readChunk(worldAccess.getPlugin(), world, dataConverter, worldAccess, version, dataVersion, uncompressed, maxSection - minSection + 1);
-                if (future.isCompletedExceptionally()) throw future.exceptionNow();
-                futures[i] = future;
-            } catch (Throwable e) {
-                return CompletableFuture.failedFuture(e);
-            }
+            readChunk(reader, world, maxSection - minSection + 1);
         }
-
-        return CompletableFuture.allOf(futures);
     }
 
-    private static CompletableFuture<Void> readChunk(Plugin plugin, World world, @NotNull PolarDataConverter dataConverter, @NotNull PolarWorldAccess worldAccess, short version, int dataVersion, @NotNull ByteBuf bb, int sectionCount) {
-        var chunkX = getVarInt(bb);
-        var chunkZ = getVarInt(bb);
+    private CompletableFuture<Void> readChunk(MemorySegmentReader reader, World world, int sectionCount) {
+        var chunkX = reader.readVarInt();
+        var chunkZ = reader.readVarInt();
 
         CraftWorld craftWorld = (CraftWorld) world;
         ServerLevel serverLevel = craftWorld.getHandle();
@@ -191,7 +215,7 @@ public class PolarStreamLoader {
         boolean lightPresent = false;
         LevelChunkSection[] levelChunkSections = new LevelChunkSection[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
-            PolarSection polarSection = PolarReader.readSection(dataConverter, version, dataVersion, bb);
+            PolarSection polarSection = PolarReader.readSection(dataConverter, dataVersion, reader);
             if (!lightPresent && (polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) lightPresent = true;
 
             try {
@@ -200,34 +224,31 @@ public class PolarStreamLoader {
                 skyNibbles[i + 1] = new SWMRNibbleArray(polarSection.skyLight());
                 blockNibbles[i + 1] = new SWMRNibbleArray(polarSection.blockLight());
             } catch (Exception e) {
-                LOGGER.error("Failed to load chunk at {} {} in {}", chunkX, chunkZ, world.getKey());
-                throw e;
+                LOGGER.error("Failed to load chunk at {} {} (section {}/{}) in {}", chunkX, chunkZ, i, sectionCount, world.getKey());
+//                throw e;
             }
 
         }
 
         NoUnloadLevelChunk newLevelChunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(chunkX, chunkZ), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
 
-        Bukkit.getRegionScheduler().execute(plugin, world, chunkX, chunkZ, newLevelChunk::tryMarkSaved);
+        Bukkit.getRegionScheduler().execute(getWorldAccess().getPlugin(), world, chunkX, chunkZ, newLevelChunk::tryMarkSaved);
 
-        int blockEntityCount = getVarInt(bb);
+        int blockEntityCount = reader.readVarInt();
         for (int i = 0; i < blockEntityCount; i++) {
-            PolarChunk.BlockEntity polarBlockEntity = PolarReader.readBlockEntity(dataConverter, dataVersion, bb);
+            PolarChunk.BlockEntity polarBlockEntity = PolarReader.readBlockEntity(dataConverter, dataVersion, reader);
             addBlockEntity(polarBlockEntity, newLevelChunk);
         }
 
-        var heightmaps = PolarReader.readHeightmaps(bb);
+        var heightmaps = PolarReader.readHeightmaps(reader);
 
-        // Objects
-        int userDataLength = getVarInt(bb);
-        byte[] userData = new byte[userDataLength];
-        bb.readBytes(userData);
+        byte[] userData = reader.readByteArray();
 
         boolean finalLightPresent = lightPresent;
 
-        return TaskFutures.runRegion(plugin, world, chunkX, chunkZ, () -> {
+        return TaskFutures.runRegion(getWorldAccess().getPlugin(), world, chunkX, chunkZ, () -> {
             insertChunk(serverLevel, newLevelChunk);
-            worldAccess.loadChunkData(world, newLevelChunk, userData);
+            getWorldAccess().loadChunkData(world, newLevelChunk, userData);
 
             if (finalLightPresent) {
                 Boolean[] emptinessMap = StarLightEngine.getEmptySectionsForChunk(newLevelChunk);
@@ -354,6 +375,59 @@ public class PolarStreamLoader {
             chunk.blockEntities.put(blockPos, blockEntity);
         }
 
+    }
+
+    @Override
+    public @Nullable PolarWorld getPolarWorld() {
+        return null;
+    }
+
+    @Override
+    public Component getInfoComponent(World world) {
+        Vector3i offset = WorldUserData.readSchematicOffset(userData);
+
+        TextComponent.Builder builder = Component.text()
+                .append(Component.text("Info for ", NamedTextColor.AQUA))
+                .append(Component.text(world.getKey().getKey(), NamedTextColor.AQUA))
+                .append(Component.text(":", NamedTextColor.AQUA))
+                .appendNewline()
+                .append(Component.text(" Version: ", NamedTextColor.AQUA))
+                .append(Component.text(version, NamedTextColor.AQUA))
+                .append(Component.text(" (", NamedTextColor.AQUA))
+                .append(Component.text(dataVersion, NamedTextColor.AQUA))
+                .append(Component.text(")", NamedTextColor.AQUA))
+                .appendNewline()
+                .append(Component.text(" Compression: ", NamedTextColor.AQUA))
+                .append(Component.text(getConfig().compression().name(), NamedTextColor.AQUA))
+                .appendNewline()
+                .append(Component.text(" Source: ", NamedTextColor.AQUA))
+                .append(Component.text(getSource() == null ? "None" : getSource().getClass().getSimpleName(), NamedTextColor.AQUA))
+                .appendNewline()
+                .append(Component.text(" Generator: STREAMING", NamedTextColor.AQUA))
+                .appendNewline()
+                .append(Component.text(" Spawn: ", NamedTextColor.AQUA))
+                .append(Component.text(getConfig().spawnString(), NamedTextColor.AQUA));
+
+        if (offset != null) {
+            builder.appendNewline();
+            builder.append(Component.text(" Schematic center: ", NamedTextColor.AQUA));
+            builder.append(Component.text(offset.x + ", " + offset.y + ", " + offset.z, NamedTextColor.AQUA));
+        }
+
+        return ((AbstractBuilder<TextComponent>)builder).build();
+    }
+
+    @Override
+    public boolean isParallelCapable() {
+        return true;
+    }
+
+    public byte[] getUserData() {
+        return userData;
+    }
+
+    public void setUserData(byte[] userData) {
+        this.userData = userData;
     }
 
     @Contract("false, _ -> fail")

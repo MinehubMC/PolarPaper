@@ -55,10 +55,10 @@ public class SetCenterCommand extends PolarCmd {
                     sender.sendMessage(Component.text("No source is defined for this world", NamedTextColor.RED));
                     return;
                 }
-                PolarWorld newPolarWorld = PolarReader.read(source);
+                PolarReader polarReader = new PolarReader();
+                PolarWorld newPolarWorld = polarReader.read(source);
                 newPolarWorld.userData(WorldUserData.writeSchematicOffset(center));
-                byte[] worldBytes = PolarWriter.write(newPolarWorld);
-                source.saveBytes(worldBytes);
+                PolarWriter.write(source, newPolarWorld);
             } catch (Exception e) {
                 String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getKey().getKey());
                 LOGGER.error(errorMsg, e);

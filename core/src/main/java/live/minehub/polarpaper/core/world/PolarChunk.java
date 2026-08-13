@@ -6,8 +6,7 @@ import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManage
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightEngine;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
+import live.minehub.polarpaper.core.generator.PolarStreamLoader;
 import live.minehub.polarpaper.core.util.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -257,15 +256,18 @@ public record PolarChunk(
         int[][] heightMaps = new int[PolarChunk.MAX_HEIGHTMAPS][0];
         worldAccess.saveHeightmaps(chunkAccess, heightMaps);
 
-        ByteBuf userDataOutput = Unpooled.directBuffer();
         List<net.minecraft.world.entity.Entity> allEntities = entityChunk == null ? List.of() : entityChunk.getAllEntities();
         List<org.bukkit.entity.Entity> newAllEntities = new ArrayList<>();
         for (net.minecraft.world.entity.Entity ent : allEntities) {
             if (blockSelector.test(ent.getBlockX(), ent.getBlockY(), ent.getBlockZ())) newAllEntities.add(ent.getBukkitEntity());
         }
         org.bukkit.entity.Entity[] entitiesArray = newAllEntities.toArray(new org.bukkit.entity.Entity[0]);
-        worldAccess.saveChunkData(chunkAccess, blockEntities, entitiesArray, userDataOutput);
-        byte[] userData = ByteArrayUtil.outputArray(userDataOutput);
+
+        byte[] userData;
+        try (var writer = new MemorySegmentWriter(256)) {
+            worldAccess.saveChunkData(chunkAccess, blockEntities, entitiesArray, writer);
+            userData = writer.getWrittenBytes();
+        }
 
         return future.thenApply(_ -> new PolarChunk(
                 chunkX,

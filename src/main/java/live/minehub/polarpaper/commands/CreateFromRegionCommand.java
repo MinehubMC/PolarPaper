@@ -8,6 +8,7 @@ import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Polar;
+import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.userdata.WorldUserData;
 import live.minehub.polarpaper.core.world.BlockSelector;
 import live.minehub.polarpaper.core.world.PolarWorld;
@@ -64,9 +65,9 @@ public class CreateFromRegionCommand extends PolarCmd {
         CompletableFuture<PolarWorld> future = PolarWorld.convert(bukkitWorld, VersionUtil.getPolarFeaturesWorldAccess(), blockSelector, true);
         future.thenAcceptAsync(polarWorld -> {
             polarWorld.userData(WorldUserData.writeSchematicOffset(finalSchemOffset));
-            byte[] worldBytes = PolarWriter.write(polarWorld);
+            PolarSource source = Polar.getDefaultFolderSource(newWorldName);
             try {
-                Polar.getDefaultFolderSource(newWorldName).saveBytes(worldBytes);
+                PolarWriter.write(source, polarWorld);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

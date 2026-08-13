@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.core.config;
 
-import com.github.luben.zstd.Zstd;
+import dev.hallock.zstd.Zstd;
+import live.minehub.polarpaper.core.world.PolarConstants;
 import live.minehub.polarpaper.core.world.PolarWorld;
 import net.kyori.adventure.key.Key;
 import org.bukkit.*;
@@ -82,8 +83,8 @@ public record Config(
             new EnumProperty<>(Difficulty.class, "difficulty", Difficulty.NORMAL, Config::difficulty, Builder::difficulty),
             new Property<>("async", false, Config::async, Builder::async, "Experimental, may cause issues with other plugins"),
             new Property<>("saveLight", true, Config::saveLight, Builder::saveLight, "Whether chunks are saved with light data. Reduces load time and CPU usage while loading but increases world size"),
-            new EnumProperty<>(PolarWorld.CompressionType.class, "compression", PolarWorld.DEFAULT_COMPRESSION, Config::compression, Builder::compression),
-            new Property<>("compressionLevel", PolarWorld.DEFAULT_COMPRESSION_LEVEL, Config::compressionLevel, Builder::compressionLevel, "ZSTD compression level, higher means smaller file size but longer save times. Max %s, default %s".formatted(Zstd.maxCompressionLevel(), PolarWorld.DEFAULT_COMPRESSION_LEVEL)),
+            new EnumProperty<>(PolarWorld.CompressionType.class, "compression", PolarConstants.DEFAULT_COMPRESSION, Config::compression, Builder::compression),
+            new Property<>("compressionLevel", PolarConstants.DEFAULT_COMPRESSION_LEVEL, Config::compressionLevel, Builder::compressionLevel, "ZSTD compression level, higher means smaller file size but longer save times. Max %s, default %s".formatted(Zstd.zstd().maxCompressionLevel(), PolarConstants.DEFAULT_COMPRESSION_LEVEL)),
             new EnumProperty<>(WorldType.class, "worldType", WorldType.FLAT, Config::worldType, Builder::worldType),
             new EnumProperty<>(World.Environment.class, "environment", World.Environment.NORMAL, Config::environment, Builder::environment),
             new GamerulesProperty("gamerules", DEFAULT_GAMERULES, Config::gamerules, (b, m) -> {

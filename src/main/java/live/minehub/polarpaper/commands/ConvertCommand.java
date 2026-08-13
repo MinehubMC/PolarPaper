@@ -10,8 +10,8 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
-import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
+import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.world.BlockSelector;
 import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.core.world.PolarWriter;
@@ -105,12 +105,10 @@ public class ConvertCommand extends PolarCmd {
                         .append(Component.text("'...", NamedTextColor.GRAY))
         );
 
-        Config config = Polar.updateConfig(bukkitWorld, newWorldKey.getKey()).toBuilder().saveLight(saveLight).build();
-
-        PolarWorld.convert(bukkitWorld, VersionUtil.getPolarFeaturesWorldAccess(), BlockSelector.square(offsetX, offsetZ, chunkRadius), config, true).thenAcceptAsync(newPolarWorld -> {
-            byte[] polarBytes = PolarWriter.write(newPolarWorld);
+        PolarWorld.convert(bukkitWorld, VersionUtil.getPolarFeaturesWorldAccess(), BlockSelector.square(offsetX, offsetZ, chunkRadius), saveLight, true).thenAcceptAsync(newPolarWorld -> {
+            PolarSource source = Polar.getDefaultFolderSource(newWorldName);
             try {
-                Polar.getDefaultFolderSource(newWorldName).saveBytes(polarBytes);
+                PolarWriter.write(source, newPolarWorld);
             } catch (Exception e) {
                 sender.sendMessage(Component.text("Failed to save '" + worldKey.getKey() + "'"));
                 LOGGER.error("Failed to save: " + worldKey.getKey(), e);

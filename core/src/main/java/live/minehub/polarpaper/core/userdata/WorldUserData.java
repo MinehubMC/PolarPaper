@@ -1,12 +1,11 @@
 package live.minehub.polarpaper.core.userdata;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import live.minehub.polarpaper.core.util.ByteArrayUtil;
+import live.minehub.polarpaper.core.util.MemorySegmentReader;
+import live.minehub.polarpaper.core.util.MemorySegmentWriter;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3i;
 
-import java.nio.ByteBuffer;
+import java.lang.foreign.MemorySegment;
 
 public class WorldUserData {
     private static final byte CURRENT_FEATURES_VERSION = 1;
@@ -15,24 +14,21 @@ public class WorldUserData {
     public static @Nullable Vector3i readSchematicOffset(byte[] userData) {
         if (userData.length == 0) return null;
 
-        final var bb = ByteBuffer.wrap(userData);
+        MemorySegment segment = MemorySegment.ofArray(userData);
+        MemorySegmentReader reader = new MemorySegmentReader(segment);
 
-        byte version = bb.get();
+        byte version = reader.readByte();
         if (version < SCHEMATIC_CENTER_VERSION) return null;
 
-        int x = bb.getInt();
-        int y = bb.getInt();
-        int z = bb.getInt();
-
-        return new Vector3i(x, y, z);
+        return Vector3iCodec.decode(reader.getSegment(), reader.getOffset());
     }
 
     public static byte[] writeSchematicOffset(Vector3i offset) {
-        ByteBuf bb = Unpooled.directBuffer();
-        bb.writeByte(CURRENT_FEATURES_VERSION);
-        bb.writeInt(offset.x);
-        bb.writeInt(offset.y);
-        bb.writeInt(offset.z);
-        return ByteArrayUtil.outputArray(bb);
+        try (var writer = new MemorySegmentWriter(1 + Vector3iCodec.LAYOUT.byteSize())) {
+            writer.writeByte(CURRENT_FEATURES_VERSION);
+            Vector3iCodec.encode(offset, writer.getSegment(), writer.getWriteIndex());
+
+            return writer.getWrittenBytes();
+        }
     }
 }
