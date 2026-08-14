@@ -61,14 +61,15 @@ public class EntitySerializerImpl implements EntitySerializer {
                 // saveAsPassenger sometimes calls events (e.g. VillagerAcquireTradeEvent), causing errors when called async so try again synchronously
                 CompletableFuture<Boolean> successfulFuture = new CompletableFuture<>();
 
-                entity.getScheduler().run(plugin, (t) -> {
+                FoliaUtil.scheduleOnEntityIfFolia(plugin, entity, () -> {
                     try {
                         boolean successful2 = ((CraftEntity) entity).getHandle().saveAsPassenger(tagValueOutput, true, false, false);
                         successfulFuture.complete(successful2);
                     } catch (Exception e2) {
                         LOGGER.error("Failed to serialize entity", e2);
+                        successfulFuture.complete(false);
                     }
-                }, null);
+                }, () -> successfulFuture.complete(false));
                 successful = successfulFuture.join();
             }
 
@@ -93,7 +94,7 @@ public class EntitySerializerImpl implements EntitySerializer {
             }
 
             byteArrayFuture.complete(outputStream.toByteArray());
-        });
+        }, () -> byteArrayFuture.complete(null));
 
         return byteArrayFuture;
     }

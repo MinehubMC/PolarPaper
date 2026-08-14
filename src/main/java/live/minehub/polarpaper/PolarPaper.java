@@ -8,6 +8,7 @@ import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.source.FilePolarSource;
 import live.minehub.polarpaper.core.util.FoliaUtil;
+import live.minehub.polarpaper.core.util.ShutdownExecutor;
 import live.minehub.polarpaper.util.WorldKey;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
@@ -22,9 +23,18 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.stream.Stream;
 
 public final class PolarPaper extends JavaPlugin {
+
+    // A save should never hang now that its tasks are actually run, but a stop that never finishes is worse than
+    // a world that failed to save, so give up eventually. Folia allows itself the same 60s to halt its schedulers.
+    private static final long SAVE_ON_STOP_TIMEOUT_SECONDS = 60;
 
     @Override
     public void onEnable() {
@@ -73,41 +83,66 @@ public final class PolarPaper extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        for (World world : getServer().getWorlds()) {
-            PolarGenerator generator = PolarGenerator.fromWorld(world);
-            if (generator == null) continue;
+        // Saving schedules tasks that no scheduler is going to run anymore at this point, so they get run on this
+        // thread instead. Without this the save either blocks forever or quietly drops whatever it was waiting on.
+        ShutdownExecutor.start();
+        try {
+            for (World world : getServer().getWorlds()) {
+                PolarGenerator generator = PolarGenerator.fromWorld(world);
+                if (generator == null) continue;
 
-            Path worldFolderPath = world.getWorldFolder().toPath();
-            if (Files.exists(worldFolderPath)) {
-                getLogger().info("Clearing temp files for " + world.getKey().getKey());
-                try (Stream<Path> paths = Files.walk(worldFolderPath)) {
-                    paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-                } catch (IOException e) {
-                    getLogger().warning("Failed to delete temp files for " + world.getKey().getKey());
-                    StringWriter sw = new StringWriter();
-                    e.printStackTrace(new PrintWriter(sw));
-                    String exceptionAsString = sw.toString();
-                    getLogger().warning(exceptionAsString);
+                Path worldFolderPath = world.getWorldFolder().toPath();
+                if (Files.exists(worldFolderPath)) {
+                    getLogger().info("Clearing temp files for " + world.getKey().getKey());
+                    try (Stream<Path> paths = Files.walk(worldFolderPath)) {
+                        paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+                    } catch (IOException e) {
+                        getLogger().warning("Failed to delete temp files for " + world.getKey().getKey());
+                        StringWriter sw = new StringWriter();
+                        e.printStackTrace(new PrintWriter(sw));
+                        String exceptionAsString = sw.toString();
+                        getLogger().warning(exceptionAsString);
+                    }
                 }
-            }
 
-            if (!generator.getConfig().saveOnStop()) {
-                getLogger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getKey().getKey()));
-                continue;
-            }
-            if (Polar.isLoading(world.getKey())) {
-                getLogger().info(String.format("Not saving '%s' as it was not fully loaded", world.getKey().getKey()));
-                continue;
-            }
+                if (!generator.getConfig().saveOnStop()) {
+                    getLogger().info(String.format("Not saving '%s' as it has save on stop disabled", world.getKey().getKey()));
+                    continue;
+                }
+                if (Polar.isLoading(world.getKey())) {
+                    getLogger().info(String.format("Not saving '%s' as it was not fully loaded", world.getKey().getKey()));
+                    continue;
+                }
 
-            getLogger().info("Saving '" + world.getKey().getKey() + "'...");
-
-            long before = System.nanoTime();
-            Polar.updateConfig(world, world.getKey().getKey());
-            Polar.saveWorld(world).join(); // TODO: does not work on Folia as it schedules tasks
-            int ms = (int) ((System.nanoTime() - before) / 1_000_000);
-            getLogger().info(String.format("Saved '%s' in %sms", world.getKey().getKey(), ms));
+                saveOnStop(world);
+            }
+        } finally {
+            ShutdownExecutor.stop();
         }
+    }
+
+    private void saveOnStop(World world) {
+        String worldName = world.getKey().getKey();
+        getLogger().info("Saving '" + worldName + "'...");
+
+        long before = System.nanoTime();
+        Polar.updateConfig(world, worldName);
+
+        CompletableFuture<Void> saveFuture = Polar.saveWorld(world);
+        if (!ShutdownExecutor.awaitCompletion(saveFuture, SAVE_ON_STOP_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+            getLogger().severe(String.format("Gave up saving '%s' after %s seconds", worldName, SAVE_ON_STOP_TIMEOUT_SECONDS));
+            return;
+        }
+
+        try {
+            saveFuture.join();
+        } catch (CompletionException | CancellationException e) {
+            getLogger().log(Level.SEVERE, String.format("Failed to save '%s'", worldName), e);
+            return;
+        }
+
+        int ms = (int) ((System.nanoTime() - before) / 1_000_000);
+        getLogger().info(String.format("Saved '%s' in %sms", worldName, ms));
     }
 
     public static PolarPaper getPlugin() {
