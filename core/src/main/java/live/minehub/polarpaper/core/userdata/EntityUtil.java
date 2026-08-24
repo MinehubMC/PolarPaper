@@ -16,7 +16,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 public class EntityUtil {
     private EntityUtil() {
@@ -69,23 +68,22 @@ public class EntityUtil {
         }
     }
 
-    public static CompletableFuture<@Nullable PolarEntity> entityToPolarEntity(Entity entity, Plugin plugin, EntitySerializer entitySerializer) {
-        return entitySerializer.entityToBytes(entity, plugin).thenApply(entityBytes -> {
-            if (entityBytes == null) return null;
-            Location entityPos = entity.getLocation();
+    public static @Nullable PolarEntity entityToPolarEntity(Entity entity, Plugin plugin, EntitySerializer entitySerializer) {
+        byte[] entityBytes = entitySerializer.entityToBytes(entity, plugin);
+        if (entityBytes == null) return null;
+        Location entityPos = entity.getLocation();
 
-            final var x = ((entityPos.x() % 16) + 16) % 16;
-            final var z = ((entityPos.z() % 16) + 16) % 16;
+        final var x = ((entityPos.x() % 16) + 16) % 16;
+        final var z = ((entityPos.z() % 16) + 16) % 16;
 
-            return new PolarEntity(
-                    x,
-                    entityPos.y(),
-                    z,
-                    entityPos.getYaw(),
-                    entityPos.getPitch(),
-                    entityBytes
-            );
-        });
+        return new PolarEntity(
+                x,
+                entityPos.y(),
+                z,
+                entityPos.getYaw(),
+                entityPos.getPitch(),
+                entityBytes
+        );
     }
 
 }

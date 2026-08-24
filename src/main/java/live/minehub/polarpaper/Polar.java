@@ -248,12 +248,12 @@ public class Polar {
 
         return VersionUtil.createNoSaveLevel(worldCreator, config.spawn(), config.difficulty(), config.gamerules(), config.time())
                 .whenComplete((world, ex) -> {
-                    if (ex != null || world == null) {
-                        if (ex == null) {
-                            LOGGER.error("An error occurred loading polar world '" + worldKey.getKey() + "', skipping.");
-                        } else {
-                            LOGGER.error("An error occurred loading polar world '" + worldKey.getKey() + "', skipping.", ex);
-                        }
+                    if (ex != null) {
+                        LOGGER.error("An error occurred loading polar world '" + worldKey.getKey() + "', skipping.", ex);
+                        return;
+                    }
+                    if (world == null) {
+                        LOGGER.error("An error occurred loading polar world '" + worldKey.getKey() + "', skipping.");
                         return;
                     }
 

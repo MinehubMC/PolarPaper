@@ -8,11 +8,9 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.CompletableFuture;
-
 public interface EntitySerializer {
     Logger LOGGER = LoggerFactory.getLogger(EntitySerializer.class);
 
     net.minecraft.world.entity.Entity compoundToEntity(World world, CompoundTag compound);
-    CompletableFuture<byte @Nullable []> entityToBytes(Entity entity, Plugin plugin);
+    byte @Nullable [] entityToBytes(Entity entity, Plugin plugin);
 }

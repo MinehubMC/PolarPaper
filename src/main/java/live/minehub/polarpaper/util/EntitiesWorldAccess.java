@@ -3,6 +3,7 @@ package live.minehub.polarpaper.util;
 import live.minehub.polarpaper.core.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.core.userdata.EntitySerializer;
 import live.minehub.polarpaper.core.userdata.EntityUtil;
+import live.minehub.polarpaper.core.util.FoliaUtil;
 import live.minehub.polarpaper.core.util.MemorySegmentReader;
 import live.minehub.polarpaper.core.util.MemorySegmentWriter;
 import live.minehub.polarpaper.core.world.PolarEntity;
@@ -72,7 +73,7 @@ public class EntitiesWorldAccess implements PolarWorldAccess {
         List<net.minecraft.world.entity.Entity> successEntities = new ArrayList<>();
 
         for (PolarEntity polarEntity : entities) {
-            net.minecraft.world.entity.Entity entity = polarEntity.toNMSEntity(entitySerializer, world, polarEntity.getLocation(world, chunk.locX, chunk.locZ), true);
+            net.minecraft.world.entity.Entity entity = polarEntity.toNMSEntity(entitySerializer, world, polarEntity.getLocation(world, chunk.locX, chunk.locZ));
             if (entity == null) continue;
 
             CraftEntity bukkitEntity = entity.getBukkitEntity();
@@ -103,14 +104,19 @@ public class EntitiesWorldAccess implements PolarWorldAccess {
                               @NotNull Map<BlockPos, BlockEntity> blockEntities,
                               @NotNull Entity[] entities, @NotNull MemorySegmentWriter writer) {
         List<CompletableFuture<@Nullable PolarEntity>> entityFutures = new ArrayList<>();
-        List<@NotNull PolarEntity> polarEntities = new ArrayList<>();
 
         for (@NotNull Entity entity : entities) {
             if (entity.getType() == EntityType.PLAYER) continue;
-            CompletableFuture<@Nullable PolarEntity> entityFuture = EntityUtil.entityToPolarEntity(entity, plugin, entitySerializer);
-            entityFutures.add(entityFuture);
+            if (!entity.isPersistent()) continue;
+            CompletableFuture<PolarEntity> future = new CompletableFuture<>();
+            FoliaUtil.scheduleOnEntityIfFolia(plugin, entity, () -> {
+                PolarEntity polarEntity = EntityUtil.entityToPolarEntity(entity, plugin, entitySerializer);
+                future.complete(polarEntity);
+            });
+            entityFutures.add(future);
         }
 
+        List<@NotNull PolarEntity> polarEntities = new ArrayList<>();
         for (CompletableFuture<@Nullable PolarEntity> entityFuture : entityFutures) {
             PolarEntity polarEntity = entityFuture.join();
             if (polarEntity == null) continue;

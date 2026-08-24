@@ -32,8 +32,9 @@ tasks {
     runPaper.folia.registerTask()
     runServer {
 //        minecraftVersion(libs.versions.minecraft.get())
-        minecraftVersion("1.21.11")
+//        minecraftVersion("1.21.11")
 //        minecraftVersion("26.1.2")
+        minecraftVersion("26.2")
     }
 
     shadowJar {

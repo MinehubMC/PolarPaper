@@ -34,6 +34,7 @@ import org.bukkit.*;
 import org.bukkit.craftbukkit.CraftGameRule;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.util.CraftNamespacedKey;
+import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.Plugin;
@@ -206,11 +207,13 @@ public class NoSaveLevelCreatorImpl implements NoSaveLevelCreator {
             craftServer.getServer().initWorld(serverLevel, null);
             // Paper - Put world into worldlist before initing the world; move up
 
-            craftServer.getServer().prepareLevel(serverLevel);
+            serverLevel.setSpawnSettings(serverLevel.isSpawningMonsters());
 
             serverLevel.serverLevelData.setSpawn(LevelData.RespawnData.of(serverLevel.dimension(), new BlockPos(spawnPos.getBlockX(), spawnPos.getBlockY(), spawnPos.getBlockZ()), spawnPos.getYaw(), spawnPos.getPitch()));
 
             craftServer.getServer().updateEffectiveRespawnData();
+
+            new WorldLoadEvent(serverLevel.getWorld()).callEvent();
 
             return serverLevel.getWorld();
         };
@@ -223,7 +226,7 @@ public class NoSaveLevelCreatorImpl implements NoSaveLevelCreator {
         }
     }
 
-    private class NoSaveLevel extends ServerLevel {
+    private static class NoSaveLevel extends ServerLevel {
         protected NoSaveLevel(MinecraftServer server, Executor executor, LevelStorageSource.LevelStorageAccess levelStorage, WorldGenSettings worldGenSettings, ResourceKey<Level> dimension, LevelStem levelStem, boolean isDebug, long biomeZoomSeed, List<CustomSpawner> customSpawners, boolean tickTime, ResourceKey<LevelStem> typeKey, World.Environment env, ChunkGenerator gen, BiomeProvider biomeProvider, SavedDataStorage savedDataStorage, PaperWorldLoader.LoadedWorldData loadedWorldData) {
             super(server, executor, levelStorage, worldGenSettings, dimension, levelStem, isDebug, biomeZoomSeed, customSpawners, tickTime, typeKey, env, gen, biomeProvider, savedDataStorage, loadedWorldData);
         }

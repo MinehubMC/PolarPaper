@@ -8,7 +8,7 @@ import org.bukkit.plugin.Plugin;
 public class FoliaUtil {
 
     public static void scheduleOnEntityIfFolia(Plugin plugin, Entity entity, Runnable runnable) {
-        if (isFolia()) {
+        if (!Bukkit.isOwnedByCurrentRegion(entity)) {
             entity.getScheduler().execute(plugin, runnable, null, 1L);
         } else {
             runnable.run();

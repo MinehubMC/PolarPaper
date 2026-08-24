@@ -25,9 +25,8 @@ public class PolarWriter {
     public static void write(@NotNull PolarSource source, @NotNull PolarWorld world, @NotNull PolarDataConverter dataConverter, PolarWorld.CompressionType compression, int compressionLevel) {
         Zstd zstd = Zstd.zstd();
         long contentSize = 0;
-        try (Arena arena = Arena.ofConfined()) {
-            var writer = new MemorySegmentWriter(arena, 256);
-
+        try (Arena arena = Arena.ofConfined();
+             var writer = new MemorySegmentWriter(256)) {
             writer.writeByte(world.minSection());
             writer.writeByte(world.maxSection());
             writer.writeByteArray(world.userData());
@@ -45,12 +44,9 @@ public class PolarWriter {
             switch (compression) {
                 case ZSTD -> {
                     contentSize = writtenSegment.byteSize();
-                    System.out.println("Writing " + contentSize + " bytes");
                     long smallestSize = zstd.compressBound(writtenSegment.byteSize());
-                    System.out.println("Smallest size " + smallestSize);
                     dst = arena.allocate(smallestSize);
                     long compressedSize = zstd.compress(dst, smallestSize, writtenSegment, writtenSegment.byteSize(), compressionLevel);
-                    System.out.println("Compressed size " + compressedSize);
                     dst = dst.asSlice(0, compressedSize);
                 }
                 case NONE -> {

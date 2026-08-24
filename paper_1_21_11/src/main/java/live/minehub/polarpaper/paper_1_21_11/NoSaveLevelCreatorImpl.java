@@ -43,6 +43,7 @@ import org.bukkit.*;
 import org.bukkit.craftbukkit.CraftGameRule;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.generator.CraftWorldInfo;
+import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.generator.WorldInfo;
@@ -247,11 +248,13 @@ public class NoSaveLevelCreatorImpl implements NoSaveLevelCreator {
             craftServer.getServer().initWorld(serverLevel, primaryLevelData, primaryLevelData.worldGenOptions());
             // Paper - Put world into worldlist before initing the world; move up
 
-            craftServer.getServer().prepareLevel(serverLevel);
+            serverLevel.setSpawnSettings(serverLevel.isSpawningMonsters());
 
             serverLevel.serverLevelData.setSpawn(LevelData.RespawnData.of(serverLevel.dimension(), new BlockPos(spawnPos.getBlockX(), spawnPos.getBlockY(), spawnPos.getBlockZ()), spawnPos.getYaw(), spawnPos.getPitch()));
 
             craftServer.getServer().updateEffectiveRespawnData();
+
+            new WorldLoadEvent(serverLevel.getWorld()).callEvent();
 
             return serverLevel.getWorld();
         };
@@ -264,7 +267,7 @@ public class NoSaveLevelCreatorImpl implements NoSaveLevelCreator {
         }
     }
 
-    private class NoSaveLevel extends ServerLevel {
+    private static class NoSaveLevel extends ServerLevel {
         public NoSaveLevel(MinecraftServer server, Executor dispatcher, LevelStorageSource.LevelStorageAccess levelStorageAccess, PrimaryLevelData serverLevelData, ResourceKey<Level> dimension, LevelStem levelStem, boolean isDebug, long biomeZoomSeed, List<CustomSpawner> customSpawners, boolean tickTime, @org.jspecify.annotations.Nullable RandomSequences randomSequences, World.Environment env, ChunkGenerator gen, BiomeProvider biomeProvider) {
             super(server, dispatcher, levelStorageAccess, serverLevelData, dimension, levelStem, isDebug, biomeZoomSeed, customSpawners, tickTime, randomSequences, env, gen, biomeProvider);
         }

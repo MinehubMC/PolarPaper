@@ -18,17 +18,13 @@ public class MemorySegmentWriter implements AutoCloseable, DataOutput {
     private static final ValueLayout.OfFloat FLOAT_BE = ValueLayout.JAVA_FLOAT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
     private static final ValueLayout.OfDouble DOUBLE_BE = ValueLayout.JAVA_DOUBLE_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
 
-    private final Arena arena;
+    private Arena arena;
     private MemorySegment segment;
     private long writeIndex = 0;
 
-    public MemorySegmentWriter(Arena arena, long initialCapacity) {
-        this.arena = arena;
-        this.segment = arena.allocate(initialCapacity);
-    }
-
     public MemorySegmentWriter(long initialCapacity) {
-        this(Arena.ofConfined(), initialCapacity);
+        this.arena = Arena.ofConfined();
+        this.segment = arena.allocate(initialCapacity);
     }
 
     private void ensureWritable(long bytesNeeded) {
@@ -37,10 +33,14 @@ public class MemorySegmentWriter implements AutoCloseable, DataOutput {
             // Double the capacity or meet the required size
             long newCapacity = Math.max(currentCapacity * 2, writeIndex + bytesNeeded);
 
-            MemorySegment newSegment = arena.allocate(newCapacity);
+            Arena newArena = Arena.ofConfined();
+
+            MemorySegment newSegment = newArena.allocate(newCapacity);
 
             MemorySegment.copy(this.segment, 0, newSegment, 0, writeIndex);
 
+            this.arena.close();
+            this.arena = newArena;
             this.segment = newSegment;
         }
     }
@@ -86,7 +86,7 @@ public class MemorySegmentWriter implements AutoCloseable, DataOutput {
     @Override
     public void write(byte @NotNull [] b, int off, int len) {
         MemorySegment srcSegment = MemorySegment.ofArray(b);
-        ensureWritable(srcSegment.byteSize());
+        ensureWritable(len);
         MemorySegment.copy(srcSegment, off, this.segment, this.writeIndex, len);
         this.writeIndex += len;
     }
