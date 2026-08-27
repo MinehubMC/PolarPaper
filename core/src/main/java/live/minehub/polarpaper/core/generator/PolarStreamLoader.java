@@ -223,8 +223,8 @@ public class PolarStreamLoader extends PolarGenerator {
             try {
                 LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess());
                 levelChunkSections[i] = section;
-                skyNibbles[i + 1] = new SWMRNibbleArray(polarSection.skyLight());
-                blockNibbles[i + 1] = new SWMRNibbleArray(polarSection.blockLight());
+                skyNibbles[i + 1] = polarSection.skyLight();
+                blockNibbles[i + 1] = polarSection.blockLight();
             } catch (Exception e) {
                 LOGGER.error("Failed to load chunk at {} {} (section {}/{}) in {}", chunkX, chunkZ, i, sectionCount, world.getKey());
 //                throw e;

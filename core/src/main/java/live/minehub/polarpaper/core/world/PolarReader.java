@@ -1,5 +1,6 @@
 package live.minehub.polarpaper.core.world;
 
+import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
 import dev.hallock.zstd.Zstd;
 import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.util.LightUtil;
@@ -185,14 +186,23 @@ public class PolarReader {
             biomeData = reader.readLongArray();
         }
 
-        byte[] blockLight;
-        byte[] skyLight;
+        SWMRNibbleArray blockLight;
+        SWMRNibbleArray skyLight;
+
         PolarSection.LightContent blockLightContent = PolarSection.LightContent.VALUES[reader.readByte()];
-        blockLight = LightUtil.getLightArray(blockLightContent, blockLightContent == PolarSection.LightContent.PRESENT ? reader.readByteArray(LightUtil.LIGHT_LENGTH) : null);
+        if (blockLightContent == PolarSection.LightContent.PRESENT) {
+            blockLight = new SWMRNibbleArray(reader.readByteArray(LightUtil.LIGHT_LENGTH).clone());
+        } else {
+            blockLight = LightUtil.getLightNibble(blockLightContent);
+        }
+
         PolarSection.LightContent skyLightContent = PolarSection.LightContent.VALUES[reader.readByte()];
-        skyLight = LightUtil.getLightArray(skyLightContent, skyLightContent == PolarSection.LightContent.PRESENT ? reader.readByteArray(LightUtil.LIGHT_LENGTH) : null);
-
-
+        if (skyLightContent == PolarSection.LightContent.PRESENT) {
+            skyLight = new SWMRNibbleArray(reader.readByteArray(LightUtil.LIGHT_LENGTH).clone());
+        } else {
+            skyLight = LightUtil.getLightNibble(skyLightContent);
+        }
+        
         return new PolarSection(
                 blockPalette, blockData,
                 biomePalette, biomeData,

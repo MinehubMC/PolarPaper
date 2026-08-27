@@ -159,9 +159,9 @@ public class PolarWriter {
 
         // Light
         writer.writeByte((byte) section.blockLightContent().ordinal());
-        if (section.blockLightContent() == PolarSection.LightContent.PRESENT) writer.write(section.blockLight());
+        if (section.blockLightContent() == PolarSection.LightContent.PRESENT) writer.write(section.blockLight().toVanillaNibble().getData());
         writer.writeByte((byte) section.skyLightContent().ordinal());
-        if (section.skyLightContent() == PolarSection.LightContent.PRESENT) writer.write(section.skyLight());
+        if (section.skyLightContent() == PolarSection.LightContent.PRESENT) writer.write(section.skyLight().toVanillaNibble().getData());
     }
 
 }
