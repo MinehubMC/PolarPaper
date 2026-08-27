@@ -7,6 +7,8 @@ import org.bukkit.plugin.Plugin;
 
 public class FoliaUtil {
 
+    private static final boolean FOLIA = checkFolia();
+
     public static void scheduleOnEntityIfFolia(Plugin plugin, Entity entity, Runnable runnable) {
         if (isFolia() && !Bukkit.isOwnedByCurrentRegion(entity)) {
             entity.getScheduler().execute(plugin, runnable, null, 1L);
@@ -24,6 +26,10 @@ public class FoliaUtil {
     }
 
     public static boolean isFolia() {
+        return FOLIA;
+    }
+
+    public static boolean checkFolia() {
         try {
             Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
             return true;

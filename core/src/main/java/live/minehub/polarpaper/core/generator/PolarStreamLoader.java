@@ -369,7 +369,7 @@ public class PolarStreamLoader extends PolarGenerator {
         var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
 
         // Load NBT data into the block entity
-        ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "addBlockEntity", LogUtils.getLogger());
+        ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "addBlockEntity", LOGGER);
         blockEntity.loadWithComponents(TagValueInput.create(problemReporter, registryAccess, nbt));
 
         if (chunk instanceof LevelChunk levelChunk) {
