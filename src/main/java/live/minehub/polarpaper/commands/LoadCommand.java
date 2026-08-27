@@ -47,9 +47,7 @@ public class LoadCommand extends PolarCmd {
         }
 
         String newWorldName = WorldKey.getWorldName(path);
-
-        NamespacedKey worldKey = NamespacedKey.fromString(newWorldName, PolarPaper.getPlugin());
-        World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);
+        World bukkitWorld = WorldKey.getWorld(newWorldName);
         if (bukkitWorld != null) {
             PolarGenerator polarWorld = PolarGenerator.fromWorld(bukkitWorld);
             if (polarWorld == null) {
@@ -83,7 +81,7 @@ public class LoadCommand extends PolarCmd {
 
         long before = System.nanoTime();
 
-        Polar.createWorld(source, newWorldName).thenAccept(world -> {
+        Polar.createWorld(source, newWorldName).whenComplete((world, _) -> {
             boolean successful = world != null;
             if (successful) {
                 int ms = (int) ((System.nanoTime() - before) / 1_000_000);

@@ -8,11 +8,13 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
+import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.minecraft.resources.Identifier;
 import org.bukkit.World;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,65 +32,65 @@ public class RenameCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        Identifier worldId = ctx.getArgument("world name", Identifier.class);
-        String newWorldName = ctx.getArgument("new world name", String.class);
+        String worldPath = ctx.getArgument("world name", String.class);
+        Path path = WorldKey.validatePath(ctx.getSource().getSender(), worldPath);
+        if (path == null) return Command.SINGLE_SUCCESS;
+        if (!Files.exists(path)) {
+            ctx.getSource().getSender().sendMessage(Component.text("File '" + path.getFileName() + "' does not exist", NamedTextColor.RED));
+            return Command.SINGLE_SUCCESS;
+        }
 
-        World bukkitWorld = WorldKey.getWorld(worldId);
+        String oldName = WorldKey.getWorldName(path);
+        String newWorldName = ctx.getArgument("new world name", String.class);
+        if (WorldKey.validatePath(ctx.getSource().getSender(), newWorldName) == null) return Command.SINGLE_SUCCESS;
+
+        World bukkitWorld = WorldKey.getWorld(oldName);
         if (bukkitWorld != null) {
             PolarGenerator polarGenerator = PolarGenerator.fromWorld(bukkitWorld);
             if (polarGenerator == null) {
                 ctx.getSource().getSender().sendMessage(
                         Component.text()
                                 .append(Component.text("Not renaming non-polar world '", NamedTextColor.RED))
-                                .append(Component.text(worldId.getPath(), NamedTextColor.RED))
+                                .append(Component.text(bukkitWorld.getWorldPath().toString(), NamedTextColor.RED))
                                 .append(Component.text("'", NamedTextColor.RED))
                 );
             } else {
                 UnloadCommand.bukkitUnload(ctx, bukkitWorld).thenAccept(success -> {
                     if (success) {
-                        renameWorld(ctx, worldId.getPath(), newWorldName);
+                        renameWorld(ctx, path, oldName, newWorldName);
                     }
                 });
             }
             return Command.SINGLE_SUCCESS;
         }
 
-        renameWorld(ctx, worldId.getPath(), newWorldName);
+        renameWorld(ctx, path, oldName, newWorldName);
 
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void renameWorld(CommandContext<CommandSourceStack> ctx, String worldName, String newName) {
-        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-        Path worldsFolder = pluginFolder.resolve("worlds");
-        Path path = worldsFolder.resolve(worldName + ".polar");
-        Path newPath = worldsFolder.resolve(newName + ".polar");
-
-        if (!Files.exists(path)) {
-            ctx.getSource().getSender().sendMessage(Component.text("Couldn't find file '" + worldName + ".polar' in the worlds folder", NamedTextColor.RED));
-            return;
-        }
+    private static void renameWorld(CommandContext<CommandSourceStack> ctx, Path worldPath, String oldName, String newName) {
+        Path newPath = WorldKey.validatePath(ctx.getSource().getSender(), newName);
+        if (newPath == null) return;
 
         try {
-            Files.move(path, newPath, StandardCopyOption.REPLACE_EXISTING);
-
-            LoadCommand.loadWorld(ctx, newName);
+            Files.move(worldPath, newPath, StandardCopyOption.REPLACE_EXISTING);
 
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("Renamed '", NamedTextColor.AQUA))
-                            .append(Component.text(worldName, NamedTextColor.AQUA))
+                            .append(Component.text(oldName, NamedTextColor.AQUA))
                             .append(Component.text("' to '", NamedTextColor.AQUA))
                             .append(Component.text(newName, NamedTextColor.AQUA))
                             .append(Component.text("'!", NamedTextColor.AQUA))
             );
         } catch (IOException e) {
-            LOGGER.error("Failed to delete world: " + worldName, e);
+            LOGGER.error("Failed to rename world: " + oldName, e);
 
             ctx.getSource().getSender().sendMessage(
                     Component.text()
-                            .append(Component.text("Failed to delete '", NamedTextColor.RED))
-                            .append(Component.text(worldName, NamedTextColor.RED))
+                            .append(Component.text("Failed to rename '", NamedTextColor.RED))
+                            .append(Component.text(oldName, NamedTextColor.RED))
                             .append(Component.text("'", NamedTextColor.RED))
             );
         }

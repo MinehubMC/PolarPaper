@@ -42,6 +42,9 @@ public class CreateFromRegionCommand extends PolarCmd {
     }
 
     private static void createFromRegion(CommandContext<CommandSourceStack> ctx, World bukkitWorld, String newWorldName, Vector3i pos1, Vector3i pos2) {
+        // newWorldName becomes a file name, so it must not be able to go outside the worlds folder
+        if (WorldKey.validatePath(ctx.getSource().getSender(), newWorldName) == null) return;
+
         long before = System.nanoTime();
 
         ctx.getSource().getSender().sendMessage(

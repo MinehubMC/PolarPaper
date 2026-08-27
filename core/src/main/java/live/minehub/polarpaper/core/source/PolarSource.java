@@ -14,4 +14,8 @@ public interface PolarSource {
     default void delete() throws Exception {
         throw new UnsupportedOperationException("This PolarSource does not support deletion");
     }
+
+    default void rename() throws Exception {
+        throw new UnsupportedOperationException("This PolarSource does not support renaming");
+    }
 }

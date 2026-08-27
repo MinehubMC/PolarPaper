@@ -14,6 +14,7 @@ import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.schematic.Rotation;
 import live.minehub.polarpaper.schematic.Schematic;
 import live.minehub.polarpaper.schematic.Setter;
+import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
@@ -102,6 +103,9 @@ public class PasteCommand extends PolarCmd {
         long before = System.nanoTime();
 
         String worldName = ctx.getArgument("world name", String.class);
+
+        // newWorldName becomes a file name, so it must not be able to go outside the worlds folder
+        if (WorldKey.validatePath(ctx.getSource().getSender(), worldName) == null) return Command.SINGLE_SUCCESS;
 
         Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");

@@ -16,6 +16,7 @@ import live.minehub.polarpaper.core.world.BlockSelector;
 import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.core.world.PolarWriter;
 import live.minehub.polarpaper.nms.VersionUtil;
+import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -60,6 +61,9 @@ public class ConvertCommand extends PolarCmd {
 
         String newWorldName = ctx.getArgument("new world name", String.class);
         Integer chunkRadius = ctx.getArgument("chunk radius", Integer.class);
+
+        // newWorldName becomes a file name, so it must not be able to go outside the worlds folder
+        if (WorldKey.validatePath(ctx.getSource().getSender(), newWorldName) == null) return Command.SINGLE_SUCCESS;
 
         NamespacedKey newWorldKey = NamespacedKey.fromString(newWorldName, PolarPaper.getPlugin());
         if (newWorldKey == null) {

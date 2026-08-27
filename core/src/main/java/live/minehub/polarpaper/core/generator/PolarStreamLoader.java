@@ -11,6 +11,7 @@ import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightEngine;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightInterface;
 import com.mojang.logging.LogUtils;
+import io.papermc.paper.FeatureHooks;
 import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.userdata.WorldUserData;
@@ -44,6 +45,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.CraftWorld;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -61,7 +63,7 @@ import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.util.EnumSet;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 public class PolarStreamLoader extends PolarGenerator {
@@ -247,9 +249,6 @@ public class PolarStreamLoader extends PolarGenerator {
         boolean finalLightPresent = lightPresent;
 
         return TaskFutures.runRegion(getWorldAccess().getPlugin(), world, chunkX, chunkZ, () -> {
-            insertChunk(serverLevel, newLevelChunk);
-            getWorldAccess().loadChunkData(world, newLevelChunk, userData);
-
             if (finalLightPresent) {
                 Boolean[] emptinessMap = StarLightEngine.getEmptySectionsForChunk(newLevelChunk);
                 boolean[] emptinessMapPrim = new boolean[emptinessMap.length];
@@ -265,6 +264,10 @@ public class PolarStreamLoader extends PolarGenerator {
                 lightChunk(serverLevel, newLevelChunk);
             }
             newLevelChunk.setLightCorrect(true);
+
+            insertChunk(serverLevel, newLevelChunk);
+            getWorldAccess().loadChunkData(world, newLevelChunk, userData);
+
             return null;
         });
     }
@@ -283,9 +286,10 @@ public class PolarStreamLoader extends PolarGenerator {
             newChunkHolder = (NewChunkHolder) GET_OR_CREATE_CHUNK_HOLDER_HANDLE.invoke(chunkHolderManager, chunkX, chunkZ);
         } catch (Throwable e) {
             throw new RuntimeException(e);
+        } finally {
+            chunkTaskScheduler.schedulingLockArea.unlock(lock1);
+            chunkHolderManager.ticketLockArea.unlock(lock);
         }
-        chunkTaskScheduler.schedulingLockArea.unlock(lock1);
-        chunkHolderManager.ticketLockArea.unlock(lock);
 
         newLevelChunk.needsDecoration = false;
         newLevelChunk.mustNotSave = true;
@@ -306,7 +310,7 @@ public class PolarStreamLoader extends PolarGenerator {
         }
 
         CompletableFuture.runAsync(() -> {
-            Heightmap.primeHeightmaps(newLevelChunk, EnumSet.allOf(Heightmap.Types.class));
+            Heightmap.primeHeightmaps(newLevelChunk, ChunkStatus.FULL.heightmapsAfter());
         });
 
         newLevelChunk.setFullStatus(() -> FullChunkStatus.ENTITY_TICKING);
@@ -375,6 +379,38 @@ public class PolarStreamLoader extends PolarGenerator {
             chunk.blockEntities.put(blockPos, blockEntity);
         }
 
+    }
+
+    public static CompletableFuture<Void> insertEmptyChunks(Plugin plugin, ServerLevel level) {
+        int paddedViewDist = FeatureHooks.getViewDistance(level) + 2;
+
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        for (int x = -paddedViewDist; x <= paddedViewDist; x++) {
+            for (int z = -paddedViewDist; z <= paddedViewDist; z++) {
+                int finalX = x;
+                int finalZ = z;
+                CompletableFuture<Void> future = TaskFutures.runRegion(plugin, level.getWorld(), x, z, () -> {
+                    NoUnloadLevelChunk emptyChunk = createEmptyChunk(level, finalX, finalZ);
+                    insertChunk(level, emptyChunk);
+                    return null;
+                });
+
+                futures.add(future);
+            }
+        }
+
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+    }
+
+    private static NoUnloadLevelChunk createEmptyChunk(ServerLevel level, int x, int z) {
+        NoUnloadLevelChunk emptyChunk = new NoUnloadLevelChunk(level, new ChunkPos(x, z));
+        boolean[] emptySections = new boolean[emptyChunk.getSectionsCount()];
+        Arrays.fill(emptySections, true);
+        emptyChunk.starlight$setBlockEmptinessMap(emptySections.clone());
+        emptyChunk.starlight$setSkyEmptinessMap(emptySections);
+        emptyChunk.setLightCorrect(true);
+        return emptyChunk;
     }
 
     @Override

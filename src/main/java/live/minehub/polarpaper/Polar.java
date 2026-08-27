@@ -260,12 +260,21 @@ public class Polar {
                     // Since saving is disabled in the level anyway, setAutoSave is now essentially setting whether
                     // chunks should be allowed to unload and be removed from memory
                     world.setAutoSave(false);
+                })
+                .thenCompose(world -> {
+                    if (world == null) return CompletableFuture.completedFuture(null);
+                    ServerLevel level = ((CraftWorld) world).getHandle();
+                    return PolarStreamLoader.insertEmptyChunks(generator.getWorldAccess().getPlugin(), level).thenApply(_ -> world);
                 });
+
     }
 
     public static void stopAutoSaveTask(NamespacedKey worldKey) {
         ScheduledTask prevTask = AUTOSAVE_TASK_MAP.get(worldKey);
-        if (prevTask != null) prevTask.cancel();
+        if (prevTask != null) {
+            prevTask.cancel();
+            AUTOSAVE_TASK_MAP.remove(worldKey);
+        }
     }
 
     public static void startAutoSaveTask(World world, Config config) {
@@ -410,6 +419,9 @@ public class Polar {
     public static CompletableFuture<Void> saveWorld(World world, Collection<PolarChunk> extraChunks, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight) {
         if (Polar.isLoading(world.getKey())) return CompletableFuture.failedFuture(new IllegalStateException(world.getKey() + " is still loading"));
 
+        PolarGenerator generator = PolarGenerator.fromWorld(world);
+        byte[] prevWorldUserData = generator == null ? new byte[0] : generator.getUserData();
+
         CompletableFuture<PolarWorld> future;
         try {
             future = PolarWorld.convert(world, polarWorldAccess, blockSelector, saveLight, extraChunks, false);
@@ -418,6 +430,7 @@ public class Polar {
         }
 
         return future.thenAcceptAsync(newPolarWorld -> {
+            newPolarWorld.userData(prevWorldUserData);
             PolarWriter.write(polarSource, newPolarWorld);
         });
     }
