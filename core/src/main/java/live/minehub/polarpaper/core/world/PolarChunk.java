@@ -309,10 +309,9 @@ public record PolarChunk(
         }
 
         BitStorage blockBitStorage = blockPaletteData.storage().copy();
+
+        // Handle block selector
         int airIndex = blockPaletteStrings.indexOf("minecraft:air");
-
-        // TODO: needs to remove no longer used palette entries and then fix the int array
-
         for (int index = 0; index < blockBitStorage.getSize(); ++index) {
             boolean included = blockSelector.test(index, chunkX, chunkZ, minSection + sectionI);
             if (included) continue;
@@ -327,15 +326,43 @@ public record PolarChunk(
             blockBitStorage.set(index, airIndex);
         }
 
-        int bitsPerEntry = Mth.ceillog2(blockPaletteStrings.size());
-        if (blockBitStorage.getBits() != 0 && bitsPerEntry != blockBitStorage.getBits()) {
-            // repack
-            int[] ints = new int[blockBitStorage.getSize()];
-            PaletteUtil.unpack(ints, blockBitStorage.getRaw(), blockBitStorage.getBits());
-            blockData = PaletteUtil.pack(ints, bitsPerEntry);
-        } else {
+        if (blockBitStorage instanceof ZeroBitStorage) {
             blockData = blockBitStorage.getRaw();
+        } else {
+            // check for unused blocks
+            // unpack always required to check for unused blocks, however we can avoid packing if there are no unused blocks
+            int[] ints = new int[blockBitStorage.getSize()];
+            List<Integer> unused = new ArrayList<>(blockPaletteStrings.size());
+            PaletteUtil.unpack(ints, blockBitStorage.getRaw(), blockBitStorage.getBits());
+            for (int i = blockPaletteStrings.size() - 1; i >= 0; i--) {
+                if (!contains(ints, i)) {
+//                    LOGGER.info("{} ({}) is unused", i, blockPaletteStrings.get(i));
+                    blockPaletteStrings.remove(i);
+                    unused.add(i);
+                }
+            }
+
+            int oldBitsPerEntry = Mth.ceillog2(blockPaletteStrings.size());
+            if (oldBitsPerEntry == blockBitStorage.getBits() && unused.isEmpty()) {
+                blockData = blockBitStorage.getRaw();
+            } else {
+                if (!unused.isEmpty()) {
+                    for (int i = 0; i < ints.length; i++) {
+                        int value = ints[i];
+                        for (int i1 = unused.size() - 1; i1 >= 0; i1--) {
+                            int unusedVal = unused.get(i1);
+                            if (unusedVal > value) continue;
+                            value--;
+                        }
+                        ints[i] = value;
+                    }
+                }
+                int bitsPerEntry = Mth.ceillog2(blockPaletteStrings.size());
+                if (bitsPerEntry == 0) blockData = new long[0];
+                else blockData = PaletteUtil.pack(ints, bitsPerEntry);
+            }
         }
+
         PalettedContainer.Data<Holder<Biome>> biomePaletteData = ((PalettedContainer<Holder<Biome>>)chunkAccessSection.getBiomes()).data;
         Object[] biomePalette = biomePaletteData.palette().moonrise$getRawPalette(biomePaletteData);
         for (Object p : biomePalette) {
@@ -388,6 +415,13 @@ public record PolarChunk(
                 blockLightContent, blockLight,
                 skyLightContent, skyLight
         );
+    }
+
+    private static boolean contains(int[] array, int val) {
+        for (int j : array) {
+            if (j == val) return true;
+        }
+        return false;
     }
 
     public static boolean isChunkEmpty(NewChunkHolder chunkHolder) {
