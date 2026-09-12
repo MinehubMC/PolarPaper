@@ -58,7 +58,7 @@ public class SetCenterCommand extends PolarCmd {
                 PolarReader polarReader = new PolarReader();
                 PolarWorld newPolarWorld = polarReader.read(source);
                 newPolarWorld.userData(WorldUserData.writeSchematicOffset(center));
-                PolarWriter.write(source, newPolarWorld);
+                PolarWriter.write(source, newPolarWorld, polarGenerator.getConfig());
             } catch (Exception e) {
                 String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getKey().getKey());
                 LOGGER.error(errorMsg, e);

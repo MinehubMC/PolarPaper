@@ -153,19 +153,18 @@ public class Polar {
 
         PolarStreamLoader loader = new PolarStreamLoader(config, source, worldAccess, dataConverter);
 
-        return createWorld(loader, worldName).thenApplyAsync(world -> {
+        return createWorld(loader, worldName).thenComposeAsync(world -> {
             if (world == null) return null;
 
             try {
-                loader.load(world);
-
-                LOGGER.info("Loaded {} in {}ns", worldName, System.nanoTime() - before);
-                setLoading(world.getKey(), false);
-                startAutoSaveTask(world, config);
+                return loader.load(world).thenApply(_ -> world);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-
+        }).thenApply(world -> {
+            LOGGER.info("Loaded {} in {}ns", worldName, System.nanoTime() - before);
+            setLoading(world.getKey(), false);
+            startAutoSaveTask(world, config);
             return world;
         }).exceptionally(e -> {
             LOGGER.error("Failed to load world {}", worldName, e);
@@ -399,7 +398,7 @@ public class Polar {
         PolarGenerator generator = PolarGenerator.fromWorld(world);
         if (generator == null) return CompletableFuture.completedFuture(null);
         Collection<PolarChunk> extraChunks = generator.getPolarWorld() == null ? List.of() : generator.getPolarWorld().chunks();
-        return saveWorld(world, extraChunks, polarSource, generator.getWorldAccess(), BlockSelector.ALL, generator.getConfig().saveLight());
+        return saveWorld(world, extraChunks, polarSource, generator.getWorldAccess(), BlockSelector.ALL, generator.getConfig());
     }
 
     /**
@@ -412,11 +411,11 @@ public class Polar {
      * @param polarSource The source to use to save the polar world
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
-     * @param saveLight Whether to save the world with light data
+     * @param config Whether to save the world with light data
      * @see EntitiesWorldAccess
      * @see BlockSelector#ALL
      */
-    public static CompletableFuture<Void> saveWorld(World world, Collection<PolarChunk> extraChunks, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight) {
+    public static CompletableFuture<Void> saveWorld(World world, Collection<PolarChunk> extraChunks, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config) {
         if (Polar.isLoading(world.getKey())) return CompletableFuture.failedFuture(new IllegalStateException(world.getKey() + " is still loading"));
 
         PolarGenerator generator = PolarGenerator.fromWorld(world);
@@ -424,14 +423,14 @@ public class Polar {
 
         CompletableFuture<PolarWorld> future;
         try {
-            future = PolarWorld.convert(world, polarWorldAccess, blockSelector, saveLight, extraChunks, false);
+            future = PolarWorld.convert(world, polarWorldAccess, blockSelector, config.saveLight(), extraChunks, false);
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
         }
 
         return future.thenAcceptAsync(newPolarWorld -> {
             newPolarWorld.userData(prevWorldUserData);
-            PolarWriter.write(polarSource, newPolarWorld);
+            PolarWriter.write(polarSource, newPolarWorld, config);
         });
     }
 

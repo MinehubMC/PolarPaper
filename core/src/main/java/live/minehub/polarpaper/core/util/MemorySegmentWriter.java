@@ -61,6 +61,10 @@ public class MemorySegmentWriter implements AutoCloseable, DataOutput {
         return writeIndex;
     }
 
+    public void setWriteIndex(long writeIndex) {
+        this.writeIndex = writeIndex;
+    }
+
     public void writeByte(byte b) {
         ensureWritable(BYTE_BE.byteSize());
         segment.set(BYTE_BE, writeIndex, b);

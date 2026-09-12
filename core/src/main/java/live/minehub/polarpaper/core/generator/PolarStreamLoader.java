@@ -116,8 +116,8 @@ public class PolarStreamLoader extends PolarGenerator {
     }
 
     //https://github.com/hollow-cube/polar/blob/main/src/main/java/net/hollowcube/polar/StreamingPolarLoader.java#L64
-    public void load(@NotNull World world) throws IOException {
-        if (getSource() == null) return;
+    public CompletableFuture<Void> load(@NotNull World world) throws IOException {
+        if (getSource() == null) return CompletableFuture.completedFuture(null);
 
         try (Arena dstArena = Arena.ofConfined()) {
             final MemorySegment dst;
@@ -163,8 +163,7 @@ public class PolarStreamLoader extends PolarGenerator {
 
                 switch (compression) {
                     case NONE -> {
-                        readData(src.asSlice(reader.getOffset()), world);
-                        return;
+                        return readData(src.asSlice(reader.getOffset()), world);
                     }
                     // src should be unreachable following the dst copy.
                     case ZSTD -> {
@@ -179,14 +178,14 @@ public class PolarStreamLoader extends PolarGenerator {
 
             } catch (Exception e) {
                 e.printStackTrace();
-                throw e;
+                return CompletableFuture.failedFuture(e);
             }
             // Now we can just read the dst buffer without having to worry about the extra footprint of src
-            readData(dst, world);
+            return readData(dst, world);
         }
     }
 
-    private void readData(MemorySegment segment, World world) {
+    private CompletableFuture<Void> readData(MemorySegment segment, World world) {
         MemorySegmentReader reader = new MemorySegmentReader(segment);
 
         byte minSection = reader.readByte();
@@ -195,10 +194,12 @@ public class PolarStreamLoader extends PolarGenerator {
 
         this.userData = reader.readByteArray();
 
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
         int chunkCount = reader.readVarInt();
         for (int i = 0; i < chunkCount; i++) {
-            readChunk(reader, world, maxSection - minSection + 1);
+            futures.add(readChunk(reader, world, maxSection - minSection + 1));
         }
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
     }
 
     private CompletableFuture<Void> readChunk(MemorySegmentReader reader, World world, int sectionCount) {
@@ -227,7 +228,7 @@ public class PolarStreamLoader extends PolarGenerator {
                 blockNibbles[i + 1] = polarSection.blockLight();
             } catch (Exception e) {
                 LOGGER.error("Failed to load chunk at {} {} (section {}/{}) in {}", chunkX, chunkZ, i, sectionCount, world.getKey());
-//                throw e;
+                return CompletableFuture.failedFuture(e);
             }
 
         }

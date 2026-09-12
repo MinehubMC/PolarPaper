@@ -6,12 +6,13 @@ import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 
 public class Vector3iCodec {
     public static final MemoryLayout LAYOUT = MemoryLayout.structLayout(
-            ValueLayout.JAVA_INT_UNALIGNED.withName("x"),
-            ValueLayout.JAVA_INT_UNALIGNED.withName("y"),
-            ValueLayout.JAVA_INT_UNALIGNED.withName("z")
+            ValueLayout.JAVA_INT_UNALIGNED.withName("x").withOrder(ByteOrder.BIG_ENDIAN),
+            ValueLayout.JAVA_INT_UNALIGNED.withName("y").withOrder(ByteOrder.BIG_ENDIAN),
+            ValueLayout.JAVA_INT_UNALIGNED.withName("z").withOrder(ByteOrder.BIG_ENDIAN)
     );
 
     private static final VarHandle X_HANDLE = LAYOUT.varHandle(MemoryLayout.PathElement.groupElement("x"));

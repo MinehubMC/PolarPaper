@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.core.world;
 
 import dev.hallock.zstd.Zstd;
+import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.util.MemorySegmentWriter;
 import live.minehub.polarpaper.core.util.PaletteUtil;
@@ -16,6 +17,10 @@ import java.util.List;
 public class PolarWriter {
 
     private PolarWriter() {
+    }
+
+    public static void write(@NotNull PolarSource source, @NotNull PolarWorld world, @NotNull Config config) {
+        write(source, world, PolarDataConverter.DEFAULT, config.compression(), config.compressionLevel());
     }
 
     public static void write(@NotNull PolarSource source, @NotNull PolarWorld world) {
