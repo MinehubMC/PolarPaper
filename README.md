@@ -1,4 +1,9 @@
+<div align="center">
+<img width="150" height="150" alt="polar-logo" src="https://github.com/user-attachments/assets/84a8df1c-52c9-42e9-8446-fab7192e5aac" />
+ 
 # Polar world format for Paper
+</div>
+
 [![](https://dcbadge.limes.pink/api/server/n7fp52auB7)](https://discord.gg/n7fp52auB7)
 
 
@@ -19,7 +24,11 @@ Polar currently supports versions 26.2, 26.1.2, and 1.21.11, and requires minimu
 Polar was originally developed for [Minestom](https://github.com/Minestom/Minestom)! See the Minestom library [here](https://github.com/hollow-cube/polar)
 
 ## Large worlds
-Polar is not designed for large worlds! Polar is most useful when the whole world is mostly within render distance. The entire world is held in memory as a trade-off to allow for faster loading. This means the size/number of worlds you can load depends on how much RAM you have available. If you need large worlds, it's likely Anvil (the default world format) will be more useful.
+Polar is not designed for large worlds! 
+
+Polar is most useful when the whole world is mostly within render distance. The entire world is held in memory as a trade-off to allow for faster loading. This means the size/number of worlds you can load depends on how much RAM you have available. 
+
+If you need large worlds, it's likely Anvil (the default world format) will be more useful.
 
 ## Permissions
 Permission nodes are simply `polarpaper.<subcommand>`, for example: `polarpaper.info` for `/polar info`
