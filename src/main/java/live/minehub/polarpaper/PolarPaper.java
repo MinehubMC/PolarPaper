@@ -32,8 +32,6 @@ import java.util.stream.Stream;
 
 public final class PolarPaper extends JavaPlugin {
 
-    // A save should never hang now that its tasks are actually run, but a stop that never finishes is worse than
-    // a world that failed to save, so give up eventually. Folia allows itself the same 60s to halt its schedulers.
     private static final long SAVE_ON_STOP_TIMEOUT_SECONDS = 60;
 
     @Override
@@ -83,8 +81,6 @@ public final class PolarPaper extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // Saving schedules tasks that no scheduler is going to run anymore at this point, so they get run on this
-        // thread instead. Without this the save either blocks forever or quietly drops whatever it was waiting on.
         ShutdownExecutor.start();
         try {
             for (World world : getServer().getWorlds()) {
