@@ -6,6 +6,8 @@ import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
 
 public class FoliaUtil {
+  
+    private static final boolean FOLIA = checkFolia();
 
     /**
      * Runs the task on the thread owning the entity
@@ -41,6 +43,10 @@ public class FoliaUtil {
     }
 
     public static boolean isFolia() {
+        return FOLIA;
+    }
+
+    public static boolean checkFolia() {
         try {
             Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
             return true;

@@ -2,7 +2,6 @@ package live.minehub.polarpaper.core.world;
 
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
-import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.util.CoordConversion;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.level.ServerLevel;
@@ -25,27 +24,9 @@ public class PolarWorld {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PolarWorld.class);
 
-    public static final int MAGIC_NUMBER = 0x506F6C72; // `Polr`
-    public static final short LATEST_VERSION = 7;
-    public static final short MIN_VERSION = 4;
-
-//    static final short VERSION_UNIFIED_LIGHT = 1;
-//    static final short VERSION_USERDATA_OPT_BLOCK_ENT_NBT = 2;
-//    static final short VERSION_MINESTOM_NBT_READ_BREAK = 3;
-    static final short VERSION_WORLD_USERDATA = 4;
-    static final short VERSION_SHORT_GRASS = 5; // >:(
-    static final short VERSION_DATA_CONVERTER = 6;
-    static final short VERSION_IMPROVED_LIGHT = 7;
-    static final short VERSION_DEPRECATED_ENTITIES = 8;
-
-    public static CompressionType DEFAULT_COMPRESSION = CompressionType.ZSTD;
-    public static int DEFAULT_COMPRESSION_LEVEL = 7;
-
     // Polar metadata
     private final short version;
     private final int dataVersion;
-    private CompressionType compression;
-    private int compressionLevel = DEFAULT_COMPRESSION_LEVEL;
 
     // World metadata
     private final byte minSection;
@@ -55,29 +36,23 @@ public class PolarWorld {
     // Chunk data
     private final Map<Long, PolarChunk> chunks = new ConcurrentHashMap<>();
 
-    public PolarWorld(byte minSection, byte maxSection, Config config) {
-        this(LATEST_VERSION, SharedConstants.getCurrentVersion().dataVersion().version(), DEFAULT_COMPRESSION, minSection, maxSection, new byte[0], List.of());
-        this.compression = config.compression();
-        this.compressionLevel = config.compressionLevel();
+    public PolarWorld(byte minSection, byte maxSection) {
+        this(PolarConstants.LATEST_VERSION, SharedConstants.getCurrentVersion().dataVersion().version(), minSection, maxSection, new byte[0], List.of());
     }
 
-    public PolarWorld(byte minSection, byte maxSection, Config config, @NotNull List<PolarChunk> chunks) {
-        this(LATEST_VERSION, SharedConstants.getCurrentVersion().dataVersion().version(), DEFAULT_COMPRESSION, minSection, maxSection, new byte[0], chunks);
-        this.compression = config.compression();
-        this.compressionLevel = config.compressionLevel();
+    public PolarWorld(byte minSection, byte maxSection, @NotNull List<PolarChunk> chunks) {
+        this(PolarConstants.LATEST_VERSION, SharedConstants.getCurrentVersion().dataVersion().version(), minSection, maxSection, new byte[0], chunks);
     }
 
     public PolarWorld(
             short version,
             int dataVersion,
-            @NotNull CompressionType compression,
             byte minSection, byte maxSection,
             byte @NotNull [] userData,
             @NotNull List<PolarChunk> chunks
     ) {
         this.version = version;
         this.dataVersion = dataVersion;
-        this.compression = compression;
 
         this.minSection = minSection;
         this.maxSection = maxSection;
@@ -107,22 +82,6 @@ public class PolarWorld {
 
     public int dataVersion() {
         return dataVersion;
-    }
-
-    public @NotNull CompressionType compression() {
-        return compression;
-    }
-
-    public void compression(@NotNull CompressionType compression) {
-        this.compression = compression;
-    }
-
-    public int compressionLevel() {
-        return compressionLevel;
-    }
-
-    public void compressionLevel(int compressionLevel) {
-        this.compressionLevel = compressionLevel;
     }
 
     public byte minSection() {
@@ -194,7 +153,7 @@ public class PolarWorld {
      * @see BlockSelector#ALL
      */
     public CompletableFuture<PolarWorld> updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean loadChunks) {
-        return convert(world, polarWorldAccess, blockSelector, Config.Builder.defaults().build(), this.nonEmptyChunks(), loadChunks);
+        return convert(world, polarWorldAccess, blockSelector, true, this.nonEmptyChunks(), loadChunks);
     }
 
     /**
@@ -205,8 +164,8 @@ public class PolarWorld {
      * @param world The bukkit world to retrieve the updated chunks from
      * @see BlockSelector#ALL
      */
-    public CompletableFuture<PolarWorld> updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config, boolean loadChunks) {
-        return convert(world, polarWorldAccess, blockSelector, config, this.nonEmptyChunks(), loadChunks);
+    public CompletableFuture<PolarWorld> updateChunks(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight, boolean loadChunks) {
+        return convert(world, polarWorldAccess, blockSelector, saveLight, this.nonEmptyChunks(), loadChunks);
     }
 
     /**
@@ -218,7 +177,7 @@ public class PolarWorld {
      * @see BlockSelector#ALL
      */
     public static CompletableFuture<PolarWorld> convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean loadChunks) {
-        return convert(world, polarWorldAccess, blockSelector, Config.Builder.defaults().build(), loadChunks);
+        return convert(world, polarWorldAccess, blockSelector, true, loadChunks);
     }
 
     /**
@@ -227,11 +186,11 @@ public class PolarWorld {
      * @param world The bukkit world to retrieve the updated chunks from
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
-     * @param config Custom config for the polar world
+     * @param saveLight Whether to convert the chunk with light data
      * @see BlockSelector#ALL
      */
-    public static CompletableFuture<PolarWorld> convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config, boolean loadChunks) {
-        return convert(world, polarWorldAccess, blockSelector, config, List.of(),loadChunks);
+    public static CompletableFuture<PolarWorld> convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight, boolean loadChunks) {
+        return convert(world, polarWorldAccess, blockSelector, saveLight, List.of(), loadChunks);
     }
 
     /**
@@ -240,12 +199,12 @@ public class PolarWorld {
      * @param world The bukkit world to retrieve the updated chunks from
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
-     * @param config Custom config for the polar world
+     * @param saveLight Whether to convert the chunk with light data
      * @param includedChunks PolarChunks to add to the world
      * @param loadChunks Whether to load chunks
      * @see BlockSelector#ALL
      */
-    public static CompletableFuture<PolarWorld> convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config, Collection<PolarChunk> includedChunks, boolean loadChunks) {
+    public static CompletableFuture<PolarWorld> convert(World world, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, boolean saveLight, Collection<PolarChunk> includedChunks, boolean loadChunks) {
         // TODO: consider offsets
         // TODO: chunk holders should probably be eventually released/removed (config option?)
 
@@ -270,7 +229,7 @@ public class PolarWorld {
         for (Vector2i chunkPos : chunkPoses) {
             int chunkX = chunkPos.x;
             int chunkZ = chunkPos.y;
-            futures.add(PolarChunk.convert(world, chunkX, chunkZ, polarWorldAccess, blockSelector, config.saveLight(), loadChunks)
+            futures.add(PolarChunk.convert(world, chunkX, chunkZ, polarWorldAccess, blockSelector, saveLight, loadChunks)
                     .exceptionally(e -> {
                         LOGGER.error("Failed to convert world", e);
                         return null;
@@ -289,7 +248,6 @@ public class PolarWorld {
             return new PolarWorld(
                     (byte) CoordConversion.sectionIndex(minHeight),
                     (byte) CoordConversion.sectionIndex(maxHeight),
-                    config,
                     chunks
             );
         }).exceptionally(e -> {

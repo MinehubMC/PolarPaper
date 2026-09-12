@@ -11,6 +11,7 @@ import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.source.PolarSource;
+import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -29,6 +30,9 @@ public class CreateBlankCommand extends PolarCmd {
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
         String worldName = ctx.getArgument("new world name", String.class);
+
+        // worldName becomes a file name, so it must not be able to go outside the worlds folder
+        if (WorldKey.validatePath(ctx.getSource().getSender(), worldName) == null) return Command.SINGLE_SUCCESS;
 
         NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());
         World bukkitWorld = worldKey == null ? null : Bukkit.getWorld(worldKey);

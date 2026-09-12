@@ -48,6 +48,10 @@ public abstract class PolarGenerator extends ChunkGenerator {
 
     public abstract Component getInfoComponent(World world);
 
+    public abstract byte[] getUserData();
+
+    public abstract void setUserData(byte[] userData);
+
     @Override
     public @Nullable Location getFixedSpawnLocation(@NotNull World world, @NotNull Random random) {
         Location loc = getConfig().spawn();

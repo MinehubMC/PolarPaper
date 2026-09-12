@@ -1,32 +1,39 @@
 package live.minehub.polarpaper.core.world;
 
 import ca.spottedleaf.moonrise.common.PlatformHooks;
+import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.EntityLookup;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
 import live.minehub.polarpaper.core.userdata.EntitySerializer;
+import live.minehub.polarpaper.core.util.MemorySegmentReader;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.*;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.datafix.fixes.References;
 import net.minecraft.world.entity.Entity;
 import org.bukkit.*;
+import org.bukkit.craftbukkit.CraftWorld;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
+import java.lang.foreign.MemorySegment;
 import java.util.Locale;
+import java.util.UUID;
 
 public record PolarEntity(double x, double y, double z, float yaw, float pitch, byte[] bytes) {
 
-    public @Nullable Entity toNMSEntity(EntitySerializer entitySerializer, World world, Location spawnLocation, boolean randomUUID) {
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);
-        DataInputStream dataInput = new DataInputStream(inputStream);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PolarEntity.class);
+
+    public @Nullable Entity toNMSEntity(EntitySerializer entitySerializer, World world, Location spawnLocation) {
+        MemorySegmentReader reader = new MemorySegmentReader(MemorySegment.ofArray(bytes));
         CompoundTag compound;
         try {
-            compound = NbtIo.read(dataInput, NbtAccounter.unlimitedHeap());
+            compound = NbtIo.read(reader, NbtAccounter.unlimitedHeap());
         } catch (IOException _) {
 //                ExceptionUtil.log(e);
             return null;
@@ -35,7 +42,17 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         if (dataVersion == null) return null;
         compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().getFixerUpper(), compound, dataVersion, SharedConstants.getCurrentVersion().dataVersion().version());
 
-        if (randomUUID) compound.remove("UUID"); // do not read UUID from bytes, instead use the default random uuid
+        ServerLevel level = ((CraftWorld) world).getHandle();
+        EntityLookup entityLookup = level.moonrise$getEntityLookup();
+        UUID entityUUID = getUUID(compound);
+        if (entityUUID != null) {
+            boolean hasEntity = entityLookup.hasEntity(entityUUID);
+            if (hasEntity) {
+                LOGGER.warn("Entity already exists with UUID {}, using random UUID", entityUUID);
+                compound.remove("UUID"); // do not read UUID from bytes, instead use the default random uuid
+            }
+        }
+
         ListTag posTag = new ListTag();
         posTag.add(DoubleTag.valueOf(spawnLocation.x()));
         posTag.add(DoubleTag.valueOf(spawnLocation.y()));
@@ -103,5 +120,14 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         return new Location(world, realX + chunkX * 16, y, realZ + chunkZ * 16, yaw, pitch);
     }
 
+    private @Nullable UUID getUUID(CompoundTag compound) {
+        int[] ints = compound.getIntArray("UUID").orElse(null);
+        if (ints == null) return null;
+
+        long msb = ((long) ints[0] << 32) | (ints[1] & 0xFFFFFFFFL);
+        long lsb = ((long) ints[2] << 32) | (ints[3] & 0xFFFFFFFFL);
+
+        return new UUID(msb, lsb);
+    }
 
 }

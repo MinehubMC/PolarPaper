@@ -80,7 +80,7 @@ public interface Setter {
             spawnLocation.setWorld(world);
 
             EntitySerializer entitySerializer = VersionUtil.getEntitySerializer();
-            net.minecraft.world.entity.Entity nmsEntity = polarEntity.toNMSEntity(entitySerializer, world, spawnLocation, true);
+            net.minecraft.world.entity.Entity nmsEntity = polarEntity.toNMSEntity(entitySerializer, world, spawnLocation);
             if (nmsEntity == null) return;
 
             CraftEntity entity = nmsEntity.getBukkitEntity();

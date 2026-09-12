@@ -1,6 +1,6 @@
 package live.minehub.polarpaper.core.world;
 
-import io.netty.buffer.ByteBuf;
+import live.minehub.polarpaper.core.util.MemorySegmentWriter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.ChunkAccess;
@@ -78,11 +78,11 @@ public interface PolarWorldAccess {
      * @param chunk The chunk being saved
      * @param blockEntities Block entities in the chunk being saved
      * @param entities Entities in the chunk being saved
-     * @param userData A buffer to write user data to save
+     * @param writer A buffer to write user data to save
      */
     default void saveChunkData(@NotNull ChunkAccess chunk,
                                @NotNull Map<BlockPos, BlockEntity> blockEntities, @NotNull Entity[] entities,
-                               @NotNull ByteBuf userData) {
+                               @NotNull MemorySegmentWriter writer) {
     }
 
     @ApiStatus.Experimental

@@ -1,11 +1,11 @@
 package live.minehub.polarpaper.util;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import live.minehub.polarpaper.core.event.PolarEntitySpawnEvent;
 import live.minehub.polarpaper.core.userdata.EntitySerializer;
 import live.minehub.polarpaper.core.userdata.EntityUtil;
-import live.minehub.polarpaper.core.util.ByteArrayUtil;
+import live.minehub.polarpaper.core.util.FoliaUtil;
+import live.minehub.polarpaper.core.util.MemorySegmentReader;
+import live.minehub.polarpaper.core.util.MemorySegmentWriter;
 import live.minehub.polarpaper.core.world.PolarEntity;
 import live.minehub.polarpaper.core.world.PolarWorldAccess;
 import net.minecraft.core.BlockPos;
@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -63,15 +64,16 @@ public class EntitiesWorldAccess implements PolarWorldAccess {
 
         ServerLevel level = ((CraftWorld) world).getHandle();
 
-        final var bb = Unpooled.wrappedBuffer(userData);
+        MemorySegment segment = MemorySegment.ofArray(userData);
+        MemorySegmentReader reader = new MemorySegmentReader(segment);
 
-        byte version = bb.readByte();
+        byte version = reader.readByte();
 
-        List<PolarEntity> entities = EntityUtil.getEntities(bb);
+        List<PolarEntity> entities = EntityUtil.getEntities(reader);
         List<net.minecraft.world.entity.Entity> successEntities = new ArrayList<>();
 
         for (PolarEntity polarEntity : entities) {
-            net.minecraft.world.entity.Entity entity = polarEntity.toNMSEntity(entitySerializer, world, polarEntity.getLocation(world, chunk.locX, chunk.locZ), true);
+            net.minecraft.world.entity.Entity entity = polarEntity.toNMSEntity(entitySerializer, world, polarEntity.getLocation(world, chunk.locX, chunk.locZ));
             if (entity == null) continue;
 
             CraftEntity bukkitEntity = entity.getBukkitEntity();
@@ -89,7 +91,7 @@ public class EntitiesWorldAccess implements PolarWorldAccess {
         if (version >= PERSISTENT_DATA_CONTAINER_VERSION) {
             PersistentDataContainer persistentDataContainer = chunk.persistentDataContainer;
             try {
-                byte[] bytes = ByteArrayUtil.getByteArray(bb);
+                byte[] bytes = reader.readByteArray();
                 persistentDataContainer.readFromBytes(bytes);
             } catch (IOException e) {
                 LOGGER.error("Failed to deserialize persistent data container", e);
@@ -100,32 +102,37 @@ public class EntitiesWorldAccess implements PolarWorldAccess {
     @Override
     public void saveChunkData(@NotNull ChunkAccess chunk,
                               @NotNull Map<BlockPos, BlockEntity> blockEntities,
-                              @NotNull Entity[] entities, @NotNull ByteBuf userData) {
+                              @NotNull Entity[] entities, @NotNull MemorySegmentWriter writer) {
         List<CompletableFuture<@Nullable PolarEntity>> entityFutures = new ArrayList<>();
-        List<@NotNull PolarEntity> polarEntities = new ArrayList<>();
 
         for (@NotNull Entity entity : entities) {
             if (entity.getType() == EntityType.PLAYER) continue;
-            CompletableFuture<@Nullable PolarEntity> entityFuture = EntityUtil.entityToPolarEntity(entity, plugin, entitySerializer);
-            entityFutures.add(entityFuture);
+            if (!entity.isPersistent()) continue;
+            CompletableFuture<PolarEntity> future = new CompletableFuture<>();
+            FoliaUtil.scheduleOnEntityIfFolia(plugin, entity, () -> {
+                PolarEntity polarEntity = EntityUtil.entityToPolarEntity(entity, plugin, entitySerializer);
+                future.complete(polarEntity);
+            });
+            entityFutures.add(future);
         }
 
+        List<@NotNull PolarEntity> polarEntities = new ArrayList<>();
         for (CompletableFuture<@Nullable PolarEntity> entityFuture : entityFutures) {
             PolarEntity polarEntity = entityFuture.join();
             if (polarEntity == null) continue;
             polarEntities.add(polarEntity);
         }
 
-        userData.writeByte(CURRENT_FEATURES_VERSION);
-        EntityUtil.writeEntities(polarEntities, userData);
+        writer.writeByte(CURRENT_FEATURES_VERSION);
+        EntityUtil.writeEntities(polarEntities, writer);
 
         DirtyCraftPersistentDataContainer persistentDataContainer = chunk.persistentDataContainer;
         try {
             byte[] bytes = persistentDataContainer.serializeToBytes();
-            ByteArrayUtil.writeByteArray(bytes, userData);
+            writer.writeByteArray(bytes);
         } catch (IOException e) {
             LOGGER.error("Failed to serialize persistent data container", e);
-            ByteArrayUtil.writeByteArray(new byte[0], userData);
+            writer.writeByteArray(new byte[0]);
         }
     }
 

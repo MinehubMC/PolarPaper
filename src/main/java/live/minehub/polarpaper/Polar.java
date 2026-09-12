@@ -3,7 +3,7 @@ package live.minehub.polarpaper;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
-import live.minehub.polarpaper.core.generator.PolarStreamingGenerator;
+import live.minehub.polarpaper.core.generator.PolarStreamLoader;
 import live.minehub.polarpaper.core.source.BytesPolarSource;
 import live.minehub.polarpaper.core.source.FilePolarSource;
 import live.minehub.polarpaper.core.source.PolarSource;
@@ -23,6 +23,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -95,7 +96,7 @@ public class Polar {
     public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource polarSource, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
-        return createWorld(polarSource, worldName, config, worldAccess);
+        return createWorld(polarSource, worldName, config, worldAccess, PolarDataConverter.DEFAULT);
     }
 
     /**
@@ -109,7 +110,7 @@ public class Polar {
     public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
-        return createWorld(polarWorld, worldName, config, worldAccess);
+        return createWorld(polarWorld, worldName, config, worldAccess, PolarDataConverter.DEFAULT);
     }
 
     /**
@@ -123,7 +124,7 @@ public class Polar {
      * @see BytesPolarSource
      */
     public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource polarSource, @NotNull String worldName, @NotNull Config config) {
-        return createWorld(polarSource, worldName, config, VersionUtil.getPolarFeaturesWorldAccess());
+        return createWorld(polarSource, worldName, config, VersionUtil.getPolarFeaturesWorldAccess(), PolarDataConverter.DEFAULT);
     }
 
     /**
@@ -134,7 +135,7 @@ public class Polar {
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
     public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config) {
-        return createWorld(polarWorld, worldName, config, VersionUtil.getPolarFeaturesWorldAccess());
+        return createWorld(polarWorld, worldName, config, VersionUtil.getPolarFeaturesWorldAccess(), PolarDataConverter.DEFAULT);
     }
 
     /**
@@ -147,33 +148,27 @@ public class Polar {
      * @see Polar#getDefaultFolderSource(String)
      * @see BytesPolarSource
      */
-    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource source, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
-        byte[] worldBytes;
-        try {
-            worldBytes = source == null ? null : source.readBytes();
-        } catch (Exception e) {
-            LOGGER.error("Failed to load world " + worldName, e);
-            return null;
-        }
+    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource source, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess, @NotNull PolarDataConverter dataConverter) {
+        long before = System.nanoTime();
 
-        return createWorld(new PolarStreamingGenerator(config, source, worldAccess), worldName).thenComposeAsync(world -> {
-            if (world == null) return CompletableFuture.completedFuture(null);
-            if (worldBytes != null && worldBytes.length > 0) {
-                return PolarStreamLoader.stream(worldBytes, world, worldAccess)
-                        .handle((_, ex) -> {
-                            if (ex != null) {
-                                LOGGER.error("Failed to load world " + worldName, ex);
-                                return null;
-                            }
+        PolarStreamLoader loader = new PolarStreamLoader(config, source, worldAccess, dataConverter);
 
-                            return world;
-                        });
+        return createWorld(loader, worldName).thenComposeAsync(world -> {
+            if (world == null) return null;
+
+            try {
+                return loader.load(world).thenApply(_ -> world);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-            return CompletableFuture.completedFuture(world);
-        }).whenComplete((result, ex) -> {
-            if (ex != null || result == null) return;
-            setLoading(result.getKey(), false);
-            startAutoSaveTask(result, config);
+        }).thenApply(world -> {
+            LOGGER.info("Loaded {} in {}ns", worldName, System.nanoTime() - before);
+            setLoading(world.getKey(), false);
+            startAutoSaveTask(world, config);
+            return world;
+        }).exceptionally(e -> {
+            LOGGER.error("Failed to load world {}", worldName, e);
+            return null;
         });
     }
 
@@ -184,8 +179,8 @@ public class Polar {
      * @param config Custom config for the polar world
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
-    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess) {
-        PolarStreamingGenerator generator = new PolarStreamingGenerator(config, null, worldAccess);
+    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess, @NotNull PolarDataConverter dataConverter) {
+        PolarStreamLoader generator = new PolarStreamLoader(config, null, worldAccess, dataConverter);
         generator.setUserData(polarWorld.userData());
         return createWorld(generator, worldName).thenComposeAsync(world -> {
             if (world == null) return CompletableFuture.completedFuture(null);
@@ -227,7 +222,7 @@ public class Polar {
      * @param worldName The name for the polar world
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      * @see EntitiesWorldAccess
-     * @see PolarStreamingGenerator
+     * @see PolarStreamLoader
      */
     public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarGenerator generator, @NotNull String worldName) {
         worldName = worldName.toLowerCase().replace(" ", "_");
@@ -252,24 +247,33 @@ public class Polar {
 
         return VersionUtil.createNoSaveLevel(worldCreator, config.spawn(), config.difficulty(), config.gamerules(), config.time())
                 .whenComplete((world, ex) -> {
-                    if (ex != null || world == null) {
-                        if (ex == null) {
-                            LOGGER.error("An error occurred loading polar world '" + worldKey.getKey() + "', skipping.");
-                        } else {
-                            LOGGER.error("An error occurred loading polar world '" + worldKey.getKey() + "', skipping.", ex);
-                        }
+                    if (ex != null) {
+                        LOGGER.error("An error occurred loading polar world '" + worldKey.getKey() + "', skipping.", ex);
+                        return;
+                    }
+                    if (world == null) {
+                        LOGGER.error("An error occurred loading polar world '" + worldKey.getKey() + "', skipping.");
                         return;
                     }
 
                     // Since saving is disabled in the level anyway, setAutoSave is now essentially setting whether
                     // chunks should be allowed to unload and be removed from memory
                     world.setAutoSave(false);
+                })
+                .thenCompose(world -> {
+                    if (world == null) return CompletableFuture.completedFuture(null);
+                    ServerLevel level = ((CraftWorld) world).getHandle();
+                    return PolarStreamLoader.insertEmptyChunks(generator.getWorldAccess().getPlugin(), level).thenApply(_ -> world);
                 });
+
     }
 
     public static void stopAutoSaveTask(NamespacedKey worldKey) {
         ScheduledTask prevTask = AUTOSAVE_TASK_MAP.get(worldKey);
-        if (prevTask != null) prevTask.cancel();
+        if (prevTask != null) {
+            prevTask.cancel();
+            AUTOSAVE_TASK_MAP.remove(worldKey);
+        }
     }
 
     public static void startAutoSaveTask(World world, Config config) {
@@ -407,27 +411,26 @@ public class Polar {
      * @param polarSource The source to use to save the polar world
      * @param polarWorldAccess Describes how userdata should be handled (default PolarWorldAccess.POLAR_PAPER_FEATURES)
      * @param blockSelector Used to filter which blocks should be updated (essentially a crop)
-     * @param config Custom config for the polar world
+     * @param config Whether to save the world with light data
      * @see EntitiesWorldAccess
      * @see BlockSelector#ALL
      */
     public static CompletableFuture<Void> saveWorld(World world, Collection<PolarChunk> extraChunks, PolarSource polarSource, PolarWorldAccess polarWorldAccess, BlockSelector blockSelector, Config config) {
         if (Polar.isLoading(world.getKey())) return CompletableFuture.failedFuture(new IllegalStateException(world.getKey() + " is still loading"));
 
+        PolarGenerator generator = PolarGenerator.fromWorld(world);
+        byte[] prevWorldUserData = generator == null ? new byte[0] : generator.getUserData();
+
         CompletableFuture<PolarWorld> future;
         try {
-            future = PolarWorld.convert(world, polarWorldAccess, blockSelector, config, extraChunks, false);
+            future = PolarWorld.convert(world, polarWorldAccess, blockSelector, config.saveLight(), extraChunks, false);
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
         }
 
         return future.thenAcceptAsync(newPolarWorld -> {
-            byte[] worldBytes = PolarWriter.write(newPolarWorld);
-            try {
-                polarSource.saveBytes(worldBytes);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            newPolarWorld.userData(prevWorldUserData);
+            PolarWriter.write(polarSource, newPolarWorld, config);
         });
     }
 

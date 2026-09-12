@@ -83,7 +83,7 @@ public class LoadCommand extends PolarCmd {
 
         long before = System.nanoTime();
 
-        Polar.createWorld(source, newWorldName).thenAccept(world -> {
+        Polar.createWorld(source, newWorldName).whenComplete((world, _) -> {
             boolean successful = world != null;
             if (successful) {
                 int ms = (int) ((System.nanoTime() - before) / 1_000_000);
