@@ -200,7 +200,9 @@ public class NoSaveLevelCreatorImpl implements NoSaveLevelCreator {
             );
 
             serverLevel.dimensionType().defaultClock().ifPresent(clock -> {
-                serverLevel.clockManager().setTotalTicks(clock, time);
+                Bukkit.getGlobalRegionScheduler().execute(plugin, () -> {
+                    serverLevel.clockManager().setTotalTicks(clock, time);
+                });
             });
 
             craftServer.getServer().addLevel(serverLevel); // Paper - Put world into worldlist before initing the world; move up
