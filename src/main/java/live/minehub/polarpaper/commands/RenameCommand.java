@@ -6,15 +6,11 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
-import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.minecraft.resources.Identifier;
 import org.bukkit.World;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

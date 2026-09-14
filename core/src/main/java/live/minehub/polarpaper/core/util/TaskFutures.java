@@ -45,7 +45,15 @@ public class TaskFutures {
     /**
      * If already on the tick thread, immediately runs the runnable. Otherwise, schedules the task on the global region scheduler
      */
-    public static <T> CompletableFuture<T> runSync(Plugin plugin, Supplier<T> runnable) {
+    public static <T> CompletableFuture<T> runTickThread(Plugin plugin, Supplier<T> runnable) {
+        if (TickThread.isTickThread()) return CompletableFuture.completedFuture(runnable.get());
+        return runGlobal(plugin, runnable);
+    }
+
+    /**
+     * Schedule the task on the global region scheduler
+     */
+    public static <T> CompletableFuture<T> runGlobal(Plugin plugin, Supplier<T> runnable) {
         if (TickThread.isTickThread()) return CompletableFuture.completedFuture(runnable.get());
         CompletableFuture<T> future = new CompletableFuture<>();
         Bukkit.getGlobalRegionScheduler().execute(plugin, () -> {

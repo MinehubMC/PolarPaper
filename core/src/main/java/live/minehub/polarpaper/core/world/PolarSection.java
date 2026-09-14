@@ -20,8 +20,6 @@ import net.minecraft.world.level.chunk.Configuration;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.PalettedContainer;
 import net.minecraft.world.level.chunk.Strategy;
-import org.bukkit.Bukkit;
-import org.bukkit.craftbukkit.block.data.CraftBlockData;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -30,8 +28,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Representation of the latest version of the section format.

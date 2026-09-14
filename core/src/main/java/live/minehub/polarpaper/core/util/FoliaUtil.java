@@ -8,6 +8,7 @@ import org.bukkit.plugin.Plugin;
 public class FoliaUtil {
   
     private static final boolean FOLIA = checkFolia();
+    private static final boolean CANVAS = checkCanvas();
 
     /**
      * Runs the task on the thread owning the entity
@@ -46,9 +47,22 @@ public class FoliaUtil {
         return FOLIA;
     }
 
-    public static boolean checkFolia() {
+    public static boolean isCanvas() {
+        return CANVAS;
+    }
+
+    private static boolean checkFolia() {
         try {
             Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    private static boolean checkCanvas() {
+        try {
+            Class.forName("io.canvasmc.canvas.GlobalConfiguration");
             return true;
         } catch (ClassNotFoundException e) {
             return false;

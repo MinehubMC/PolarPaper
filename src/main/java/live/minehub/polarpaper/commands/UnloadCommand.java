@@ -10,12 +10,11 @@ import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.util.FoliaUtil;
-import live.minehub.polarpaper.core.util.TaskFutures;
+import live.minehub.polarpaper.nms.VersionUtil;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.minecraft.resources.Identifier;
-import org.bukkit.Bukkit;
 import org.bukkit.World;
 
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +39,7 @@ public class UnloadCommand extends PolarCmd {
     }
 
     protected static CompletableFuture<Boolean> unload(CommandContext<CommandSourceStack> ctx, Identifier worldId, boolean saveOverrided, boolean save) {
-        if (FoliaUtil.isFolia()) {
+        if (FoliaUtil.isFolia() && !FoliaUtil.isCanvas()) {
             ctx.getSource().getSender().sendMessage(
                     Component.text()
                             .append(Component.text("Unloading worlds is not supported on Folia!", NamedTextColor.RED))
@@ -96,9 +95,7 @@ public class UnloadCommand extends PolarCmd {
 
     protected static CompletableFuture<Boolean> bukkitUnload(CommandContext<CommandSourceStack> ctx, World bukkitWorld) {
         String worldName = bukkitWorld.getKey().getKey();
-        return TaskFutures.runSync(PolarPaper.getPlugin(), () -> {
-            return Bukkit.unloadWorld(bukkitWorld, false);
-        }).handle((success, ex) -> {
+        return VersionUtil.getWorldUnloader().unloadWorld(PolarPaper.getPlugin(), bukkitWorld).handle((success, ex) -> {
             if (!success || ex != null) {
                 if (!bukkitWorld.getPlayers().isEmpty()) {
                     ctx.getSource().getSender().sendMessage(

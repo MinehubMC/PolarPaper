@@ -2,7 +2,7 @@ plugins {
     java
     `maven-publish`
 
-    alias(libs.plugins.paperweight.userdev)
+    alias(libs.plugins.weaver.userdev)
     alias(libs.plugins.run)
     alias(libs.plugins.resource.paper)
     alias(libs.plugins.hangar.publish)
@@ -25,6 +25,7 @@ dependencies {
     implementation(project(":paper_latest"))
     implementation(project(":paper_26_1_2"))
     implementation(project(":paper_1_21_11"))
+    implementation(project(":canvas_latest"))
     compileOnly(libs.zstd)
 }
 

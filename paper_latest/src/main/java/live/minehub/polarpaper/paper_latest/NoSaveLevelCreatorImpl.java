@@ -222,7 +222,7 @@ public class NoSaveLevelCreatorImpl implements NoSaveLevelCreator {
 
         boolean async = !craftServer.isPrimaryThread();
         if (async) {
-            return TaskFutures.runSync(plugin, initSupplier);
+            return TaskFutures.runTickThread(plugin, initSupplier);
         } else {
             return CompletableFuture.completedFuture(initSupplier.get());
         }

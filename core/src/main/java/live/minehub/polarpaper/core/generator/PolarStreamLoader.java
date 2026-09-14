@@ -10,7 +10,6 @@ import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightEngine;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightInterface;
-import com.mojang.logging.LogUtils;
 import io.papermc.paper.FeatureHooks;
 import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.source.PolarSource;
@@ -63,7 +62,9 @@ import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public class PolarStreamLoader extends PolarGenerator {

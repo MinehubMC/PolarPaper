@@ -2,7 +2,9 @@ package live.minehub.polarpaper.nms;
 
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.core.WorldUnloader;
 import live.minehub.polarpaper.core.userdata.EntitySerializer;
+import live.minehub.polarpaper.core.util.FoliaUtil;
 import live.minehub.polarpaper.util.EntitiesWorldAccess;
 import org.bukkit.Difficulty;
 import org.bukkit.Location;
@@ -39,6 +41,11 @@ public class VersionUtil {
             case "1.21.11", "26.1.2" -> new live.minehub.polarpaper.paper_26_1.EntitySerializerImpl();
             default -> new live.minehub.polarpaper.paper_latest.EntitySerializerImpl();
         };
+    }
+
+    public static WorldUnloader getWorldUnloader() {
+        if (FoliaUtil.isCanvas()) return new live.minehub.polarpaper.canvas_latest.WorldUnloaderImpl();
+        return new live.minehub.polarpaper.paper_latest.WorldUnloaderImpl();
     }
 
 }
