@@ -2,6 +2,7 @@ package live.minehub.polarpaper.paper_latest;
 
 import com.mojang.logging.LogUtils;
 import live.minehub.polarpaper.core.userdata.EntitySerializer;
+import live.minehub.polarpaper.core.util.FoliaUtil;
 import live.minehub.polarpaper.core.util.MemorySegmentWriter;
 import net.minecraft.SharedConstants;
 import net.minecraft.nbt.CompoundTag;

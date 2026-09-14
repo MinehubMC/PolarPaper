@@ -112,7 +112,7 @@ public class EntitiesWorldAccess implements PolarWorldAccess {
             FoliaUtil.scheduleOnEntityIfFolia(plugin, entity, () -> {
                 PolarEntity polarEntity = EntityUtil.entityToPolarEntity(entity, plugin, entitySerializer);
                 future.complete(polarEntity);
-            });
+            }, () -> future.complete(null));
             entityFutures.add(future);
         }
 
