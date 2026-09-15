@@ -1,3 +1,5 @@
+import xyz.jpenilla.resourcefactory.paper.PaperPluginYaml.Load
+
 plugins {
     java
     `maven-publish`
@@ -9,13 +11,14 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
-val developmentVersion = "2.2.2"
+val developmentVersion = "2.2.3"
 
 version = getVersion()
 group = "live.minehub"
 
 repositories {
     mavenCentral()
+    maven("https://maven.enginehub.org/repo/")
 }
 
 dependencies {
@@ -27,6 +30,7 @@ dependencies {
     implementation(project(":paper_1_21_11"))
     implementation(project(":canvas_latest"))
     compileOnly(libs.zstd)
+    compileOnly(libs.worldedit)
 }
 
 tasks {
@@ -114,6 +118,11 @@ paperPluginYaml {
 
     main = "live.minehub.polarpaper.PolarPaper"
     loader = "live.minehub.polarpaper.PolarPaperLoader"
+
+    dependencies {
+        server("WorldEdit", load = Load.BEFORE, required = false)
+        server("FastAsyncWorldEdit", load = Load.BEFORE, required = false)
+    }
 }
 
 hangarPublish {

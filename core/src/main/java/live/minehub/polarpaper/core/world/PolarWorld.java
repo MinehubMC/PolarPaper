@@ -13,10 +13,7 @@ import org.joml.Vector2i;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -208,7 +205,7 @@ public class PolarWorld {
         // TODO: consider offsets
         // TODO: chunk holders should probably be eventually released/removed (config option?)
 
-        List<Vector2i> chunkPoses = new ArrayList<>();
+        Set<Vector2i> chunkPoses = new HashSet<>();
         List<PolarChunk> chunks = new ArrayList<>();
 
         ServerLevel serverLevel = ((CraftWorld) world).getHandle();

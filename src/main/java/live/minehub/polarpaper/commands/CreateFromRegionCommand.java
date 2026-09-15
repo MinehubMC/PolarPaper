@@ -15,6 +15,8 @@ import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.core.world.PolarWriter;
 import live.minehub.polarpaper.nms.VersionUtil;
 import live.minehub.polarpaper.schematic.Schematic;
+import live.minehub.polarpaper.util.Selection;
+import live.minehub.polarpaper.util.WorldEditUtil;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -22,11 +24,13 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.minecraft.resources.Identifier;
+import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3i;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -121,18 +125,33 @@ public class CreateFromRegionCommand extends PolarCmd {
 
         String newWorldName = ctx.getArgument("new world name", String.class);
 
+        Selection selection = getPlayerSelection(player);
+        if (selection == null) {
+            player.sendMessage(Component.text("You need to select two corners with the polar wand!", NamedTextColor.RED));
+            return Command.SINGLE_SUCCESS;
+        }
+
+        createFromRegion(ctx, bukkitWorld, newWorldName, selection.pos1(), selection.pos2());
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static @Nullable Selection getPlayerSelection(Player player) {
+        // Check polar wand
         PersistentDataContainer data = player.getPersistentDataContainer();
         int[] pos1Array = data.get(Schematic.POS_1_KEY, PersistentDataType.INTEGER_ARRAY);
         int[] pos2Array = data.get(Schematic.POS_2_KEY, PersistentDataType.INTEGER_ARRAY);
         if (pos1Array == null || pos2Array == null) {
-            ctx.getSource().getSender().sendMessage(Component.text("You need to select two corners with the polar wand!", NamedTextColor.RED));
-            return Command.SINGLE_SUCCESS;
+            // Check worldedit if present
+            if (!isWorldEditPresent()) return null;
+            return WorldEditUtil.getPlayerSelection(player);
         }
         Vector3i pos1 = new Vector3i(pos1Array);
         Vector3i pos2 = new Vector3i(pos2Array);
+        return new Selection(pos1, pos2);
+    }
 
-        createFromRegion(ctx, bukkitWorld, newWorldName, pos1, pos2);
-        return Command.SINGLE_SUCCESS;
+    private static boolean isWorldEditPresent() {
+        return Bukkit.getPluginManager().isPluginEnabled("WorldEdit");
     }
 
     @Override
@@ -178,4 +197,5 @@ public class CreateFromRegionCommand extends PolarCmd {
                                                                             return Command.SINGLE_SUCCESS;
                                                                         })))))))));
     }
+
 }
