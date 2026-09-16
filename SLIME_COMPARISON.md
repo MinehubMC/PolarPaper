@@ -28,7 +28,7 @@ Medium sized map (24x24 chunks), some entities
 | Polar No Light | 945 | 0.53x |
 | Polar Compression Level 22 | 1100 | 0.62x |
 | Polar Compression Level 22 No Light | 781 | 0.43x |
-| Anvil | 8000 | 4.44x |
+| Anvil | 7892 | 4.38x |
 
 ## Overworld
 18x18 chunks of vanilla overworld, no entities
@@ -40,4 +40,4 @@ Medium sized map (24x24 chunks), some entities
 | Polar No Light | 661 | 0.71x |
 | Polar Compression Level 22 | 656 | 0.70x |
 | Polar Compression Level 22 No Light | 548 | 0.59x |
-| Anvil | 3300 | 3.53x |
+| Anvil | 3280 | 3.50x |
