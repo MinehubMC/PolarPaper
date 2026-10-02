@@ -2,15 +2,18 @@ package live.minehub.polarpaper;
 
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import live.minehub.polarpaper.core.config.Config;
+import live.minehub.polarpaper.core.generator.ChunkUtils;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.generator.PolarStreamLoader;
+import live.minehub.polarpaper.core.generator.PolarWorldLoader;
 import live.minehub.polarpaper.core.source.BytesPolarSource;
 import live.minehub.polarpaper.core.source.FilePolarSource;
 import live.minehub.polarpaper.core.source.PolarSource;
-import live.minehub.polarpaper.core.util.TaskFutures;
+import live.minehub.polarpaper.core.userdata.EntitySerializer;
 import live.minehub.polarpaper.core.world.*;
 import live.minehub.polarpaper.nms.VersionUtil;
 import live.minehub.polarpaper.util.EntitiesWorldAccess;
+import live.minehub.polarpaper.util.Format;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.minecraft.server.level.ServerLevel;
@@ -23,9 +26,11 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -43,8 +48,7 @@ public class Polar {
     }
 
     public static FilePolarSource getDefaultFolderSource(String worldName) {
-        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-        Path worldsFolder = pluginFolder.resolve("worlds");
+        Path worldsFolder = PolarPaper.getWorldsPath();
         Path path = worldsFolder.resolve(worldName + ".polar");
         return new FilePolarSource(path);
     }
@@ -149,27 +153,15 @@ public class Polar {
      * @see BytesPolarSource
      */
     public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource source, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess, @NotNull PolarDataConverter dataConverter) {
-        long before = System.nanoTime();
-
-        PolarStreamLoader loader = new PolarStreamLoader(config, source, worldAccess, dataConverter);
-
-        return createWorld(loader, worldName).thenComposeAsync(world -> {
-            if (world == null) return null;
-
-            try {
-                return loader.load(world).thenApply(_ -> world);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }).thenApply(world -> {
-            LOGGER.info("Loaded {} in {}ns", worldName, System.nanoTime() - before);
-            setLoading(world.getKey(), false);
-            startAutoSaveTask(world, config);
-            return world;
-        }).exceptionally(e -> {
-            LOGGER.error("Failed to load world {}", worldName, e);
-            return null;
-        });
+        EntitySerializer entitySerializer = VersionUtil.getEntitySerializer();
+        Format detectedFormat = source == null ? Format.POLAR_FORMAT : Format.detectFormat(source);
+        if (detectedFormat == null) {
+            String message = "Failed to detect the file type for world '%s'".formatted(worldName);
+            LOGGER.warn(message);
+            return CompletableFuture.failedFuture(new RuntimeException(message));
+        }
+        PolarGenerator loader = detectedFormat.createGenerator(config, source, worldAccess, dataConverter, entitySerializer);
+        return createWorld(loader, worldName);
     }
 
     /**
@@ -180,39 +172,8 @@ public class Polar {
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
     public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess, @NotNull PolarDataConverter dataConverter) {
-        PolarStreamLoader generator = new PolarStreamLoader(config, null, worldAccess, dataConverter);
-        generator.setUserData(polarWorld.userData());
-        return createWorld(generator, worldName).thenComposeAsync(world -> {
-            if (world == null) return CompletableFuture.completedFuture(null);
-            ServerLevel level = ((CraftWorld) world).getHandle();
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-            for (PolarChunk chunk : polarWorld.chunks()) {
-                NoUnloadLevelChunk levelChunk = chunk.createLevelChunk(level);
-
-                futures.add(TaskFutures.runTickThread(PolarPaper.getPlugin(), () -> {
-                    for (PolarChunk.BlockEntity blockEntity : chunk.blockEntities()) {
-                        PolarStreamLoader.addBlockEntity(blockEntity, levelChunk);
-                    }
-                    PolarStreamLoader.insertChunk(level, levelChunk);
-                    worldAccess.loadChunkData(world, levelChunk, chunk.userData());
-                    return true;
-                }).handle((success, ex) -> {
-                    if (ex != null) {
-                        LOGGER.error("Failed to stream chunks in " + worldName, ex);
-                        return null;
-                    }
-                    return null;
-                }));
-            }
-
-            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenApply(_ -> world);
-        }).whenComplete((world, ex) -> {
-            if (world != null) {
-                setLoading(world.getKey(), false);
-                startAutoSaveTask(world, config);
-            }
-            if (ex != null) LOGGER.error("Failed to load world " + worldName, ex);
-        });
+        PolarGenerator loader = new PolarWorldLoader(config, polarWorld, worldAccess);
+        return createWorld(loader, worldName);
     }
 
     /**
@@ -245,27 +206,33 @@ public class Polar {
                 .environment(config.environment())
                 .generator(generator);
 
+        long beforeTime = System.nanoTime();
+
+        @NotNull String finalWorldName = worldName;
         return VersionUtil.createNoSaveLevel(worldCreator, config.spawn(), config.difficulty(), config.gamerules(), config.time())
-                .whenComplete((world, ex) -> {
-                    if (ex != null) {
-                        LOGGER.error("An error occurred loading polar world '" + worldKey.getKey() + "', skipping.", ex);
-                        return;
-                    }
-                    if (world == null) {
-                        LOGGER.error("An error occurred loading polar world '" + worldKey.getKey() + "', skipping.");
-                        return;
-                    }
+                .thenCompose(world -> {
+                    if (world == null) return CompletableFuture.completedFuture(null);
 
                     // Since saving is disabled in the level anyway, setAutoSave is now essentially setting whether
                     // chunks should be allowed to unload and be removed from memory
                     world.setAutoSave(false);
-                })
-                .thenCompose(world -> {
-                    if (world == null) return CompletableFuture.completedFuture(null);
-                    ServerLevel level = ((CraftWorld) world).getHandle();
-                    return PolarStreamLoader.insertEmptyChunks(generator.getWorldAccess().getPlugin(), level).thenApply(_ -> world);
-                });
 
+                    ServerLevel level = ((CraftWorld) world).getHandle();
+                    return ChunkUtils.insertEmptyChunks(generator.getWorldAccess().getPlugin(), level).thenApply(_ -> world);
+                }).thenComposeAsync(world -> {
+                    if (world == null) return null;
+
+                    return generator.load(world).thenApply(_ -> world);
+                }).thenApply(world -> {
+                    if (world == null) return null;
+                    LOGGER.info("Loaded {} in {}ms", finalWorldName, (System.nanoTime() - beforeTime) / 1_000_000);
+                    setLoading(world.getKey(), false);
+                    startAutoSaveTask(world, config);
+                    return world;
+                }).exceptionally(e -> {
+                    LOGGER.error("Failed to load world {}", finalWorldName, e);
+                    return null;
+                });
     }
 
     public static void stopAutoSaveTask(NamespacedKey worldKey) {

@@ -7,7 +7,6 @@ import live.minehub.polarpaper.core.util.LightUtil;
 import live.minehub.polarpaper.core.util.MemorySegmentReader;
 import live.minehub.polarpaper.core.util.PaletteUtil;
 import net.minecraft.nbt.*;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.EOFException;
@@ -67,16 +66,16 @@ public class PolarReader {
                 MemorySegmentReader reader = new MemorySegmentReader(src);
 
                 var magic = reader.readInt();
-                assertThat(magic == PolarConstants.MAGIC_NUMBER, "Invalid magic number");
+                if (magic != PolarConstants.POLAR_MAGIC) throw new IOException("Invalid magic number");
 
                 this.version = reader.readShort();
-                PolarReader.validateVersion(version);
+                PolarConstants.validatePolarVersion(version);
 
                 this.dataVersion = reader.readVarInt();
 
                 var compressionByte = reader.readByte();
                 PolarWorld.CompressionType compression = PolarWorld.CompressionType.fromId(compressionByte);
-                assertThat(compression != null, "Invalid compression type");
+                if (compression == null) throw new IOException("Invalid compression type");
 
                 int dataLength = reader.readVarInt();
 
@@ -101,12 +100,12 @@ public class PolarReader {
         }
     }
 
-    private PolarWorld readData(MemorySegment segment) {
+    private PolarWorld readData(MemorySegment segment) throws IOException {
         MemorySegmentReader reader = new MemorySegmentReader(segment);
 
         byte minSection = reader.readByte();
         byte maxSection = reader.readByte();
-        assertThat(minSection < maxSection, "Invalid section range");
+        if (minSection >= maxSection) throw new IOException("Invalid section range");
 
         this.userData = reader.readByteArray();
 
@@ -137,14 +136,14 @@ public class PolarReader {
 
         var heightmaps = readHeightmaps(reader);
 
-        byte[] userData = reader.readByteArray();
+        byte[] chunkUserData = reader.readByteArray();
 
         return new PolarChunk(
                 chunkX, chunkZ,
                 sections,
                 blockEntities,
                 heightmaps,
-                userData
+                chunkUserData
         );
     }
 
@@ -236,7 +235,7 @@ public class PolarReader {
         CompoundTag nbt = new CompoundTag();
         if (reader.readByte() == 1) {
             try {
-                nbt = (CompoundTag) NbtIo.readAnyTag(reader, NbtAccounter.unlimitedHeap());
+                nbt = (CompoundTag) NbtIo.readAnyTag(reader, NbtAccounter.uncompressedQuota());
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -256,19 +255,5 @@ public class PolarReader {
                 id, nbt
         );
     }
-
-    public static void validateVersion(int version) {
-        var invalidVersionError = String.format("Unsupported Polar version. Versions %d - %d are supported, found %d.",
-                PolarConstants.LATEST_VERSION, PolarConstants.MIN_VERSION, version);
-        assertThat((version <= PolarConstants.LATEST_VERSION && version >= PolarConstants.MIN_VERSION),
-                invalidVersionError);
-    }
-
-    @Contract("false, _ -> fail")
-    private static void assertThat(boolean condition, @NotNull String message) {
-        if (!condition) throw new Error(message);
-    }
-
-
 
 }

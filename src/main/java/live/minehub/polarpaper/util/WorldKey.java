@@ -16,10 +16,8 @@ import java.nio.file.Path;
 public class WorldKey {
 
     public static String getWorldName(Path path) {
-        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-        Path worldsFolder = pluginFolder.resolve("worlds");
-        return worldsFolder.toAbsolutePath().relativize(path.toAbsolutePath()).toString()
-                .replaceAll(".polar$", "")
+        Path worldsFolder = PolarPaper.getWorldsPath();
+        return Format.stripExtension(worldsFolder.toAbsolutePath().relativize(path.toAbsolutePath()).toString())
                 .replace(" ", "_")
                 .toLowerCase();
     }
@@ -30,8 +28,7 @@ public class WorldKey {
      * @return null if no world found
      */
     public static @Nullable World getWorld(String worldName) {
-        worldName = worldName
-                .replaceAll(".polar$", "")
+        worldName = Format.stripExtension(worldName)
                 .replace(" ", "_")
                 .toLowerCase();
 
@@ -65,29 +62,22 @@ public class WorldKey {
         return world;
     }
 
-    public static boolean isWithinWorldsFolder(Path path) {
-        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-        Path worldsFolder = pluginFolder.resolve("worlds");
-        return path.normalize().startsWith(worldsFolder);
+    public static boolean isOutsideWorldsFolder(Path path) {
+        Path worldsFolder = PolarPaper.getWorldsPath();
+        return !path.normalize().startsWith(worldsFolder);
     }
 
     public static Path validatePath(CommandSender sender, String userPath) {
-        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-        Path worldsFolder = pluginFolder.resolve("worlds");
-        userPath = userPath + (userPath.endsWith(".polar") ? "" : ".polar"); // ensure ends with .polar
+        Path worldsFolder = PolarPaper.getWorldsPath();
         Path path;
         try {
             path = worldsFolder.resolve(userPath);
-        } catch (InvalidPathException e) {
+        } catch (InvalidPathException _) {
             sender.sendMessage(Component.text("Invalid path", NamedTextColor.RED));
             return null;
         }
 
-        return validatePath(sender, path);
-    }
-
-    public static Path validatePath(CommandSender sender, Path path) {
-        if (!isWithinWorldsFolder(path)) {
+        if (isOutsideWorldsFolder(path)) {
             sender.sendMessage(Component.text("Outside of worlds folder", NamedTextColor.RED));
             return null;
         }

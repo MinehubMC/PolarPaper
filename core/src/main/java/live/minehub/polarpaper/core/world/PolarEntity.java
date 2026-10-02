@@ -33,11 +33,15 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         MemorySegmentReader reader = new MemorySegmentReader(MemorySegment.ofArray(bytes));
         CompoundTag compound;
         try {
-            compound = NbtIo.read(reader, NbtAccounter.unlimitedHeap());
+            compound = NbtIo.read(reader, NbtAccounter.uncompressedQuota());
         } catch (IOException _) {
 //                ExceptionUtil.log(e);
             return null;
         }
+        return toNMSEntity(entitySerializer, world, spawnLocation, compound);
+    }
+
+    public static @Nullable Entity toNMSEntity(EntitySerializer entitySerializer, World world, Location spawnLocation, CompoundTag compound) {
         Integer dataVersion = compound.getInt("DataVersion").orElse(null);
         if (dataVersion == null) return null;
         compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().getFixerUpper(), compound, dataVersion, SharedConstants.getCurrentVersion().dataVersion().version());
@@ -120,7 +124,7 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         return new Location(world, realX + chunkX * 16, y, realZ + chunkZ * 16, yaw, pitch);
     }
 
-    private @Nullable UUID getUUID(CompoundTag compound) {
+    private static @Nullable UUID getUUID(CompoundTag compound) {
         int[] ints = compound.getIntArray("UUID").orElse(null);
         if (ints == null) return null;
 

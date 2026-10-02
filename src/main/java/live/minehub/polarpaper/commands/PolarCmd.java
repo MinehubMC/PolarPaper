@@ -8,17 +8,22 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
+import live.minehub.polarpaper.util.Format;
 import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.resources.Identifier;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.stream.Stream;
+import java.util.List;
 
 public abstract class PolarCmd {
+
+    private static @Nullable List<Path> CACHED_WORLDS_FOLDER = null;
+    private static long LAST_CACHED = 0L;
 
     private final String name;
     private final String description;
@@ -55,24 +60,35 @@ public abstract class PolarCmd {
     public RequiredArgumentBuilder<CommandSourceStack, String> createFileWorldNameArgument(boolean greedy) {
         return Commands.argument("world name", greedy ? StringArgumentType.greedyString() : StringArgumentType.string())
                 .suggests((_, s) -> {
-                    Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-                    Path worldsFolder = pluginFolder.resolve("worlds");
-
-                    // TODO: cache list?
-                    try (Stream<Path> list = Files.list(worldsFolder)) {
-                        list.forEach(path -> {
-                            String worldName = path.getFileName().toString().replaceAll(".polar$", "");
-
-                            if (!worldName.toLowerCase().startsWith(s.getRemainingLowerCase())) return;
-
-                            s.suggest(worldName);
-                        });
+                    List<Path> list;
+                    try {
+                        list = listFilesCached();
                     } catch (IOException e) {
-//                        throw new RuntimeException(e);
+                        throw new RuntimeException(e);
                     }
+
+                    list.forEach(path -> {
+                        if (!Format.isSupported(path)) return;
+                        String worldName = path.getFileName().toString();
+
+                        if (!worldName.toLowerCase().startsWith(s.getRemainingLowerCase())) return;
+
+                        s.suggest(worldName);
+                    });
 
                     return s.buildFuture();
                 });
+    }
+
+    private static List<Path> listFilesCached() throws IOException {
+        if (LAST_CACHED + 10000 > System.currentTimeMillis()) return CACHED_WORLDS_FOLDER;
+
+        Path worldsFolder = PolarPaper.getWorldsPath();
+        try (var filesStream = Files.list(worldsFolder)) {
+            CACHED_WORLDS_FOLDER = filesStream.toList();
+        }
+        LAST_CACHED = System.currentTimeMillis();
+        return CACHED_WORLDS_FOLDER;
     }
 
     public RequiredArgumentBuilder<CommandSourceStack, Identifier> createWorldNameArgument(boolean onlyPolar) {

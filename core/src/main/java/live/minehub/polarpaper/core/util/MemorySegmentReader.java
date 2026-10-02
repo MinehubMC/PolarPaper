@@ -153,6 +153,10 @@ public class MemorySegmentReader implements DataInput {
         return offset;
     }
 
+    public void setOffset(long offset) {
+        this.offset = offset;
+    }
+
     public MemorySegment getSegment() {
         return segment;
     }

@@ -9,6 +9,7 @@ import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.source.FilePolarSource;
 import live.minehub.polarpaper.core.util.FoliaUtil;
 import live.minehub.polarpaper.core.util.ShutdownExecutor;
+import live.minehub.polarpaper.util.Format;
 import live.minehub.polarpaper.util.WorldKey;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
@@ -47,8 +48,7 @@ public final class PolarPaper extends JavaPlugin {
 
         registerEvents();
 
-        Path pluginFolder = getDataPath();
-        Path worldsFolder = pluginFolder.resolve("worlds");
+        Path worldsFolder = PolarPaper.getWorldsPath();
 
         worldsFolder.toFile().mkdirs();
 
@@ -56,9 +56,7 @@ public final class PolarPaper extends JavaPlugin {
 
         try (var files = Files.walk(worldsFolder, 4, FileVisitOption.FOLLOW_LINKS)) {
             files.forEach(path -> {
-                if (Files.isDirectory(path) || !path.getFileName().toString().endsWith(".polar")) {
-                    return;
-                }
+                if (Files.isDirectory(path) || Format.isSupported(path)) return;
 
                 String worldName = WorldKey.getWorldName(path);
 
@@ -148,6 +146,11 @@ public final class PolarPaper extends JavaPlugin {
     public static Path getConfigPath() {
         Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         return pluginFolder.resolve("config.yml");
+    }
+
+    public static Path getWorldsPath() {
+        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
+        return pluginFolder.resolve("worlds");
     }
 
     public static void registerEvents() {

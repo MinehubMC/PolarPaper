@@ -6,7 +6,7 @@ import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManage
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
 import ca.spottedleaf.moonrise.patches.starlight.light.StarLightEngine;
-import live.minehub.polarpaper.core.generator.PolarStreamLoader;
+import live.minehub.polarpaper.core.generator.ChunkUtils;
 import live.minehub.polarpaper.core.util.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -122,7 +122,7 @@ public record PolarChunk(
             chunk.starlight$setSkyNibbles(skyNibbles);
             chunk.starlight$setBlockNibbles(blockNibbles);
         } else {
-            PolarStreamLoader.lightChunk(serverLevel, chunk);
+            ChunkUtils.lightChunk(serverLevel, chunk);
         }
         chunk.setLightCorrect(true);
 

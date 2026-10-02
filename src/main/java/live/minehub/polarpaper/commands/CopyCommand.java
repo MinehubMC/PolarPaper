@@ -10,6 +10,7 @@ import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.source.FilePolarSource;
 import live.minehub.polarpaper.core.source.PolarSource;
+import live.minehub.polarpaper.util.Format;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -73,7 +74,7 @@ public class CopyCommand extends PolarCmd {
         }
 
         SaveCommand.saveWorld(ctx, worldId).thenAccept(success -> {
-            if (!success) {
+            if (Boolean.FALSE.equals(success)) {
                 sender.sendMessage(Component.text("Failed to save world before copying", NamedTextColor.RED));
                 return;
             }
@@ -126,6 +127,13 @@ public class CopyCommand extends PolarCmd {
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
         builder.then(createWorldNameArgument(true)
                 .then(Commands.argument("new world path", StringArgumentType.greedyString())
+                        .suggests((_, s) -> {
+                            if (s.getRemaining().contains(".")) return s.buildFuture();
+                            for (Format format : Format.Registry.getFormats()) {
+                                s.suggest(s.getRemaining() + "." + format.getFileExtension());
+                            }
+                            return s.buildFuture();
+                        })
                         .executes(CopyCommand::run)));
     }
 }
