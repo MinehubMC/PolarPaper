@@ -23,7 +23,7 @@ public final class PaletteUtil {
 
     public static Configuration getConfigurationForBitCount(Strategy<?> strategy, int bits) {
         try {
-            return (Configuration) GET_CONFIGURATION_HANDLE.invoke(strategy, bits);
+            return (Configuration) GET_CONFIGURATION_HANDLE.invokeExact(strategy, bits);
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }

@@ -74,7 +74,7 @@ public class PolarWriter {
                     5 /* (varint max size) */;
 
             try (var finalWriter = new MemorySegmentWriter(headerSize + dst.byteSize())) {
-                finalWriter.writeInt(PolarConstants.MAGIC_NUMBER);
+                finalWriter.writeInt(PolarConstants.POLAR_MAGIC);
                 finalWriter.writeShort(PolarConstants.LATEST_VERSION);
                 finalWriter.writeVarInt(dataConverter.dataVersion());
                 finalWriter.writeByte((byte) compression.ordinal());

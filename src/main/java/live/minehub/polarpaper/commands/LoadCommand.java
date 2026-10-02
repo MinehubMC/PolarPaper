@@ -1,11 +1,9 @@
 package live.minehub.polarpaper.commands;
 
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
@@ -31,7 +29,7 @@ public class LoadCommand extends PolarCmd {
     }
 
     private static int run(CommandContext<CommandSourceStack> ctx) {
-        String worldName = ctx.getArgument("world path", String.class);
+        String worldName = ctx.getArgument("world name", String.class);
 
         loadWorld(ctx, worldName);
 
@@ -123,7 +121,7 @@ public class LoadCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(Commands.argument("world path", StringArgumentType.greedyString())
+        builder.then(createFileWorldNameArgument(true)
                 .executes(LoadCommand::run));
     }
 }

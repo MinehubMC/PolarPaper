@@ -9,6 +9,7 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
+import live.minehub.polarpaper.util.Format;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.builder.AbstractBuilder;
 import net.kyori.adventure.text.Component;
@@ -45,11 +46,13 @@ public class BrowseCommand extends PolarCmd {
 
         parent = parent.normalize();
 
-        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-        Path worldsFolder = pluginFolder.resolve("worlds");
+        Path worldsFolder = PolarPaper.getWorldsPath();
 
-        parent = WorldKey.validatePath(ctx.getSource().getSender(), parent);
-        if (parent == null) return Command.SINGLE_SUCCESS;
+        if (WorldKey.isOutsideWorldsFolder(parent)) {
+            ctx.getSource().getSender().sendMessage(Component.text("Outside of worlds folder", NamedTextColor.RED));
+            return Command.SINGLE_SUCCESS;
+        }
+
         if (!Files.exists(parent)) {
             ctx.getSource().getSender().sendMessage(Component.text("File '" + parent.getFileName() + "' does not exist", NamedTextColor.RED));
             return Command.SINGLE_SUCCESS;
@@ -96,9 +99,9 @@ public class BrowseCommand extends PolarCmd {
         List<Path> pagedPaths = ListCommand.getPagedList(paths, page, ITEMS_PER_PAGE);
         for (Path path : pagedPaths) {
             boolean folder = Files.isDirectory(path);
-            if (!folder && !path.getFileName().toString().endsWith(".polar")) continue;
+            if (!folder && !Format.isSupported(path)) continue;
 
-            String fileName = path.getFileName().toString().replaceAll(".polar$", ""); // $ means last occurrence
+            String fileName = Format.stripExtension(path.getFileName().toString());
 
             if (folder) {
                 builder.append(Component.text()
@@ -180,8 +183,7 @@ public class BrowseCommand extends PolarCmd {
 
     @Override
     protected int executeDefault(CommandContext<CommandSourceStack> ctx) {
-        Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-        Path worldsFolder = pluginFolder.resolve("worlds");
+        Path worldsFolder = PolarPaper.getWorldsPath();
         return execute(ctx, worldsFolder, 1);
     }
 
@@ -192,8 +194,7 @@ public class BrowseCommand extends PolarCmd {
                     Integer page = ctx.getArgument("page", Integer.class);
                     if (page == null) page = 1;
 
-                    Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-                    Path worldsFolder = pluginFolder.resolve("worlds");
+                    Path worldsFolder = PolarPaper.getWorldsPath();
 
                     return execute(ctx, worldsFolder, page);
                 })
@@ -203,8 +204,7 @@ public class BrowseCommand extends PolarCmd {
                             Integer page = ctx.getArgument("page", Integer.class);
                             if (page == null) page = 1;
 
-                            Path pluginFolder = PolarPaper.getPlugin().getDataPath();
-                            Path worldsFolder = pluginFolder.resolve("worlds");
+                            Path worldsFolder = PolarPaper.getWorldsPath();
 
                             return execute(ctx, worldsFolder.resolve(path), page);
                         })));

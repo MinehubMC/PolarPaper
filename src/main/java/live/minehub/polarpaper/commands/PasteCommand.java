@@ -14,6 +14,7 @@ import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.schematic.Rotation;
 import live.minehub.polarpaper.schematic.Schematic;
 import live.minehub.polarpaper.schematic.Setter;
+import live.minehub.polarpaper.util.Format;
 import live.minehub.polarpaper.util.WorldKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -91,7 +92,7 @@ public class PasteCommand extends PolarCmd {
         try {
             Schematic.IgnoreAir ignoreAir = Schematic.IgnoreAir.valueOf(ignoreAirString.toUpperCase());
             return paste(ctx, rotation, ignoreAir);
-        } catch (IllegalArgumentException ignored) {
+        } catch (IllegalArgumentException _) {
             ctx.getSource().getSender().sendMessage(Component.text("Invalid air ignore '" + ignoreAirString + "'", NamedTextColor.RED));
             return Command.SINGLE_SUCCESS;
         }
@@ -109,21 +110,28 @@ public class PasteCommand extends PolarCmd {
 
         Path pluginFolder = PolarPaper.getPlugin().getDataPath();
         Path worldsFolder = pluginFolder.resolve("worlds");
-        Path path = worldsFolder.resolve(worldName + ".polar");
+        Path path = worldsFolder.resolve(worldName);
 
         if (!Files.exists(path)) {
-            player.sendMessage(Component.text("Couldn't find file '" + worldName + ".polar' in the worlds folder", NamedTextColor.RED));
+            player.sendMessage(Component.text("Couldn't find file '" + worldName + "' in the worlds folder", NamedTextColor.RED));
             return Command.SINGLE_SUCCESS;
         }
 
         PolarWorld polarWorld;
         try {
             PolarSource source = new FilePolarSource(path);
+
+            Format detectedFormat = Format.detectFormat(source);
+            if (detectedFormat != Format.POLAR_FORMAT) {
+                player.sendMessage(Component.text("Pasting only supports Polar format files", NamedTextColor.RED));
+                return Command.SINGLE_SUCCESS;
+            }
+
             PolarReader polarReader = new PolarReader();
             polarWorld = polarReader.read(source);
         } catch (Exception e) {
-            player.sendMessage(Component.text("Failed to load world '" + worldName + ".polar'", NamedTextColor.RED));
-            LOGGER.error("Failed to load world '" + worldName + ".polar'", e);
+            player.sendMessage(Component.text("Failed to load world '" + worldName + "'", NamedTextColor.RED));
+            LOGGER.error("Failed to load world '" + worldName + "'", e);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -163,7 +171,7 @@ public class PasteCommand extends PolarCmd {
 
     @Override
     protected void addToBuilder(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(Commands.argument("world name", StringArgumentType.string())
+        builder.then(createFileWorldNameArgument(false)
                 .executes(PasteCommand::run)
                 .then(Commands.argument("rotation", StringArgumentType.string())
                         .suggests((_, s) -> {
