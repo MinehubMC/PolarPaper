@@ -16,10 +16,7 @@ import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.chunk.Configuration;
-import net.minecraft.world.level.chunk.LevelChunkSection;
-import net.minecraft.world.level.chunk.PalettedContainer;
-import net.minecraft.world.level.chunk.Strategy;
+import net.minecraft.world.level.chunk.*;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -28,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.ToIntFunction;
 
 /**
  * Representation of the latest version of the section format.
@@ -38,9 +36,6 @@ import java.util.List;
 @ApiStatus.Internal
 public class PolarSection {
     private static final Logger LOGGER = LoggerFactory.getLogger(PolarSection.class);
-
-    public static final int BLOCK_PALETTE_SIZE = 4096;
-    public static final int BIOME_PALETTE_SIZE = 64;
 
     public enum LightContent {
         MISSING, EMPTY, FULL, PRESENT;
@@ -217,8 +212,8 @@ public class PolarSection {
             longBitsPerBiomeEntry = PaletteUtil.getBitsForLongLength(biomeData.length, biomeStrategy.entryCount());
         }
 
-        biomes.data = getPalettedContainer(biomeHolderPalette, biomeData, bitsPerBiomeEntry, longBitsPerBiomeEntry, biomeStrategy);
-        states.data = getPalettedContainer(materialPalette, blockData, bitsPerBlockEntry, longBitsPerBlockEntry, blockStrategy);
+        biomes.data = getPalettedContainer(biomeHolderPalette, biomeData, bitsPerBiomeEntry, longBitsPerBiomeEntry, biomeStrategy, registry.asHolderIdMap()::getId);
+        states.data = getPalettedContainer(materialPalette, blockData, bitsPerBlockEntry, longBitsPerBlockEntry, blockStrategy, Block.BLOCK_STATE_REGISTRY::getId);
 
         try {
             return new LevelChunkSection(states, biomes);
@@ -234,7 +229,7 @@ public class PolarSection {
         }
     }
 
-     private static <T> PalettedContainer.Data<T> getPalettedContainer(T[] palette, long[] data, int bits, int longBits, Strategy<T> strategy) {
+     private static <T> PalettedContainer.Data<T> getPalettedContainer(T[] palette, long[] data, int bits, int longBits, Strategy<T> strategy, ToIntFunction<T> globalId) {
          if (data == null || data.length == 0 || bits == 0) {
              Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, 0);
              return new PalettedContainer.Data<>(
@@ -242,34 +237,42 @@ public class PolarSection {
                      new ZeroBitStorage(strategy.entryCount()),
                      configuration.createPalette(strategy, List.of(palette[0]))
              );
+         }
+
+         Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, bits);
+         int valuesPerLong = (char)(64 / configuration.bitsInMemory());
+         int requiredLength = (strategy.entryCount() + valuesPerLong - 1) / valuesPerLong;
+         Palette<T> created = configuration.createPalette(strategy, Arrays.asList(palette));
+         boolean global = created instanceof GlobalPalette;
+
+         long[] packed;
+         if (!global && !configuration.alwaysRepack() && configuration.bitsInMemory() == bits && data.length == requiredLength) {
+             packed = data.clone();
          } else {
-             Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, bits);
-             int valuesPerLong = (char)(64 / configuration.bitsInMemory());
-             int requiredLength = (strategy.entryCount() + valuesPerLong - 1) / valuesPerLong;
-
-             long[] packed;
-             if (!configuration.alwaysRepack() && configuration.bitsInMemory() == bits && data.length == requiredLength) {
-                 packed = data.clone(); // only clone if not repacked
-             } else {
-                 int[] unpacked = new int[strategy.entryCount()];
-                 PaletteUtil.unpack(unpacked, data, longBits);
-                 packed = PaletteUtil.pack(unpacked, configuration.bitsInMemory());
+             int[] unpacked = new int[strategy.entryCount()];
+             PaletteUtil.unpack(unpacked, data, longBits);
+             if (global) {
+                 // local palette index -> current registry ID
+                 int[] ids = new int[palette.length];
+                 for (int i = 0; i < palette.length; i++) ids[i] = globalId.applyAsInt(palette[i]);
+                 for (int i = 0; i < unpacked.length; i++) unpacked[i] = ids[unpacked[i]];
              }
+             packed = PaletteUtil.pack(unpacked, configuration.bitsInMemory());
+         }
 
-             try {
-                 return new PalettedContainer.Data<>(
-                         configuration,
-                         new SimpleBitStorage(configuration.bitsInMemory(), strategy.entryCount(), packed),
-                         configuration.createPalette(strategy, Arrays.asList(palette))
-                 );
-             } catch (SimpleBitStorage.InitializationException e) {
-                 LOGGER.info("Bits: {}, {}, {}", configuration.bitsInMemory(), configuration.bitsInStorage(), bits);
-                 LOGGER.info("Strategy Entry Count: {}", strategy.entryCount());
-                 LOGGER.info("Data: {}", Arrays.toString(data));
-                 LOGGER.info("Packed: {}", Arrays.toString(packed));
-                 LOGGER.info("Palette: {}", Arrays.toString(palette));
-                 throw new RuntimeException(e);
-             }
+         try {
+             return new PalettedContainer.Data<>(
+                     configuration,
+                     new SimpleBitStorage(configuration.bitsInMemory(), strategy.entryCount(), packed),
+                     created
+             );
+         } catch (SimpleBitStorage.InitializationException e) {
+             LOGGER.info("Bits: {}, {}, {}", configuration.bitsInMemory(), configuration.bitsInStorage(), bits);
+             LOGGER.info("Strategy Entry Count: {}", strategy.entryCount());
+             LOGGER.info("Data: {}", Arrays.toString(data));
+             LOGGER.info("Packed: {}", Arrays.toString(packed));
+             LOGGER.info("Palette: {}", Arrays.toString(palette));
+             throw new RuntimeException(e);
          }
      }
 

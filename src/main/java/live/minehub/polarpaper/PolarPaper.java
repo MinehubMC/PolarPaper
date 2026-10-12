@@ -37,43 +37,19 @@ public final class PolarPaper extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        FoliaUtil.isFolia(); // Fix classloader error on stop
-
-        // Paper commands
-        LifecycleEventManager<@NotNull Plugin> manager = this.getLifecycleManager();
-        manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
-            Commands commands = event.registrar();
-            new CommandManager().register(commands);
-        });
-
+        registerCommands();
         registerEvents();
-
-        Path worldsFolder = PolarPaper.getWorldsPath();
-
-        worldsFolder.toFile().mkdirs();
 
         saveDefaultConfig();
 
-        try (var files = Files.walk(worldsFolder, 4, FileVisitOption.FOLLOW_LINKS)) {
-            files.forEach(path -> {
-                if (Files.isDirectory(path) || Format.isSupported(path)) return;
-
-                String worldName = WorldKey.getWorldName(path);
-
-                Config config = Config.readFromConfig(getConfig(), worldName);
-
-                if (!config.loadOnStartup()) return;
-
-                getLogger().info("Loading polar world: " + worldName);
-
-                Polar.createWorld(new FilePolarSource(path), worldName);
-            });
+        try {
+            loadStartupWorlds();
         } catch (IOException e) {
-            getLogger().warning("Failed to load world on startup");
+            PolarPaper.getPlugin().getLogger().warning("Exception while loading startup worlds");
             StringWriter sw = new StringWriter();
             e.printStackTrace(new PrintWriter(sw));
             String exceptionAsString = sw.toString();
-            getLogger().warning(exceptionAsString);
+            PolarPaper.getPlugin().getLogger().warning(exceptionAsString);
         }
     }
 
@@ -154,7 +130,39 @@ public final class PolarPaper extends JavaPlugin {
     }
 
     public static void registerEvents() {
+        FoliaUtil.isFolia(); // Fix classloader error on stop
+
         PolarPaper.getPlugin().getServer().getPluginManager().registerEvents(new PolarListener(), PolarPaper.getPlugin());
+    }
+
+    public static void registerCommands() {
+        LifecycleEventManager<@NotNull Plugin> manager = getPlugin().getLifecycleManager();
+        manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            Commands commands = event.registrar();
+            new CommandManager().register(commands);
+        });
+    }
+
+    public static void loadStartupWorlds() throws IOException {
+        Path worldsFolder = PolarPaper.getWorldsPath();
+
+        Files.createDirectories(worldsFolder);
+
+        try (var files = Files.walk(worldsFolder, 4, FileVisitOption.FOLLOW_LINKS)) {
+            files.forEach(path -> {
+                if (Files.isDirectory(path) || Format.isSupported(path)) return;
+
+                String worldName = WorldKey.getWorldName(path);
+
+                Config config = Config.readFromConfig(PolarPaper.getPlugin().getConfig(), worldName);
+
+                if (!config.loadOnStartup()) return;
+
+                PolarPaper.getPlugin().getLogger().info("Loading polar world: " + worldName);
+
+                Polar.createWorld(new FilePolarSource(path), worldName);
+            });
+        }
     }
 
 }

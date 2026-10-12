@@ -35,9 +35,6 @@ public class PolarConstants {
     public static PolarWorld.CompressionType DEFAULT_COMPRESSION = PolarWorld.CompressionType.ZSTD;
     public static int DEFAULT_COMPRESSION_LEVEL = 7;
 
-    public static final int BLOCK_PALETTE_SIZE = 4096;
-    public static final int BIOME_PALETTE_SIZE = 64;
-
     public static void validatePolarVersion(int version) throws IOException {
         var invalidVersionError = String.format("Unsupported Polar version. Versions %d - %d are supported, found %d.",
                 PolarConstants.LATEST_VERSION, PolarConstants.MIN_VERSION, version);

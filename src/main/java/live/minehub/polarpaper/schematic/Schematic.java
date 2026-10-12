@@ -121,9 +121,10 @@ public class Schematic {
 
     private static void pasteSection(PolarSection polarSection, Setter setter, Vector3i offset, Vector3i pasteOffset, Rotation rotation, IgnoreAir ignoreAir) {
         // Blocks
+        int blockPaletteSize = 4096;
         long[] blockDataLongs = polarSection.blockData();
-        int blockDataBits = blockDataLongs == null ? 0 : PaletteUtil.getBitsForLongLength(blockDataLongs.length, PolarSection.BLOCK_PALETTE_SIZE);
-        int[] blockData = new int[PolarSection.BLOCK_PALETTE_SIZE];
+        int blockDataBits = blockDataLongs == null ? 0 : PaletteUtil.getBitsForLongLength(blockDataLongs.length, blockPaletteSize);
+        int[] blockData = new int[blockPaletteSize];
         if (blockDataBits > 0) {
             PaletteUtil.unpack(blockData, blockDataLongs, blockDataBits);
         }

@@ -14,10 +14,8 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.BitStorage;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LightLayer;
@@ -300,83 +298,44 @@ public record PolarChunk(
         return chunkAccess.getBlockEntity(blockPos);
     }
 
-    private static List<String> getBlockPaletteStrings(PalettedContainer<BlockState> palette) {
-        List<String> blockPaletteStrings = new ArrayList<>();
-
-        Palette<BlockState> chunkPalette = palette.data.palette();
-        if (chunkPalette instanceof GlobalPalette<BlockState> globalPalette) {
-            for (int i1 = 0; i1 < globalPalette.getSize(); i1++) {
-                BlockState blockState = globalPalette.valueFor(i1);
-                blockPaletteStrings.add(BlockCodec.stringFromBlock(blockState));
-            }
-        } else {
-            Object[] rawPalette = chunkPalette.moonrise$getRawPalette(palette.data);
-            if (rawPalette != null) {
-                for (Object p : rawPalette) {
-                    if (!(p instanceof BlockState blockState)) continue;
-                    blockPaletteStrings.add(BlockCodec.stringFromBlock(blockState));
-                }
-            }
-        }
-
-        return blockPaletteStrings;
-    }
-
-    private static List<String> getBiomePaletteStrings(PalettedContainer<Holder<Biome>> biomes, Registry<Biome> biomeRegistry) {
-        List<String> biomePaletteStrings = new ArrayList<>();
-        Object[] biomePalette = biomes.data.palette().moonrise$getRawPalette(biomes.data);
-        for (Object p : biomePalette) {
-            if (p == null) continue;
-            if (!(p instanceof Holder<?> biomeHolder)) continue;
-            if (!(biomeHolder.value() instanceof Biome biome)) continue;
-            Identifier key = biomeRegistry.getKey(biome);
-            if (key == null) continue;
-            String biomeString = key.toString();
-            biomePaletteStrings.add(biomeString);
-        }
-        return biomePaletteStrings;
-    }
-
     private static PolarSection convertSection(int chunkX, int chunkZ, LevelChunkSection chunkAccessSection, Registry<Biome> biomeRegistry, BlockSelector blockSelector, int minSection, int sectionI, @Nullable LevelLightEngine lightEngine) {
         if (chunkAccessSection.hasOnlyAir()) return createEmptySection(chunkX, chunkZ, minSection, sectionI, lightEngine);
 
-        long[] blockData;
-        long[] biomeData;
+        PalettedContainer<BlockState> states = chunkAccessSection.getStates().copy();
+        PalettedContainer<Holder<Biome>> biomes = chunkAccessSection.getBiomes().copy();
 
-        PalettedContainer<BlockState> copiedPalette = chunkAccessSection.getStates().copy();
-        PalettedContainer<Holder<Biome>> copiedBiomesPalette = chunkAccessSection.getBiomes().copy();
-        List<String> blockPaletteStrings = getBlockPaletteStrings(copiedPalette);
-        List<String> biomePaletteStrings = getBiomePaletteStrings(copiedBiomesPalette, biomeRegistry);
+        int blocksSize = states.data.storage().getSize();
+        int biomesSize = biomes.data.storage().getSize();
 
-        BitStorage biomeBitStorage = copiedBiomesPalette.data.storage();
-        biomeData = biomeBitStorage.getRaw();
-
-        BitStorage blockBitStorage = copiedPalette.data.storage();
-        int airIndex = blockPaletteStrings.indexOf("minecraft:air");
-
-        // TODO: needs to remove no longer used palette entries and then fix the int array
-
-        for (int index = 0; index < blockBitStorage.getSize(); ++index) {
-            boolean included = blockSelector.test(index, chunkX, chunkZ, minSection + sectionI);
-            if (included) continue;
-            if (airIndex == -1) {
-                airIndex = copiedPalette.data.palette().idFor(Blocks.AIR.defaultBlockState(), copiedPalette);
-                blockPaletteStrings = getBlockPaletteStrings(copiedPalette);
-            }
-
-            blockBitStorage = copiedPalette.data.storage();
-            blockBitStorage.set(index, airIndex);
+        // blocks
+        Map<BlockState, Integer> blockIds = new LinkedHashMap<>();
+        int[] blockInts = new int[blocksSize];
+        for (int index = 0; index < blocksSize; index++) {
+            BlockState state = blockSelector.test(index, chunkX, chunkZ, minSection + sectionI)
+                    ? states.get(index)
+                    : Blocks.AIR.defaultBlockState();
+            blockInts[index] = blockIds.computeIfAbsent(state, _ -> blockIds.size());
         }
-
-        int bitsPerEntry = Mth.ceillog2(blockPaletteStrings.size());
-        if (blockBitStorage.getBits() != 0 && bitsPerEntry != blockBitStorage.getBits()) {
-            // repack
-            int[] ints = new int[blockBitStorage.getSize()];
-            PaletteUtil.unpack(ints, blockBitStorage.getRaw(), blockBitStorage.getBits());
-            blockData = PaletteUtil.pack(ints, bitsPerEntry);
-        } else {
-            blockData = blockBitStorage.getRaw();
+        String[] blockPalette = new String[blockIds.size()];
+        int p = 0;
+        for (BlockState state : blockIds.keySet()) {
+            blockPalette[p++] = BlockCodec.stringFromBlock(state);
         }
+        long[] blockData = blockIds.size() == 1 ? null : PaletteUtil.pack(blockInts, Mth.ceillog2(blockIds.size()));
+
+        // biomes
+        Map<Holder<Biome>, Integer> biomeIds = new LinkedHashMap<>();
+        int[] biomeInts = new int[biomesSize];
+        for (int index = 0; index < biomesSize; index++) {
+            Holder<Biome> biome = biomes.get(index);
+            biomeInts[index] = biomeIds.computeIfAbsent(biome, _ -> biomeIds.size());
+        }
+        String[] biomePalette = new String[biomeIds.size()];
+        p = 0;
+        for (Holder<Biome> biome : biomeIds.keySet()) {
+            biomePalette[p++] = biomeRegistry.getKey(biome.value()).toString();
+        }
+        long[] biomeData = biomeIds.size() == 1 ? null : PaletteUtil.pack(biomeInts, Mth.ceillog2(biomeIds.size()));
 
         PolarSection.LightContent blockLightContent = PolarSection.LightContent.MISSING;
         PolarSection.LightContent skyLightContent = PolarSection.LightContent.MISSING;
@@ -399,19 +358,9 @@ public record PolarChunk(
             }
         }
 
-        // sanity check
-        if (blockData.length == 0 && blockPaletteStrings.size() > 1) {
-            blockPaletteStrings = List.of(blockPaletteStrings.getFirst());
-            blockData = null;
-        }
-        if (biomeData.length == 0 && biomePaletteStrings.size() > 1) {
-            biomePaletteStrings = List.of(biomePaletteStrings.getFirst());
-            biomeData = null;
-        }
-
         return new PolarSection(
-                blockPaletteStrings.toArray(new String[0]), blockData,
-                biomePaletteStrings.toArray(new String[0]), biomeData,
+                blockPalette, blockData,
+                biomePalette, biomeData,
                 blockLightContent, blockLight,
                 skyLightContent, skyLight
         );
