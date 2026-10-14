@@ -43,7 +43,6 @@ import org.bukkit.*;
 import org.bukkit.craftbukkit.CraftGameRule;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.generator.CraftWorldInfo;
-import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.generator.BiomeProvider;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.generator.WorldInfo;
@@ -253,8 +252,6 @@ public class NoSaveLevelCreatorImpl implements NoSaveLevelCreator {
             serverLevel.serverLevelData.setSpawn(LevelData.RespawnData.of(serverLevel.dimension(), new BlockPos(spawnPos.getBlockX(), spawnPos.getBlockY(), spawnPos.getBlockZ()), spawnPos.getYaw(), spawnPos.getPitch()));
 
             craftServer.getServer().updateEffectiveRespawnData();
-
-            new WorldLoadEvent(serverLevel.getWorld()).callEvent();
 
             return serverLevel.getWorld();
         };

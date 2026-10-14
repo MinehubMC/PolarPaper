@@ -11,7 +11,7 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
-val developmentVersion = "2.3.1"
+val developmentVersion = "2.3.2"
 
 version = getVersion()
 group = "live.minehub"

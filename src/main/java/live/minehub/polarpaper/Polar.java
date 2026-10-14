@@ -21,6 +21,7 @@ import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.entity.Player;
+import org.bukkit.event.world.WorldLoadEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -228,6 +229,8 @@ public class Polar {
                     LOGGER.info("Loaded {} in {}ms", finalWorldName, (System.nanoTime() - beforeTime) / 1_000_000);
                     setLoading(world.getKey(), false);
                     startAutoSaveTask(world, config);
+
+                    new WorldLoadEvent(world).callEvent();
                     return world;
                 }).exceptionally(e -> {
                     LOGGER.error("Failed to load world {}", finalWorldName, e);
