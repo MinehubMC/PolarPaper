@@ -11,7 +11,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.generator.ChunkGenerator;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Random;
@@ -31,7 +30,7 @@ public abstract class PolarGenerator extends ChunkGenerator {
     /**
      * Called after a world has been fully created, used by default in Polar to insert chunks
      */
-    public abstract CompletableFuture<Void> load(@NotNull World world);
+    public abstract CompletableFuture<Void> load(World world);
 
     public Config getConfig() {
         return this.config;
@@ -99,13 +98,13 @@ public abstract class PolarGenerator extends ChunkGenerator {
     public abstract void setUserData(byte[] userData);
 
     @Override
-    public @Nullable Location getFixedSpawnLocation(@NotNull World world, @NotNull Random random) {
+    public @Nullable Location getFixedSpawnLocation(World world, Random random) {
         Location loc = getConfig().spawn();
         loc.setWorld(world);
         return loc;
     }
 
-    public static @Nullable PolarGenerator fromWorld(World world) {
+    public static @Nullable PolarGenerator fromWorld(@Nullable World world) {
         if (world == null) return null;
         ChunkGenerator generator = world.getGenerator();
         if (generator instanceof PolarGenerator polarGenerator) return polarGenerator;

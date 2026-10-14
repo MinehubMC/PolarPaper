@@ -10,7 +10,6 @@ import live.minehub.polarpaper.core.util.MemorySegmentReader;
 import live.minehub.polarpaper.core.world.PolarConstants;
 import live.minehub.polarpaper.core.world.PolarDataConverter;
 import live.minehub.polarpaper.core.world.PolarWorldAccess;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.EOFException;
@@ -28,7 +27,7 @@ public interface Format {
 
     Format POLAR_FORMAT = new Format() {
         @Override
-        public PolarGenerator createGenerator(@NotNull Config config, @Nullable PolarSource source, @NotNull PolarWorldAccess worldAccess, @NotNull PolarDataConverter dataConverter, @NotNull EntitySerializer entitySerializer) {
+        public PolarGenerator createGenerator(Config config, @Nullable PolarSource source, PolarWorldAccess worldAccess, PolarDataConverter dataConverter, EntitySerializer entitySerializer) {
             return new PolarStreamLoader(config, source, worldAccess, dataConverter);
         }
 
@@ -45,7 +44,7 @@ public interface Format {
 
     Format SLIME_FORMAT = new Format() {
         @Override
-        public PolarGenerator createGenerator(@NotNull Config config, @Nullable PolarSource source, @NotNull PolarWorldAccess worldAccess, @NotNull PolarDataConverter dataConverter, @NotNull EntitySerializer entitySerializer) {
+        public PolarGenerator createGenerator(Config config, @Nullable PolarSource source, PolarWorldAccess worldAccess, PolarDataConverter dataConverter, EntitySerializer entitySerializer) {
             return new SlimeStreamLoader(config, source, worldAccess, dataConverter, entitySerializer);
         }
 
@@ -84,13 +83,13 @@ public interface Format {
         return false;
     }
 
-    public static String stripExtension(@NotNull String str) {
+    static String stripExtension(String str) {
         int pos = str.lastIndexOf(".");
         if (pos == -1) return str;
         return str.substring(0, pos);
     }
 
-    static @Nullable Format detectFormat(@NotNull PolarSource source) {
+    static @Nullable Format detectFormat(PolarSource source) {
         int fileSize = 4; // only need to read the first integer/short to check the magic
 
         try (Arena srcArena = Arena.ofConfined();
@@ -126,10 +125,10 @@ public interface Format {
         }
     }
 
-    PolarGenerator createGenerator(@NotNull Config config, @Nullable PolarSource source,
-                                   @NotNull PolarWorldAccess worldAccess,
-                                   @NotNull PolarDataConverter dataConverter,
-                                   @NotNull EntitySerializer entitySerializer);
+    PolarGenerator createGenerator(Config config, @Nullable PolarSource source,
+                                   PolarWorldAccess worldAccess,
+                                   PolarDataConverter dataConverter,
+                                   EntitySerializer entitySerializer);
 
     boolean checkMagic(MemorySegmentReader reader);
 

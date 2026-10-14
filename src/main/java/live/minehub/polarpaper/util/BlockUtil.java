@@ -17,7 +17,6 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.craftbukkit.CraftWorld;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
@@ -183,14 +182,14 @@ public class BlockUtil {
         serverLevel.getChunk(chunkX, chunkZ).addAndRegisterBlockEntity(nmsBlockEntity);
     }
 
-    public static void rotateLoc(@NotNull Location loc, @NotNull Rotation rotation) {
+    public static void rotateLoc(Location loc, Rotation rotation) {
         Vector3d vec = new Vector3d(loc.x(), loc.y(), loc.z());
         rotatePos(vec, rotation);
         loc.set(vec.x, vec.y, vec.z);
         loc.setYaw(loc.getYaw() + rotation.toDegrees());
     }
 
-    public static void rotatePos(@NotNull Vector3i point, @NotNull Rotation rotation) {
+    public static void rotatePos(Vector3i point, Rotation rotation) {
         Vector3d vec = new Vector3d(point);
         rotatePos(vec, rotation);
         point.x = (int) vec.x;
@@ -198,7 +197,7 @@ public class BlockUtil {
         point.z = (int) vec.z;
     }
 
-    public static void rotatePos(@NotNull Vector3d point, @NotNull Rotation rotation) {
+    public static void rotatePos(Vector3d point, Rotation rotation) {
         switch (rotation) {
             case CLOCKWISE_90 -> {
                 double x = -point.z;

@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.core.util;
 
-import org.jetbrains.annotations.NotNull;
+
+import org.jetbrains.annotations.Nullable;
 
 import java.io.DataInput;
 import java.io.IOException;
@@ -83,7 +84,7 @@ public class MemorySegmentReader implements DataInput {
         throw new UnsupportedOperationException("readLine is deprecated");
     }
 
-    public @NotNull String readUTF() throws IOException {
+    public String readUTF() throws IOException {
         return java.io.DataInputStream.readUTF(this); // modified UTF-8
     }
 
@@ -91,7 +92,7 @@ public class MemorySegmentReader implements DataInput {
         return new String(readByteArray(), StandardCharsets.UTF_8);
     }
 
-    public String readOptionalString() {
+    public @Nullable String readOptionalString() {
         boolean present = readByte() == 1;
         if (!present) return null;
         return readString();
@@ -161,11 +162,11 @@ public class MemorySegmentReader implements DataInput {
         return segment;
     }
 
-    public void readFully(byte @NotNull [] b) {
+    public void readFully(byte[] b) {
         readFully(b, 0, b.length);
     }
 
-    public void readFully(byte @NotNull [] b, int off, int len) {
+    public void readFully(byte[] b, int off, int len) {
         MemorySegment.copy(segment, offset, MemorySegment.ofArray(b), off, len);
         offset += len;
     }

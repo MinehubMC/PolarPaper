@@ -11,6 +11,6 @@ import org.slf4j.LoggerFactory;
 public interface EntitySerializer {
     Logger LOGGER = LoggerFactory.getLogger(EntitySerializer.class);
 
-    net.minecraft.world.entity.Entity compoundToEntity(World world, CompoundTag compound);
+    net.minecraft.world.entity.@Nullable Entity compoundToEntity(World world, CompoundTag compound);
     byte @Nullable [] entityToBytes(Entity entity, Plugin plugin);
 }

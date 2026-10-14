@@ -114,7 +114,7 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         return getLocation(chunk.getWorld(), chunk.getX(), chunk.getZ());
     }
 
-    public Location getLocation(World world, int chunkX, int chunkZ) {
+    public Location getLocation(@Nullable World world, int chunkX, int chunkZ) {
         // fix for previous version and also sanity check :)
         double realX = x;
         double realZ = z;

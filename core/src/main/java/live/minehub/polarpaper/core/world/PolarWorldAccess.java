@@ -10,7 +10,6 @@ import org.bukkit.entity.Entity;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
@@ -56,7 +55,7 @@ public interface PolarWorldAccess {
      *
      * @param userData The saved user data, or null if none is present
      */
-    default void loadChunkData(@NotNull World world, @NotNull ChunkAccess chunk, byte @Nullable [] userData) {
+    default void loadChunkData(World world, ChunkAccess chunk, byte @Nullable [] userData) {
     }
 
     /**
@@ -67,7 +66,7 @@ public interface PolarWorldAccess {
      * @param chunk The Bukkit chunk being populated
      * @param userData The saved user data, or null if none is present
      */
-    default void populateChunkData(@NotNull Chunk chunk, byte @Nullable [] userData) {
+    default void populateChunkData(Chunk chunk, byte @Nullable [] userData) {
     }
 
     /**
@@ -80,17 +79,17 @@ public interface PolarWorldAccess {
      * @param entities Entities in the chunk being saved
      * @param writer A buffer to write user data to save
      */
-    default void saveChunkData(@NotNull ChunkAccess chunk,
-                               @NotNull Map<BlockPos, BlockEntity> blockEntities, @NotNull Entity[] entities,
-                               @NotNull MemorySegmentWriter writer) {
+    default void saveChunkData(ChunkAccess chunk,
+                               Map<BlockPos, BlockEntity> blockEntities, Entity[] entities,
+                               MemorySegmentWriter writer) {
     }
 
     @ApiStatus.Experimental
-    default void loadHeightmaps(@NotNull ChunkGenerator.ChunkData chunkData, int[][] heightmaps) {
+    default void loadHeightmaps(ChunkGenerator.ChunkData chunkData, int[][] heightmaps) {
     }
 
     @ApiStatus.Experimental
-    default void saveHeightmaps(@NotNull ChunkAccess chunk, int[][] heightmaps) {
+    default void saveHeightmaps(ChunkAccess chunk, int[][] heightmaps) {
     }
 
 }

@@ -7,7 +7,6 @@ import net.minecraft.SharedConstants;
 import net.minecraft.server.level.ServerLevel;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector2i;
 import org.slf4j.Logger;
@@ -28,7 +27,7 @@ public class PolarWorld {
     // World metadata
     private final byte minSection;
     private final byte maxSection;
-    private byte @NotNull [] userData;
+    private byte[] userData;
 
     // Chunk data
     private final Map<Long, PolarChunk> chunks = new ConcurrentHashMap<>();
@@ -37,7 +36,7 @@ public class PolarWorld {
         this(PolarConstants.LATEST_VERSION, SharedConstants.getCurrentVersion().dataVersion().version(), minSection, maxSection, new byte[0], List.of());
     }
 
-    public PolarWorld(byte minSection, byte maxSection, @NotNull List<PolarChunk> chunks) {
+    public PolarWorld(byte minSection, byte maxSection, List<PolarChunk> chunks) {
         this(PolarConstants.LATEST_VERSION, SharedConstants.getCurrentVersion().dataVersion().version(), minSection, maxSection, new byte[0], chunks);
     }
 
@@ -45,8 +44,8 @@ public class PolarWorld {
             short version,
             int dataVersion,
             byte minSection, byte maxSection,
-            byte @NotNull [] userData,
-            @NotNull List<PolarChunk> chunks
+            byte[] userData,
+            List<PolarChunk> chunks
     ) {
         this.version = version;
         this.dataVersion = dataVersion;
@@ -89,11 +88,11 @@ public class PolarWorld {
         return maxSection;
     }
 
-    public byte @NotNull [] userData() {
+    public byte[] userData() {
         return userData;
     }
 
-    public void userData(byte @NotNull [] userData) {
+    public void userData(byte[] userData) {
         this.userData = userData;
     }
 
@@ -102,14 +101,14 @@ public class PolarWorld {
     }
 
     public @Nullable PolarChunk chunkAt(int x, int z) {
-        return chunks.getOrDefault(CoordConversion.chunkIndex(x, z), null);
+        return chunks.get(CoordConversion.chunkIndex(x, z));
     }
 
     public void removeChunkAt(int x, int z) {
         chunks.remove(CoordConversion.chunkIndex(x, z));
     }
 
-    public void updateChunkAt(int x, int z, @NotNull PolarChunk chunk) {
+    public void updateChunkAt(int x, int z, PolarChunk chunk) {
         chunks.put(CoordConversion.chunkIndex(x, z), chunk);
     }
 
@@ -117,11 +116,11 @@ public class PolarWorld {
         return chunks.size();
     }
 
-    public @NotNull Collection<PolarChunk> chunks() {
+    public Collection<PolarChunk> chunks() {
         return chunks.values();
     }
 
-    public @NotNull List<PolarChunk> nonEmptyChunks() {
+    public List<PolarChunk> nonEmptyChunks() {
         List<PolarChunk> nonEmptyChunks = new ArrayList<>();
         for (PolarChunk chunk : chunks()) {
             if (chunk.isEmpty()) continue;
@@ -234,7 +233,7 @@ public class PolarWorld {
         }
 
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenApply(_ -> {
-            for (CompletableFuture<PolarChunk> future : futures) {
+            for (CompletableFuture<@Nullable PolarChunk> future : futures) {
                 PolarChunk polarChunk = future.join();
                 if (polarChunk == null) continue;
                 chunks.add(polarChunk);

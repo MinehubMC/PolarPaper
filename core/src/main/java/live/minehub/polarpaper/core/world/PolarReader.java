@@ -7,7 +7,7 @@ import live.minehub.polarpaper.core.util.LightUtil;
 import live.minehub.polarpaper.core.util.MemorySegmentReader;
 import live.minehub.polarpaper.core.util.PaletteUtil;
 import net.minecraft.nbt.*;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -20,11 +20,11 @@ import java.util.List;
 
 public class PolarReader {
 
-    private final @NotNull PolarDataConverter dataConverter;
+    private final PolarDataConverter dataConverter;
     private short version;
     private int dataVersion;
     private byte[] userData = new byte[0];
-    public PolarReader(@NotNull PolarDataConverter dataConverter) {
+    public PolarReader(PolarDataConverter dataConverter) {
         this.dataConverter = dataConverter;
         this.dataVersion = dataConverter.defaultDataVersion();
     }
@@ -39,7 +39,7 @@ public class PolarReader {
 
     //https://github.com/hollow-cube/polar/blob/main/src/main/java/net/hollowcube/polar/StreamingPolarLoader.java#L64
     public PolarWorld read(
-            @NotNull ReadableByteChannel channel,
+            ReadableByteChannel channel,
             long fileSize
     ) throws IOException {
         try (Arena dstArena = Arena.ofConfined()) {
@@ -119,7 +119,7 @@ public class PolarReader {
         return new PolarWorld(version, dataVersion, minSection, maxSection, userData, chunks);
     }
 
-    private @NotNull PolarChunk readChunk(@NotNull MemorySegmentReader reader, int sectionCount) {
+    private PolarChunk readChunk(MemorySegmentReader reader, int sectionCount) {
         var chunkX = reader.readVarInt();
         var chunkZ = reader.readVarInt();
 
@@ -147,7 +147,7 @@ public class PolarReader {
         );
     }
 
-    public static int @NotNull [][] readHeightmaps(@NotNull MemorySegmentReader reader) {
+    public static int[] @Nullable [] readHeightmaps(MemorySegmentReader reader) {
         int[][] heightmaps = new int[PolarChunk.MAX_HEIGHTMAPS][];
         int heightmapMask = reader.readInt();
         for (int i = 0; i < PolarChunk.MAX_HEIGHTMAPS; i++) {
@@ -166,7 +166,7 @@ public class PolarReader {
         return heightmaps;
     }
 
-    public static @NotNull PolarSection readSection(@NotNull PolarDataConverter dataConverter, int dataVersion, @NotNull MemorySegmentReader reader) {
+    public static PolarSection readSection(PolarDataConverter dataConverter, int dataVersion, MemorySegmentReader reader) {
         // If section is empty exit immediately
         if (reader.readByte() == 1) return new PolarSection();
 
@@ -228,7 +228,7 @@ public class PolarReader {
         }
     }
 
-    public static @NotNull PolarChunk.BlockEntity readBlockEntity(@NotNull PolarDataConverter dataConverter, int dataVersion, @NotNull MemorySegmentReader reader) {
+    public static PolarChunk.BlockEntity readBlockEntity(PolarDataConverter dataConverter, int dataVersion, MemorySegmentReader reader) {
         int posIndex = reader.readInt();
         String id = reader.readOptionalString();
 

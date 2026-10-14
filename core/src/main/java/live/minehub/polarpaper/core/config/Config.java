@@ -6,9 +6,7 @@ import live.minehub.polarpaper.core.world.PolarWorld;
 import net.kyori.adventure.key.Key;
 import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,15 +40,15 @@ public record Config(
         long time,
         boolean saveOnStop,
         boolean loadOnStartup,
-        @NotNull Location spawn,
-        @NotNull Difficulty difficulty,
+        Location spawn,
+        Difficulty difficulty,
         boolean async,
         boolean saveLight,
         PolarWorld.CompressionType compression,
         int compressionLevel,
-        @NotNull WorldType worldType,
-        @NotNull World.Environment environment,
-        @NotNull Map<String, Object> gamerules
+        WorldType worldType,
+        World.Environment environment,
+        Map<String, Object> gamerules
 ) {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Config.class);
@@ -99,7 +97,7 @@ public record Config(
         return DEFAULT_GAMERULES;
     }
 
-    public static boolean isInConfig(FileConfiguration config, @NotNull String worldName) {
+    public static boolean isInConfig(FileConfiguration config, String worldName) {
         return config.isSet("worlds." + worldName);
     }
 
@@ -107,24 +105,24 @@ public record Config(
         return readPrefix(config, "default.", Builder.defaults());
     }
 
-    public @NotNull String spawnString() {
+    public String spawnString() {
         return LocationProperty.locationToString(spawn());
     }
 
-    public static @NotNull Config readFromConfig(FileConfiguration config, World world) {
+    public static Config readFromConfig(FileConfiguration config, World world) {
         Builder builder = getDefaultConfig(config).toBuilder().fromWorld(world);
         return readFromConfig(config, world.getKey().getKey(), builder);
     }
 
-    public static @NotNull Config readFromConfig(FileConfiguration config, String worldName) {
+    public static Config readFromConfig(FileConfiguration config, String worldName) {
         return readFromConfig(config, worldName, getDefaultConfig(config).toBuilder());
     }
 
-    public static @NotNull Config readFromConfig(FileConfiguration config, String worldName, Builder builder) {
+    public static Config readFromConfig(FileConfiguration config, String worldName, Builder builder) {
         return readPrefix(config, String.format("worlds.%s.", worldName), builder);
     }
 
-    private static @NotNull Config readPrefix(FileConfiguration config, String prefix, Builder builder) {
+    private static Config readPrefix(FileConfiguration config, String prefix, Builder builder) {
         for (Property<?> property : PROPERTIES) {
             property.apply(builder, config, prefix);
         }
@@ -158,15 +156,15 @@ public record Config(
         private long time;
         private boolean saveOnStop;
         private boolean loadOnStartup;
-        private @NotNull Location spawn;
-        private @NotNull Difficulty difficulty;
+        private @Nullable Location spawn;
+        private @Nullable Difficulty difficulty;
         private boolean async;
         private boolean saveLight;
-        private PolarWorld.CompressionType compression;
+        private @Nullable PolarWorld.CompressionType compression;
         private int compressionLevel;
-        private @NotNull WorldType worldType;
-        private @NotNull World.Environment environment;
-        private @NotNull Map<String, Object> gamerules = new HashMap<>();
+        private @Nullable WorldType worldType;
+        private @Nullable World.Environment environment;
+        private Map<String, Object> gamerules = new HashMap<>();
 
         private Builder() {
 
@@ -250,12 +248,12 @@ public record Config(
             return this;
         }
 
-        public Builder spawn(@NotNull Location spawn) {
+        public Builder spawn(Location spawn) {
             this.spawn = Objects.requireNonNull(spawn, "Null spawn");
             return this;
         }
 
-        public Builder difficulty(@NotNull Difficulty difficulty) {
+        public Builder difficulty(Difficulty difficulty) {
             this.difficulty = Objects.requireNonNull(difficulty, "Null difficulty");
             return this;
         }
@@ -297,35 +295,35 @@ public record Config(
         /**
          * Prefer WorldType.FLAT if possible as it skips unnecessary vanilla biome generation
          */
-        public Builder worldType(@NotNull WorldType worldType) {
+        public Builder worldType(WorldType worldType) {
             this.worldType = Objects.requireNonNull(worldType, "Null worldType");
             return this;
         }
 
-        public Builder environment(@NotNull World.Environment environment) {
+        public Builder environment(World.Environment environment) {
             this.environment = Objects.requireNonNull(environment, "Null environment");
             return this;
         }
 
-        public Builder gamerules(@NotNull Map<String, Object> gamerules) {
+        public Builder gamerules(Map<String, Object> gamerules) {
             this.gamerules = gamerules;
             return this;
         }
 
-        public Builder gamerule(@NotNull String gameruleKey, @Nullable Object gameruleValue) {
+        public Builder gamerule(String gameruleKey, @Nullable Object gameruleValue) {
             this.gamerules.put(gameruleKey, gameruleValue);
             return this;
         }
 
-        public Builder removeGamerule(@NotNull String gameruleKey) {
+        public Builder removeGamerule(String gameruleKey) {
             this.gamerules.remove(gameruleKey);
             return this;
         }
 
         public Config build() {
             return new Config(this.autoSaveIntervalTicks, this.announceAutosave, this.time, this.saveOnStop, this.loadOnStartup,
-                    this.spawn, this.difficulty, this.async, this.saveLight, this.compression, this.compressionLevel,
-                    this.worldType, this.environment, this.gamerules);
+                    Objects.requireNonNull(this.spawn, "spawn"), Objects.requireNonNull(this.difficulty, "difficulty"), this.async, this.saveLight, Objects.requireNonNull(this.compression, "compression"), this.compressionLevel,
+                    Objects.requireNonNull(this.worldType, "worldType"), Objects.requireNonNull(this.environment, "environment"), this.gamerules);
         }
 
         public static Builder defaults() {
@@ -338,16 +336,16 @@ public record Config(
     }
 
     private static class Property<T> {
-        private final @NotNull String path;
-        private final @NotNull T defaultValue;
-        private final @NotNull Function<Config, T> getter;
-        private final @NotNull BiFunction<Builder, T, Builder> writer;
-        private final @NotNull List<String> comments;
-        public Property(@NotNull String path,
-                        @NotNull T defaultValue,
-                        @NotNull Function<Config, T> getter,
-                        @NotNull BiFunction<Builder, T, Builder> writer,
-                        @NotNull List<String> comments) {
+        private final String path;
+        private final T defaultValue;
+        private final Function<Config, T> getter;
+        private final BiFunction<Builder, T, Builder> writer;
+        private final List<String> comments;
+        public Property(String path,
+                        T defaultValue,
+                        Function<Config, T> getter,
+                        BiFunction<Builder, T, Builder> writer,
+                        List<String> comments) {
             this.path = path;
             this.defaultValue = defaultValue;
             this.getter = getter;
@@ -355,18 +353,18 @@ public record Config(
             this.comments = comments;
         }
 
-        public Property(@NotNull String path,
-                        @NotNull T defaultValue,
-                        @NotNull Function<Config, T> getter,
-                        @NotNull BiFunction<Builder, T, Builder> writer) {
+        public Property(String path,
+                        T defaultValue,
+                        Function<Config, T> getter,
+                        BiFunction<Builder, T, Builder> writer) {
             this(path, defaultValue, getter, writer, List.of());
         }
 
-        public Property(@NotNull String path,
-                        @NotNull T defaultValue,
-                        @NotNull Function<Config, T> getter,
-                        @NotNull BiFunction<Builder, T, Builder> writer,
-                        @NotNull String comment) {
+        public Property(String path,
+                        T defaultValue,
+                        Function<Config, T> getter,
+                        BiFunction<Builder, T, Builder> writer,
+                        String comment) {
             this(path, defaultValue, getter, writer, List.of(comment));
         }
 
@@ -384,7 +382,7 @@ public record Config(
             writer.apply(builder, value);
         }
 
-        public T read(FileConfiguration config, String prefix) {
+        public @Nullable T read(FileConfiguration config, String prefix) {
             String fullPath = prefix + path;
             return (T) config.get(fullPath);
         }
@@ -399,7 +397,7 @@ public record Config(
             if (!comments.isEmpty()) fileConfig.setInlineComments(fullPath, comments);
         }
 
-        public @NonNull String getPath() {
+        public String getPath() {
             return path;
         }
 
@@ -407,7 +405,7 @@ public record Config(
             return defaultValue;
         }
 
-        public @NonNull List<String> getComments() {
+        public List<String> getComments() {
             return comments;
         }
     }
@@ -429,7 +427,7 @@ public record Config(
         }
 
         @Override
-        public T read(FileConfiguration config, String prefix) {
+        public @Nullable T read(FileConfiguration config, String prefix) {
             String fullPath = prefix + getPath();
 
             String string = config.getString(fullPath);
@@ -508,7 +506,7 @@ public record Config(
                     spawn.getPitch());
         }
 
-        private Location stringToLocation(String string) {
+        private Location stringToLocation(@Nullable String string) {
             if (string == null) return getDefault();
 
             String[] split = string.split(",");
@@ -570,7 +568,7 @@ public record Config(
             if (!getComments().isEmpty()) fileConfig.setInlineComments(fullPath, getComments());
         }
 
-        private @NotNull Map<String, Object> convertYmlGamerules(List<Map<?, ?>> ymlGamerules) {
+        private Map<String, Object> convertYmlGamerules(@Nullable List<Map<?, ?>> ymlGamerules) {
             if (ymlGamerules == null) return Map.of();
             Map<String, Object> gamerules = new HashMap<>();
 
@@ -584,7 +582,7 @@ public record Config(
             return gamerules;
         }
 
-        private @NotNull List<Map<String, ?>> gamerulesList(Map<String, Object> gamerules) {
+        private List<Map<String, ?>> gamerulesList(Map<String, Object> gamerules) {
             List<Map<String, ?>> gamerulesList = new ArrayList<>(gamerules.size());
             for (Map.Entry<String, Object> entry : gamerules.entrySet()) {
                 gamerulesList.add(Map.of(entry.getKey(), entry.getValue()));

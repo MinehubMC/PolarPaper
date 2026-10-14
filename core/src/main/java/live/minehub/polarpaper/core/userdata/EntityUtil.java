@@ -56,7 +56,7 @@ public class EntityUtil {
         return polarEntities;
     }
 
-    public static void writeEntities(List<@NotNull PolarEntity> entities, @NotNull MemorySegmentWriter data) {
+    public static void writeEntities(List<PolarEntity> entities, MemorySegmentWriter data) {
         data.writeVarInt(entities.size());
         for (@NotNull PolarEntity entity : entities) {
             data.writeDouble(entity.x());

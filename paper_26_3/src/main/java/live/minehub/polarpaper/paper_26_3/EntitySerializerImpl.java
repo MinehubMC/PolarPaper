@@ -27,7 +27,7 @@ import java.util.concurrent.CompletableFuture;
 public class EntitySerializerImpl implements EntitySerializer {
 
     @Override
-    public net.minecraft.world.entity.Entity compoundToEntity(World world, CompoundTag compound) {
+    public net.minecraft.world.entity.@Nullable Entity compoundToEntity(World world, CompoundTag compound) {
         ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "deserialiseEntity", LogUtils.getLogger());
         ValueInput tagValueInput = TagValueInput.create(problemReporter, ((CraftWorld) world).getHandle().registryAccess(), compound);
 

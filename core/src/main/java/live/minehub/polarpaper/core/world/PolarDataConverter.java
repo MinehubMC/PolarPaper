@@ -3,7 +3,6 @@ package live.minehub.polarpaper.core.world;
 import live.minehub.polarpaper.core.util.ChainDataConverter;
 import net.minecraft.SharedConstants;
 import net.minecraft.nbt.CompoundTag;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 
@@ -11,10 +10,8 @@ import java.util.Map;
  * Allows for upgrading world data from one game version to another.
  */
 public interface PolarDataConverter {
-    @NotNull
     PolarDataConverter DEFAULT = new ChainDataConverter();
 
-    @NotNull
     PolarDataConverter NOOP = new PolarDataConverter() {
     };
 
@@ -41,12 +38,12 @@ public interface PolarDataConverter {
      * @param fromVersion The data version of the palette
      * @param toVersion   The data version to convert the palette to
      */
-    default void convertBlockPalette(@NotNull String[] palette, int fromVersion, int toVersion) {
+    default void convertBlockPalette(String[] palette, int fromVersion, int toVersion) {
 
     }
 
-    default @NotNull Map.Entry<String, CompoundTag> convertBlockEntityData(
-            @NotNull String id, @NotNull CompoundTag data,
+    default Map.Entry<String, CompoundTag> convertBlockEntityData(
+            String id, CompoundTag data,
             int fromVersion, int toVersion
     ) {
         return Map.entry(id, data);

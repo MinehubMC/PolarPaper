@@ -59,7 +59,7 @@ public class EntitiesWorldAccess implements PolarWorldAccess {
     }
 
     @Override
-    public void loadChunkData(@NotNull World world, @NotNull ChunkAccess chunk, final byte @Nullable [] userData) {
+    public void loadChunkData(World world, ChunkAccess chunk, final byte @Nullable [] userData) {
         if (userData == null || userData.length == 0) return;
 
         ServerLevel level = ((CraftWorld) world).getHandle();
@@ -100,15 +100,15 @@ public class EntitiesWorldAccess implements PolarWorldAccess {
     }
 
     @Override
-    public void saveChunkData(@NotNull ChunkAccess chunk,
-                              @NotNull Map<BlockPos, BlockEntity> blockEntities,
-                              @NotNull Entity[] entities, @NotNull MemorySegmentWriter writer) {
+    public void saveChunkData(ChunkAccess chunk,
+                              Map<BlockPos, BlockEntity> blockEntities,
+                              Entity[] entities, MemorySegmentWriter writer) {
         List<CompletableFuture<@Nullable PolarEntity>> entityFutures = new ArrayList<>();
 
         for (@NotNull Entity entity : entities) {
             if (entity.getType() == EntityType.PLAYER) continue;
             if (!entity.isPersistent()) continue;
-            CompletableFuture<PolarEntity> future = new CompletableFuture<>();
+            CompletableFuture<@Nullable PolarEntity> future = new CompletableFuture<>();
             FoliaUtil.scheduleOnEntityIfFolia(plugin, entity, () -> {
                 PolarEntity polarEntity = EntityUtil.entityToPolarEntity(entity, plugin, entitySerializer);
                 future.complete(polarEntity);
@@ -116,7 +116,7 @@ public class EntitiesWorldAccess implements PolarWorldAccess {
             entityFutures.add(future);
         }
 
-        List<@NotNull PolarEntity> polarEntities = new ArrayList<>();
+        List<PolarEntity> polarEntities = new ArrayList<>();
         for (CompletableFuture<@Nullable PolarEntity> entityFuture : entityFutures) {
             PolarEntity polarEntity = entityFuture.join();
             if (polarEntity == null) continue;

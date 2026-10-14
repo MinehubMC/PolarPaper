@@ -18,7 +18,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.*;
 import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +33,10 @@ import java.util.function.ToIntFunction;
  * This class should be considered immutable.
  */
 @ApiStatus.Internal
-public class PolarSection {
+public record PolarSection(boolean empty, String[] blockPalette, long @Nullable [] blockData, String[] biomePalette,
+                           long @Nullable [] biomeData, LightContent blockLightContent,
+                           @Nullable SWMRNibbleArray blockLight, LightContent skyLightContent,
+                           @Nullable SWMRNibbleArray skyLight) {
     private static final Logger LOGGER = LoggerFactory.getLogger(PolarSection.class);
 
     public enum LightContent {
@@ -43,112 +45,53 @@ public class PolarSection {
         public static final LightContent[] VALUES = values();
     }
 
-    private final boolean empty;
-
-    private final String @NotNull [] blockPalette;
-    private final long @Nullable [] blockData;
-
-    private final String @NotNull [] biomePalette;
-    private final long @Nullable [] biomeData;
-
-    private final LightContent blockLightContent;
-    private final @Nullable SWMRNibbleArray blockLight;
-    private final LightContent skyLightContent;
-    private final @Nullable SWMRNibbleArray skyLight;
-
     public PolarSection() {
-        this.empty = true;
-
-        this.blockPalette = new String[]{"minecraft:air"};
-        this.blockData = null;
-        this.biomePalette = new String[]{"minecraft:plains"};
-        this.biomeData = null;
-
-        this.blockLightContent = LightContent.MISSING;
-        this.blockLight = null;
-        this.skyLightContent = LightContent.MISSING;
-        this.skyLight = null;
+        this(true, new String[]{"minecraft:air"}, null, new String[]{"minecraft:plains"}, null, LightContent.MISSING, null, LightContent.MISSING, null);
     }
 
     public PolarSection(
-            String @NotNull [] blockPalette, long @Nullable [] blockData,
-            String @NotNull [] biomePalette, long @Nullable [] biomeData,
-            @NotNull LightContent blockLightContent, @Nullable SWMRNibbleArray blockLight,
-            @NotNull LightContent skyLightContent, @Nullable SWMRNibbleArray skyLight
+            String[] blockPalette, long @Nullable [] blockData,
+            String[] biomePalette, long @Nullable [] biomeData,
+            LightContent blockLightContent, @Nullable SWMRNibbleArray blockLight,
+            LightContent skyLightContent, @Nullable SWMRNibbleArray skyLight
     ) {
-        this.empty = false;
-
-        this.blockPalette = blockPalette;
-        this.blockData = blockData;
-        this.biomePalette = biomePalette;
-        this.biomeData = biomeData;
-
-        this.blockLightContent = blockLightContent;
-        this.blockLight = blockLight;
-        this.skyLightContent = skyLightContent;
-        this.skyLight = skyLight;
+        this(false, blockPalette, blockData, biomePalette, biomeData, blockLightContent, blockLight, skyLightContent, skyLight);
     }
 
     public PolarSection(
-            @NotNull LightContent blockLightContent, @Nullable SWMRNibbleArray blockLight,
-            @NotNull LightContent skyLightContent, @Nullable SWMRNibbleArray skyLight
+            LightContent blockLightContent, @Nullable SWMRNibbleArray blockLight,
+            LightContent skyLightContent, @Nullable SWMRNibbleArray skyLight
     ) {
-        this.empty = false;
-
-        this.blockPalette = new String[]{"minecraft:air"};
-        this.blockData = null;
-        this.biomePalette = new String[]{"minecraft:plains"};
-        this.biomeData = null;
-
-        this.blockLightContent = blockLightContent;
-        this.blockLight = blockLight;
-        this.skyLightContent = skyLightContent;
-        this.skyLight = skyLight;
-    }
-
-    public boolean isEmpty() {
-        return empty;
-    }
-
-    public @NotNull String @NotNull [] blockPalette() {
-        return blockPalette;
+        this(false, new String[]{"minecraft:air"}, null, new String[]{"minecraft:plains"}, null, blockLightContent, blockLight, skyLightContent, skyLight);
     }
 
     /**
      * Returns the uncompressed palette data. Each int corresponds to an index in the palette.
      * Always has a length of 4096.
      */
+    @Override
     public long[] blockData() {
         assert blockData != null : "must check length of blockPalette() before using blockData()";
         return blockData;
-    }
-
-    public @NotNull String @NotNull [] biomePalette() {
-        return biomePalette;
     }
 
     /**
      * Returns the uncompressed palette data. Each int corresponds to an index in the palette.
      * Always has a length of 256.
      */
+    @Override
     public long[] biomeData() {
         assert biomeData != null : "must check length of biomePalette() before using biomeData()";
         return biomeData;
     }
 
-    public @NotNull LightContent blockLightContent() {
-        return blockLightContent;
-    }
-
+    @Override
     public SWMRNibbleArray blockLight() {
         assert blockLight != null : "must check hasBlockLightData() before calling blockLight()";
         return blockLight;
     }
 
-    public @NotNull LightContent skyLightContent() {
-        return skyLightContent;
-    }
-
+    @Override
     public SWMRNibbleArray skyLight() {
         assert skyLight != null : "must check hasSkyLightData() before calling skyLight()";
         return skyLight;
@@ -229,51 +172,51 @@ public class PolarSection {
         }
     }
 
-     private static <T> PalettedContainer.Data<T> getPalettedContainer(T[] palette, long[] data, int bits, int longBits, Strategy<T> strategy, ToIntFunction<T> globalId) {
-         if (data == null || data.length == 0 || bits == 0) {
-             Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, 0);
-             return new PalettedContainer.Data<>(
-                     configuration,
-                     new ZeroBitStorage(strategy.entryCount()),
-                     configuration.createPalette(strategy, List.of(palette[0]))
-             );
-         }
+    private static <T> PalettedContainer.Data<T> getPalettedContainer(T[] palette, long @Nullable [] data, int bits, int longBits, Strategy<T> strategy, ToIntFunction<T> globalId) {
+        if (data == null || data.length == 0 || bits == 0) {
+            Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, 0);
+            return new PalettedContainer.Data<>(
+                    configuration,
+                    new ZeroBitStorage(strategy.entryCount()),
+                    configuration.createPalette(strategy, List.of(palette[0]))
+            );
+        }
 
-         Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, bits);
-         int valuesPerLong = (char)(64 / configuration.bitsInMemory());
-         int requiredLength = (strategy.entryCount() + valuesPerLong - 1) / valuesPerLong;
-         Palette<T> created = configuration.createPalette(strategy, Arrays.asList(palette));
-         boolean global = created instanceof GlobalPalette;
+        Configuration configuration = PaletteUtil.getConfigurationForBitCount(strategy, bits);
+        int valuesPerLong = (char) (64 / configuration.bitsInMemory());
+        int requiredLength = (strategy.entryCount() + valuesPerLong - 1) / valuesPerLong;
+        Palette<T> created = configuration.createPalette(strategy, Arrays.asList(palette));
+        boolean global = created instanceof GlobalPalette;
 
-         long[] packed;
-         if (!global && !configuration.alwaysRepack() && configuration.bitsInMemory() == bits && data.length == requiredLength) {
-             packed = data.clone();
-         } else {
-             int[] unpacked = new int[strategy.entryCount()];
-             PaletteUtil.unpack(unpacked, data, longBits);
-             if (global) {
-                 // local palette index -> current registry ID
-                 int[] ids = new int[palette.length];
-                 for (int i = 0; i < palette.length; i++) ids[i] = globalId.applyAsInt(palette[i]);
-                 for (int i = 0; i < unpacked.length; i++) unpacked[i] = ids[unpacked[i]];
-             }
-             packed = PaletteUtil.pack(unpacked, configuration.bitsInMemory());
-         }
+        long[] packed;
+        if (!global && !configuration.alwaysRepack() && configuration.bitsInMemory() == bits && data.length == requiredLength) {
+            packed = data.clone();
+        } else {
+            int[] unpacked = new int[strategy.entryCount()];
+            PaletteUtil.unpack(unpacked, data, longBits);
+            if (global) {
+                // local palette index -> current registry ID
+                int[] ids = new int[palette.length];
+                for (int i = 0; i < palette.length; i++) ids[i] = globalId.applyAsInt(palette[i]);
+                for (int i = 0; i < unpacked.length; i++) unpacked[i] = ids[unpacked[i]];
+            }
+            packed = PaletteUtil.pack(unpacked, configuration.bitsInMemory());
+        }
 
-         try {
-             return new PalettedContainer.Data<>(
-                     configuration,
-                     new SimpleBitStorage(configuration.bitsInMemory(), strategy.entryCount(), packed),
-                     created
-             );
-         } catch (SimpleBitStorage.InitializationException e) {
-             LOGGER.info("Bits: {}, {}, {}", configuration.bitsInMemory(), configuration.bitsInStorage(), bits);
-             LOGGER.info("Strategy Entry Count: {}", strategy.entryCount());
-             LOGGER.info("Data: {}", Arrays.toString(data));
-             LOGGER.info("Packed: {}", Arrays.toString(packed));
-             LOGGER.info("Palette: {}", Arrays.toString(palette));
-             throw new RuntimeException(e);
-         }
-     }
+        try {
+            return new PalettedContainer.Data<>(
+                    configuration,
+                    new SimpleBitStorage(configuration.bitsInMemory(), strategy.entryCount(), packed),
+                    created
+            );
+        } catch (SimpleBitStorage.InitializationException e) {
+            LOGGER.info("Bits: {}, {}, {}", configuration.bitsInMemory(), configuration.bitsInStorage(), bits);
+            LOGGER.info("Strategy Entry Count: {}", strategy.entryCount());
+            LOGGER.info("Data: {}", Arrays.toString(data));
+            LOGGER.info("Packed: {}", Arrays.toString(packed));
+            LOGGER.info("Palette: {}", Arrays.toString(palette));
+            throw new RuntimeException(e);
+        }
+    }
 
 }

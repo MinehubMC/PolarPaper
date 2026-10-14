@@ -6,7 +6,6 @@ import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.util.MemorySegmentWriter;
 import live.minehub.polarpaper.core.util.PaletteUtil;
 import net.minecraft.nbt.NbtIo;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;
@@ -19,15 +18,15 @@ public class PolarWriter {
     private PolarWriter() {
     }
 
-    public static void write(@NotNull PolarSource source, @NotNull PolarWorld world, @NotNull Config config) {
+    public static void write(PolarSource source, PolarWorld world, Config config) {
         write(source, world, PolarDataConverter.DEFAULT, config.compression(), config.compressionLevel());
     }
 
-    public static void write(@NotNull PolarSource source, @NotNull PolarWorld world) {
+    public static void write(PolarSource source, PolarWorld world) {
         write(source, world, PolarDataConverter.DEFAULT, PolarConstants.DEFAULT_COMPRESSION, PolarConstants.DEFAULT_COMPRESSION_LEVEL);
     }
 
-    public static void write(@NotNull PolarSource source, @NotNull PolarWorld world, @NotNull PolarDataConverter dataConverter, PolarWorld.CompressionType compression, int compressionLevel) {
+    public static void write(PolarSource source, PolarWorld world, PolarDataConverter dataConverter, PolarWorld.CompressionType compression, int compressionLevel) {
         Zstd zstd = Zstd.zstd();
         long contentSize = 0;
         try (Arena arena = Arena.ofConfined();
@@ -89,7 +88,7 @@ public class PolarWriter {
         }
     }
 
-    private static void writeChunk(@NotNull MemorySegmentWriter writer, @NotNull PolarChunk chunk, int sectionCount) {
+    private static void writeChunk(MemorySegmentWriter writer, PolarChunk chunk, int sectionCount) {
         writer.writeVarInt(chunk.x());
         writer.writeVarInt(chunk.z());
 
@@ -124,7 +123,7 @@ public class PolarWriter {
         writer.writeByteArray(chunk.userData());
     }
 
-    public static void writeBlockEntity(@NotNull MemorySegmentWriter writer, @NotNull PolarChunk.BlockEntity blockEntity) {
+    public static void writeBlockEntity(MemorySegmentWriter writer, PolarChunk.BlockEntity blockEntity) {
         writer.writeInt(blockEntity.index());
         writer.writeByte((byte) (blockEntity.id() == null ? 0 : 1));
         if (blockEntity.id() != null) {
@@ -141,8 +140,8 @@ public class PolarWriter {
         }
     }
 
-    private static void writeSection(@NotNull MemorySegmentWriter writer, @NotNull PolarSection section) {
-        boolean empty = section.isEmpty();
+    private static void writeSection(MemorySegmentWriter writer, PolarSection section) {
+        boolean empty = section.empty();
         writer.writeByte((byte) (empty ? 1 : 0));
         if (empty) return;
 

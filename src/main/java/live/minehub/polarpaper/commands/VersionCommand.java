@@ -61,9 +61,10 @@ public class VersionCommand extends PolarCmd {
         );
 
         getLatestReleaseCached().thenAccept(release -> {
-            if (release == null) return;
+            if (release == null || release.assets == null || release.assets.isEmpty()) return;
 
             String downloadUrl = release.assets.getFirst().browser_download_url;
+            if (downloadUrl == null) return;
 
             SemVer currentSemVer = SemVer.parse(currentVersion);
             SemVer githubSemVer = SemVer.parse(release.name);
@@ -143,7 +144,7 @@ public class VersionCommand extends PolarCmd {
                         Type listOfGithubRelease = new TypeToken<List<GithubRelease>>() {}.getType();
                         List<GithubRelease> releases = gson.fromJson(body, listOfGithubRelease);
                         for (GithubRelease release : releases) {
-                            if (!release.prerelease) {
+                            if (!release.prerelease && release.updated_at != null) {
                                 release.updated_at_relative = toRelative(release.updated_at);
                                 CACHED_RELEASE = release;
                                 LAST_UPDATED = System.currentTimeMillis();
@@ -157,7 +158,7 @@ public class VersionCommand extends PolarCmd {
                     });
         } catch (Exception e) {
             LOGGER.error("Failed to get latest release", e);
-            return null;
+            return CompletableFuture.completedFuture(null);
         }
     }
 
@@ -167,14 +168,14 @@ public class VersionCommand extends PolarCmd {
     }
 
     private static class GithubRelease {
-        String name;
+        @Nullable String name;
         boolean prerelease;
-        String updated_at;
-        String updated_at_relative;
-        List<GithubAsset> assets;
+        @Nullable String updated_at;
+        @Nullable String updated_at_relative;
+        @Nullable List<GithubAsset> assets;
     }
     private static class GithubAsset {
-        String browser_download_url;
+        @Nullable String browser_download_url;
     }
 
     public static final class SemVer implements Comparable<SemVer> {
@@ -191,11 +192,11 @@ public class VersionCommand extends PolarCmd {
         private final int major;
         private final int minor;
         private final int patch;
-        private final String preRelease;   // null if none
-        private final String buildMetadata; // null if none, ignored in comparisons
+        private final @Nullable String preRelease;   // null if none
+        private final @Nullable String buildMetadata; // null if none, ignored in comparisons
         private final String raw;
 
-        private SemVer(int major, int minor, int patch, String preRelease, String buildMetadata, String raw) {
+        private SemVer(int major, int minor, int patch, @Nullable String preRelease, @Nullable String buildMetadata, String raw) {
             this.major = major;
             this.minor = minor;
             this.patch = patch;
@@ -209,7 +210,7 @@ public class VersionCommand extends PolarCmd {
          *
          * @return null if the string is not valid semver
          */
-        public static SemVer parse(String version) {
+        public static @Nullable SemVer parse(@Nullable String version) {
             if (version == null) return null;
             String trimmed = version.trim();
             Matcher m = PATTERN.matcher(trimmed);
@@ -227,7 +228,10 @@ public class VersionCommand extends PolarCmd {
          * @return negative if v1 < v2, 0 if equal precedence, positive if v1 > v2
          */
         public static int compare(String v1, String v2) {
-            return parse(v1).compareTo(parse(v2));
+            SemVer first = parse(v1);
+            SemVer second = parse(v2);
+            if (first == null || second == null) throw new IllegalArgumentException("Invalid semantic version");
+            return first.compareTo(second);
         }
 
         public boolean isNewer(SemVer other) {
@@ -259,7 +263,7 @@ public class VersionCommand extends PolarCmd {
          *     numeric identifiers always have lower precedence than alphanumeric,
          *     a larger set of fields has higher precedence if all preceding fields are equal.
          */
-        private static int comparePreRelease(String pre1, String pre2) {
+        private static int comparePreRelease(@Nullable String pre1, @Nullable String pre2) {
             boolean has1 = pre1 != null;
             boolean has2 = pre2 != null;
             if (!has1 && !has2) return 0;
@@ -302,8 +306,8 @@ public class VersionCommand extends PolarCmd {
         public int getMajor() { return major; }
         public int getMinor() { return minor; }
         public int getPatch() { return patch; }
-        public String getPreRelease() { return preRelease; }
-        public String getBuildMetadata() { return buildMetadata; }
+        public @Nullable String getPreRelease() { return preRelease; }
+        public @Nullable String getBuildMetadata() { return buildMetadata; }
 
         @Override
         public String toString() {
@@ -311,7 +315,7 @@ public class VersionCommand extends PolarCmd {
         }
 
         @Override
-        public boolean equals(Object o) {
+        public boolean equals(@Nullable Object o) {
             if (!(o instanceof SemVer)) return false;
             return this.compareTo((SemVer) o) == 0;
         }

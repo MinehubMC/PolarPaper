@@ -23,7 +23,6 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,8 +41,8 @@ import java.util.function.BiConsumer;
 public class SlimeStreamLoader extends PolarGenerator {
     private static final Logger LOGGER = LoggerFactory.getLogger(SlimeStreamLoader.class);
 
-    private final @NotNull PolarDataConverter dataConverter;
-    private final @NotNull EntitySerializer entitySerializer;
+    private final PolarDataConverter dataConverter;
+    private final EntitySerializer entitySerializer;
     private int version;
     private int dataVersion;
     private boolean poiChunks = false;
@@ -56,7 +55,7 @@ public class SlimeStreamLoader extends PolarGenerator {
      * If using a FilePolarSource, it will change the file extension to .slime.bak,
      * otherwise it will overwrite the previous file
      */
-    public SlimeStreamLoader(@NotNull Config config, @Nullable PolarSource polarSource, @NotNull PolarWorldAccess worldAccess, @NotNull PolarDataConverter dataConverter, @NotNull EntitySerializer entitySerializer) {
+    public SlimeStreamLoader(Config config, @Nullable PolarSource polarSource, PolarWorldAccess worldAccess, PolarDataConverter dataConverter, EntitySerializer entitySerializer) {
         // Fix the source
         PolarSource realSource = polarSource;
         if (polarSource instanceof FilePolarSource fileSource) realSource = new SlimeFilePolarSource(fileSource);
@@ -68,7 +67,7 @@ public class SlimeStreamLoader extends PolarGenerator {
     }
 
     //https://github.com/hollow-cube/polar/blob/main/src/main/java/net/hollowcube/polar/StreamingPolarLoader.java#L64
-    public CompletableFuture<Void> load(@NotNull World world) {
+    public CompletableFuture<Void> load(World world) {
         if (getSource() == null) return CompletableFuture.completedFuture(null);
 
         try (Arena dstArena = Arena.ofConfined()) {
@@ -265,7 +264,7 @@ public class SlimeStreamLoader extends PolarGenerator {
         });
     }
 
-    public static @NotNull PolarSection readSection(@NotNull PolarDataConverter dataConverter, int dataVersion, @NotNull MemorySegmentReader reader) {
+    public static PolarSection readSection(PolarDataConverter dataConverter, int dataVersion, MemorySegmentReader reader) {
         var flags = reader.readByte();
         boolean hasBlockLight = (flags & 1) == 1;
         boolean hasSkyLight = ((flags >> 1) & 1) == 1;
@@ -405,7 +404,7 @@ public class SlimeStreamLoader extends PolarGenerator {
     }
 
     @Contract("false, _ -> fail")
-    private static void assertThat(boolean condition, @NotNull String message) {
+    private static void assertThat(boolean condition, String message) {
         if (!condition) throw new Error(message);
     }
 

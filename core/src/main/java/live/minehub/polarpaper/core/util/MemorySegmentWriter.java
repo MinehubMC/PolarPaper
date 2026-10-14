@@ -1,6 +1,5 @@
 package live.minehub.polarpaper.core.util;
 
-import org.jetbrains.annotations.NotNull;
 
 import java.io.DataOutput;
 import java.io.IOException;
@@ -83,12 +82,12 @@ public class MemorySegmentWriter implements AutoCloseable, DataOutput {
     }
 
     @Override
-    public void write(byte @NotNull [] b) {
+    public void write(byte[] b) {
         write(b, 0, b.length);
     }
 
     @Override
-    public void write(byte @NotNull [] b, int off, int len) {
+    public void write(byte[] b, int off, int len) {
         MemorySegment srcSegment = MemorySegment.ofArray(b);
         ensureWritable(len);
         MemorySegment.copy(srcSegment, off, this.segment, this.writeIndex, len);
@@ -140,7 +139,7 @@ public class MemorySegmentWriter implements AutoCloseable, DataOutput {
     }
 
     @Override
-    public void writeBytes(@NotNull String s) {
+    public void writeBytes(String s) {
         int len = s.length();
         ensureWritable(len);
         for (int i = 0; i < len; i++) {
@@ -149,7 +148,7 @@ public class MemorySegmentWriter implements AutoCloseable, DataOutput {
     }
 
     @Override
-    public void writeChars(@NotNull String s) {
+    public void writeChars(String s) {
         int len = s.length();
         ensureWritable((long) len * ValueLayout.JAVA_CHAR.byteSize());
         for (int i = 0; i < len; i++) {
@@ -159,7 +158,7 @@ public class MemorySegmentWriter implements AutoCloseable, DataOutput {
     }
 
     @Override
-    public void writeUTF(@NotNull String str) throws IOException {
+    public void writeUTF(String str) throws IOException {
         int strlen = str.length();
         int utflen = 0;
         int c;

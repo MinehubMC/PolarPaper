@@ -33,6 +33,7 @@ import net.minecraft.world.level.storage.TagValueInput;
 import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.plugin.Plugin;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -183,7 +184,7 @@ public class ChunkUtils {
         addBlockEntity(x, y, z, tag, chunk);
     }
 
-    public static void addBlockEntity(int x, int y, int z, CompoundTag nbt, ChunkAccess chunk) {
+    public static void addBlockEntity(int x, int y, int z, @Nullable CompoundTag nbt, ChunkAccess chunk) {
         BlockState blockState = chunk.getBlockState(x, y, z);
         BlockPos blockPos = new BlockPos(chunk.locX * 16 + x, y, chunk.locZ * 16 + z);
 

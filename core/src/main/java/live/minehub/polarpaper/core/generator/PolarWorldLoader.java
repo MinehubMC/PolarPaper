@@ -13,7 +13,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.minecraft.server.level.ServerLevel;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3i;
 
@@ -26,14 +25,14 @@ import java.util.concurrent.CompletableFuture;
  */
 public class PolarWorldLoader extends PolarGenerator {
     private byte[] userData = new byte[0];
-    private final @NotNull PolarWorld polarWorld;
-    public PolarWorldLoader(@NotNull Config config, @NotNull PolarWorld polarWorld, @NotNull PolarWorldAccess worldAccess) {
+    private final PolarWorld polarWorld;
+    public PolarWorldLoader(Config config, PolarWorld polarWorld, PolarWorldAccess worldAccess) {
         super(config, null, worldAccess);
         this.polarWorld = polarWorld;
     }
 
     //https://github.com/hollow-cube/polar/blob/main/src/main/java/net/hollowcube/polar/StreamingPolarLoader.java#L64
-    public CompletableFuture<Void> load(@NotNull World world) {
+    public CompletableFuture<Void> load(World world) {
         ServerLevel level = ((CraftWorld) world).getHandle();
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();

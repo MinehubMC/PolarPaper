@@ -73,7 +73,7 @@ public class Polar {
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      * @see Polar#getDefaultFolderSource(String)
      */
-    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource source, @NotNull String worldName) {
+    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource source, String worldName) {
         return createWorld(source, worldName, VersionUtil.getPolarFeaturesWorldAccess());
     }
 
@@ -83,7 +83,7 @@ public class Polar {
      * @param worldName The name for the polar world
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
-    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, @NotNull String worldName) {
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, String worldName) {
         return createWorld(polarWorld, worldName, VersionUtil.getPolarFeaturesWorldAccess());
     }
 
@@ -98,7 +98,7 @@ public class Polar {
      * @see BytesPolarSource
      * @see EntitiesWorldAccess
      */
-    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource polarSource, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource polarSource, String worldName, PolarWorldAccess worldAccess) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         return createWorld(polarSource, worldName, config, worldAccess, PolarDataConverter.DEFAULT);
@@ -112,7 +112,7 @@ public class Polar {
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      * @see EntitiesWorldAccess
      */
-    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull PolarWorldAccess worldAccess) {
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, String worldName, PolarWorldAccess worldAccess) {
         FileConfiguration fileConfig = PolarPaper.getPlugin().getConfig();
         Config config = Config.readFromConfig(fileConfig, worldName); // If world not in config, use defaults
         return createWorld(polarWorld, worldName, config, worldAccess, PolarDataConverter.DEFAULT);
@@ -128,7 +128,7 @@ public class Polar {
      * @see Polar#getDefaultFolderSource(String)
      * @see BytesPolarSource
      */
-    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource polarSource, @NotNull String worldName, @NotNull Config config) {
+    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource polarSource, String worldName, Config config) {
         return createWorld(polarSource, worldName, config, VersionUtil.getPolarFeaturesWorldAccess(), PolarDataConverter.DEFAULT);
     }
 
@@ -139,7 +139,7 @@ public class Polar {
      * @param config Custom config for the polar world
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
-    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config) {
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, String worldName, Config config) {
         return createWorld(polarWorld, worldName, config, VersionUtil.getPolarFeaturesWorldAccess(), PolarDataConverter.DEFAULT);
     }
 
@@ -153,7 +153,7 @@ public class Polar {
      * @see Polar#getDefaultFolderSource(String)
      * @see BytesPolarSource
      */
-    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource source, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess, @NotNull PolarDataConverter dataConverter) {
+    public static CompletableFuture<@Nullable World> createWorld(@Nullable PolarSource source, String worldName, Config config, PolarWorldAccess worldAccess, PolarDataConverter dataConverter) {
         EntitySerializer entitySerializer = VersionUtil.getEntitySerializer();
         Format detectedFormat = source == null ? Format.POLAR_FORMAT : Format.detectFormat(source);
         if (detectedFormat == null) {
@@ -172,7 +172,7 @@ public class Polar {
      * @param config Custom config for the polar world
      * @return CompletableFuture with the created bukkit world (completes immediately if not async)
      */
-    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarWorld polarWorld, @NotNull String worldName, @NotNull Config config, @NotNull PolarWorldAccess worldAccess, @NotNull PolarDataConverter dataConverter) {
+    public static CompletableFuture<@Nullable World> createWorld(PolarWorld polarWorld, String worldName, Config config, PolarWorldAccess worldAccess, PolarDataConverter dataConverter) {
         PolarGenerator loader = new PolarWorldLoader(config, polarWorld, worldAccess);
         return createWorld(loader, worldName);
     }
@@ -186,7 +186,7 @@ public class Polar {
      * @see EntitiesWorldAccess
      * @see PolarStreamLoader
      */
-    public static CompletableFuture<@Nullable World> createWorld(@NotNull PolarGenerator generator, @NotNull String worldName) {
+    public static CompletableFuture<@Nullable World> createWorld(PolarGenerator generator, String worldName) {
         worldName = worldName.toLowerCase().replace(" ", "_");
 
         NamespacedKey worldKey = NamespacedKey.fromString(worldName, PolarPaper.getPlugin());

@@ -67,7 +67,7 @@ public class WorldKey {
         return !path.normalize().startsWith(worldsFolder);
     }
 
-    public static Path validatePath(CommandSender sender, String userPath) {
+    public static @Nullable Path validatePath(CommandSender sender, String userPath) {
         Path worldsFolder = PolarPaper.getWorldsPath();
         Path path;
         try {

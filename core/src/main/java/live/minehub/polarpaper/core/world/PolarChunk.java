@@ -42,7 +42,7 @@ public record PolarChunk(
         int z,
         PolarSection[] sections,
         BlockEntity[] blockEntities,
-        int[][] heightmaps,
+        int[] @Nullable [] heightmaps,
         byte[] userData
 ) {
     private static final Logger LOGGER = LoggerFactory.getLogger(PolarChunk.class);
@@ -72,7 +72,7 @@ public record PolarChunk(
 
     public boolean isEmpty() {
         for (PolarSection section : sections) {
-            if (!section.isEmpty()) return false;
+            if (!section.empty()) return false;
         }
         return true;
     }
@@ -109,7 +109,7 @@ public record PolarChunk(
         NoUnloadLevelChunk chunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(x, z), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
 
         if (lightPresent) {
-            Boolean[] emptinessMap = StarLightEngine.getEmptySectionsForChunk(chunk);
+            @Nullable Boolean[] emptinessMap = StarLightEngine.getEmptySectionsForChunk(chunk);
             boolean[] emptinessMapPrim = new boolean[emptinessMap.length];
             for (int i = 0; i < emptinessMap.length; i++) {
                 Boolean bool = emptinessMap[i];

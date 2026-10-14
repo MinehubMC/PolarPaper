@@ -21,7 +21,7 @@ public class CommandManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommandManager.class);
 
-    private Component helpComponent = null;
+    private Component helpComponent = Component.empty();
     private final Map<String, PolarCmd> registeredCommands = new HashMap<>();
     private final LiteralArgumentBuilder<CommandSourceStack> rootCmd =
             Commands.literal("polar")

@@ -17,7 +17,6 @@ import net.minecraft.world.level.chunk.UpgradeData;
 import net.minecraft.world.ticks.LevelChunkTicks;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3i;
 import org.slf4j.Logger;
@@ -36,11 +35,11 @@ import java.util.concurrent.CompletableFuture;
 public class PolarStreamLoader extends PolarGenerator {
     private static final Logger LOGGER = LoggerFactory.getLogger(PolarStreamLoader.class);
 
-    private final @NotNull PolarDataConverter dataConverter;
+    private final PolarDataConverter dataConverter;
     private short version;
     private int dataVersion;
     private byte[] userData = new byte[0];
-    public PolarStreamLoader(@NotNull Config config, @Nullable PolarSource polarSource, @NotNull PolarWorldAccess worldAccess, @NotNull PolarDataConverter dataConverter) {
+    public PolarStreamLoader(Config config, @Nullable PolarSource polarSource, PolarWorldAccess worldAccess, PolarDataConverter dataConverter) {
         super(config, polarSource, worldAccess);
         this.dataConverter = dataConverter;
 
@@ -48,7 +47,7 @@ public class PolarStreamLoader extends PolarGenerator {
     }
 
     //https://github.com/hollow-cube/polar/blob/main/src/main/java/net/hollowcube/polar/StreamingPolarLoader.java#L64
-    public CompletableFuture<Void> load(@NotNull World world) {
+    public CompletableFuture<Void> load(World world) {
         if (getSource() == null) return CompletableFuture.completedFuture(null);
 
         try (Arena dstArena = Arena.ofConfined()) {

@@ -81,7 +81,7 @@ public abstract class PolarCmd {
     }
 
     private static List<Path> listFilesCached() throws IOException {
-        if (LAST_CACHED + 10000 > System.currentTimeMillis()) return CACHED_WORLDS_FOLDER;
+        if (CACHED_WORLDS_FOLDER != null && LAST_CACHED + 10000 > System.currentTimeMillis()) return CACHED_WORLDS_FOLDER;
 
         Path worldsFolder = PolarPaper.getWorldsPath();
         try (var filesStream = Files.list(worldsFolder)) {

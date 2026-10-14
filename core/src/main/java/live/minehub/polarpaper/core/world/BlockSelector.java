@@ -1,7 +1,6 @@
 package live.minehub.polarpaper.core.world;
 
 import live.minehub.polarpaper.core.util.CoordConversion;
-import org.jetbrains.annotations.NotNull;
 import org.joml.Vector2i;
 import org.joml.Vector3i;
 
@@ -9,7 +8,7 @@ import java.util.function.Consumer;
 
 public interface BlockSelector {
 
-    @NotNull BlockSelector ALL = new BlockSelector() {
+    BlockSelector ALL = new BlockSelector() {
         @Override
         public boolean test(int x, int y, int z) {
             return true;
@@ -26,11 +25,11 @@ public interface BlockSelector {
         }
     };
 
-    static @NotNull BlockSelector circle(int radius) {
+    static BlockSelector circle(int radius) {
         return circle(0, 0, radius);
     }
 
-    static @NotNull BlockSelector circle(int centerX, int centerZ, int radius) {
+    static BlockSelector circle(int centerX, int centerZ, int radius) {
         return new BlockSelector() {
             @Override
             public boolean test(int x, int y, int z) {
@@ -66,11 +65,11 @@ public interface BlockSelector {
         };
     }
 
-    static @NotNull BlockSelector square(int radius) {
+    static BlockSelector square(int radius) {
         return square(0, 0, radius);
     }
 
-    static @NotNull BlockSelector square(int centerX, int centerZ, int radius) {
+    static BlockSelector square(int centerX, int centerZ, int radius) {
         return new BlockSelector() {
             @Override
             public boolean test(int x, int y, int z) {

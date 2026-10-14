@@ -71,7 +71,7 @@ public class NoSaveLevelCreatorImpl implements NoSaveLevelCreator {
         // Check if already existing
         World worldByKey = craftServer.getWorld(creator.key());
         if (worldByKey != null) {
-            return null;
+            return CompletableFuture.completedFuture(null);
         }
 
         Preconditions.checkState(craftServer.getServer().getAllLevels().iterator().hasNext(), "Cannot create additional worlds on STARTUP");
