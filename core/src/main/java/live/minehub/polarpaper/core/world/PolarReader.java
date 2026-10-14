@@ -34,7 +34,9 @@ public class PolarReader {
     }
 
     public PolarWorld read(PolarSource source) throws IOException {
-        return read(source.read(), source.size());
+        try (ReadableByteChannel channel = source.read()) {
+            return read(channel, source.size());
+        }
     }
 
     //https://github.com/hollow-cube/polar/blob/main/src/main/java/net/hollowcube/polar/StreamingPolarLoader.java#L64

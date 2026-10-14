@@ -10,6 +10,7 @@ import live.minehub.polarpaper.core.source.BytesPolarSource;
 import live.minehub.polarpaper.core.source.FilePolarSource;
 import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.userdata.EntitySerializer;
+import live.minehub.polarpaper.core.util.TaskFutures;
 import live.minehub.polarpaper.core.world.*;
 import live.minehub.polarpaper.nms.VersionUtil;
 import live.minehub.polarpaper.util.EntitiesWorldAccess;
@@ -230,7 +231,7 @@ public class Polar {
                     setLoading(world.getKey(), false);
                     startAutoSaveTask(world, config);
 
-                    new WorldLoadEvent(world).callEvent();
+                    TaskFutures.runGlobal(PolarPaper.getPlugin(), () -> new WorldLoadEvent(world).callEvent());
                     return world;
                 }).exceptionally(e -> {
                     LOGGER.error("Failed to load world {}", finalWorldName, e);
