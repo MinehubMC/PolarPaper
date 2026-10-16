@@ -1,8 +1,8 @@
 package live.minehub.polarpaper.core.source;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
+import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
@@ -17,18 +17,14 @@ public record FilePolarSource(Path path) implements PolarSource {
     }
 
     @Override
-    public void save(MemorySegment segment) throws IOException {
+    public void save(StreamWriter writer) throws IOException {
         Path destination = path.toAbsolutePath();
         Path temporary = Files.createTempFile(destination.getParent(), ".polar-save-", ".tmp");
         try {
-            try (var channel = FileChannel.open(temporary, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
-                if (segment.byteSize() > 0) {
-                    try (var arena = Arena.ofConfined()) {
-                        var fileSegment = channel.map(FileChannel.MapMode.READ_WRITE, 0, segment.byteSize(), arena);
-                        MemorySegment.copy(segment, 0, fileSegment, 0, segment.byteSize());
-                        fileSegment.force();
-                    }
-                }
+            try (var channel = FileChannel.open(temporary, StandardOpenOption.WRITE);
+                 var output = new BufferedOutputStream(Channels.newOutputStream(channel))) {
+                writer.write(output);
+                output.flush();
                 channel.force(true);
             }
             Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);

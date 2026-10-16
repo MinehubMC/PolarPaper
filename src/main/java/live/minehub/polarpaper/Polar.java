@@ -392,17 +392,7 @@ public class Polar {
         PolarGenerator generator = PolarGenerator.fromWorld(world);
         byte[] prevWorldUserData = generator == null ? new byte[0] : generator.getUserData();
 
-        CompletableFuture<PolarWorld> future;
-        try {
-            future = PolarWorld.convert(world, polarWorldAccess, blockSelector, config.saveLight(), extraChunks, false);
-        } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
-        }
-
-        return future.thenAcceptAsync(newPolarWorld -> {
-            newPolarWorld.userData(prevWorldUserData);
-            PolarWriter.write(polarSource, newPolarWorld, config);
-        });
+        return PolarWriter.convertAndWrite(polarSource, world, polarWorldAccess, config, blockSelector, extraChunks, false, prevWorldUserData);
     }
 
 }

@@ -1,7 +1,6 @@
 package live.minehub.polarpaper.core.source;
 
 import java.io.IOException;
-import java.lang.foreign.MemorySegment;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 
@@ -20,11 +19,11 @@ public class SlimeFilePolarSource implements PolarSource {
     }
 
     @Override
-    public void save(MemorySegment segment) throws IOException {
+    public void save(StreamWriter writer) throws IOException {
         if (realSource != polarSource) Files.move(realSource.path(), realSource.path().resolveSibling(realSource.path().getFileName().toString() + ".bak"));
 
         this.realSource = polarSource;
-        polarSource.save(segment);
+        polarSource.save(writer);
     }
 
     @Override

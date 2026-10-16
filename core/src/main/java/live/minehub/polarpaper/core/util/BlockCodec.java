@@ -1,9 +1,11 @@
 package live.minehub.polarpaper.core.util;
 
+import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.commands.arguments.blocks.BlockStateParser;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import org.bukkit.Bukkit;
-import org.bukkit.craftbukkit.block.data.CraftBlockData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,10 +21,12 @@ public class BlockCodec {
     public static BlockState blockFromString(String string) {
         return STRING_TO_BLOCK.computeIfAbsent(string, a -> {
             try {
-                BlockState state = ((CraftBlockData) Bukkit.getServer().createBlockData(a)).getState();
+                StringReader reader = new StringReader(a);
+                BlockState state = BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK, reader, false).blockState();
+                if (reader.canRead()) throw new IllegalArgumentException("Trailing data: " + reader.getRemaining());
                 BLOCK_TO_STRING.put(state, string); // populate opposite map
                 return state;
-            } catch (IllegalArgumentException _) {
+            } catch (CommandSyntaxException | IllegalArgumentException _) {
                 LOGGER.warn("Failed to parse block state: {}", a);
                 return Blocks.AIR.defaultBlockState();
             }

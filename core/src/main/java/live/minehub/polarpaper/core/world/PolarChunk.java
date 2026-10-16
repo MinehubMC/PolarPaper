@@ -141,7 +141,7 @@ public record PolarChunk(
      * @param chunkX The X coordinate of the chunk in the bukkit world
      * @param chunkZ The Z coordinate of the chunk in the bukkit world
      * @param blockSelector Used to filter which blocks are converted
-     * @param loadChunks Whether to load chunks
+     * @param loadChunks Whether to allow loading chunks, otherwise future will return null for unloaded chunks
      * @return The new PolarChunk, null if bukkit world chunk is empty
      */
     public static CompletableFuture<@Nullable PolarChunk> convert(World world, int chunkX, int chunkZ, PolarWorldAccess worldAccess, BlockSelector blockSelector, boolean loadChunks) {
@@ -155,7 +155,7 @@ public record PolarChunk(
      * @param chunkZ The Z coordinate of the chunk in the bukkit world
      * @param blockSelector Used to filter which blocks are converted
      * @param saveLight Whether to save light data
-     * @param loadChunks Whether to load chunks
+     * @param loadChunks Whether to allow loading chunks, otherwise future will return null for unloaded chunks
      * @return The new PolarChunk, null if bukkit world chunk is empty
      */
     public static CompletableFuture<@Nullable PolarChunk> convert(World world, int chunkX, int chunkZ, PolarWorldAccess worldAccess, BlockSelector blockSelector, boolean saveLight, boolean loadChunks) {
@@ -170,9 +170,11 @@ public record PolarChunk(
 
             ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
             CompletableFuture.supplyAsync(() -> convert(world, chunkHolder.getCurrentChunk(), entityChunk, worldAccess, blockSelector, saveLight))
-                    .thenAccept(a -> a.thenAccept(future::complete))
+                    .thenCompose(a -> a)
+                    .thenAccept(future::complete)
                     .exceptionally(e -> {
                         LOGGER.info("Failed to convert world", e);
+                        future.completeExceptionally(e);
                         return null;
                     });
             return future;
@@ -194,9 +196,11 @@ public record PolarChunk(
             ChunkEntitySlices entityChunk = chunkHolder2.getEntityChunk();
 
             CompletableFuture.supplyAsync(() -> convert(world, chunkAccess, entityChunk, worldAccess, blockSelector, saveLight))
-                    .thenAccept(a -> a.thenAccept(future::complete))
+                    .thenCompose(a -> a)
+                    .thenAccept(future::complete)
                     .exceptionally(e -> {
                         LOGGER.info("Failed to convert world", e);
+                        future.completeExceptionally(e);
                         return null;
                     });
         });

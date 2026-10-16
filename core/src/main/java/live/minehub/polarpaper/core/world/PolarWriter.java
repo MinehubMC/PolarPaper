@@ -1,18 +1,31 @@
 package live.minehub.polarpaper.core.world;
 
+import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
+import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
 import dev.hallock.zstd.Zstd;
 import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.source.PolarSource;
+import live.minehub.polarpaper.core.util.CoordConversion;
 import live.minehub.polarpaper.core.util.MemorySegmentWriter;
 import live.minehub.polarpaper.core.util.PaletteUtil;
 import net.minecraft.nbt.NbtIo;
+import org.bukkit.World;
+import org.bukkit.craftbukkit.CraftWorld;
+import org.jetbrains.annotations.Nullable;
+import org.joml.Vector2i;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
-import java.util.List;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
+/**
+ *
+ */
 public class PolarWriter {
 
     private PolarWriter() {
@@ -26,65 +39,148 @@ public class PolarWriter {
         write(source, world, PolarDataConverter.DEFAULT, PolarConstants.DEFAULT_COMPRESSION, PolarConstants.DEFAULT_COMPRESSION_LEVEL);
     }
 
-    public static void write(PolarSource source, PolarWorld world, PolarDataConverter dataConverter, PolarWorld.CompressionType compression, int compressionLevel) {
-        Zstd zstd = Zstd.zstd();
-        long contentSize = 0;
-        try (Arena arena = Arena.ofConfined();
-             var writer = new MemorySegmentWriter(256)) {
-            writer.writeByte(world.minSection());
-            writer.writeByte(world.maxSection());
-            writer.writeByteArray(world.userData());
+    public static void write(PolarSource source, PolarWorld world, PolarDataConverter dataConverter,
+                             PolarWorld.CompressionType compression, int compressionLevel) {
+        write(source, world.minSection(), world.maxSection(), world.userData(), world.chunks(),
+                dataConverter, compression, compressionLevel);
+    }
 
-            List<PolarChunk> nonEmptyChunks = world.nonEmptyChunks();
-            writer.writeVarInt(nonEmptyChunks.size());
-            for (PolarChunk chunk : nonEmptyChunks) {
-                writeChunk(writer, chunk, world.maxSection() - world.minSection() + 1);
+    /**
+     * Converts and writes a world one chunk at a time with the default config
+     */
+    public static CompletableFuture<Void> convertAndWrite(PolarSource source, World world, PolarWorldAccess worldAccess) {
+        return convertAndWrite(source, world, worldAccess, Config.Builder.defaults().build(), BlockSelector.ALL, List.of(), false, new byte[0]);
+    }
+
+    /**
+     * Converts and writes a world one chunk at a time
+     */
+    public static CompletableFuture<Void> convertAndWrite(PolarSource source, World world, PolarWorldAccess worldAccess, Config config) {
+        return convertAndWrite(source, world, worldAccess, config, BlockSelector.ALL, List.of(), false, new byte[0]);
+    }
+
+    /**
+     * Converts and writes a world one chunk at a time
+     * @param loadChunks Whether to allow loading chunks, otherwise unloaded chunks will be ignored
+     */
+    public static CompletableFuture<Void> convertAndWrite(PolarSource source, World world,
+                                                          PolarWorldAccess worldAccess, Config config, BlockSelector selector,
+                                                          Collection<PolarChunk> chunks, boolean loadChunks, byte[] userData) {
+        boolean saveLight = config.saveLight();
+        PolarWorld.CompressionType compression = config.compression();
+        int compressionLevel = config.compressionLevel();
+
+        return CompletableFuture.runAsync(() -> {
+            Set<Vector2i> positions = new HashSet<>();
+            for (PolarChunk chunk : chunks) {
+                if (selector.testChunk(chunk.x(), chunk.z())) positions.add(new Vector2i(chunk.x(), chunk.z()));
+            }
+            selector.forEachChunk(pos -> positions.add(new Vector2i(pos)));
+
+            ChunkHolderManager manager = ((CraftWorld) world).getHandle().moonrise$getChunkTaskScheduler().chunkHolderManager;
+            for (NewChunkHolder holder : manager.getChunkHolders()) {
+                if (selector.testChunk(holder.chunkX, holder.chunkZ)) positions.add(new Vector2i(holder.chunkX, holder.chunkZ));
             }
 
-            MemorySegment writtenSegment = writer.getWrittenSegment();
+            Iterable<@Nullable PolarChunk> chunkIterator = () -> new Iterator<>() {
+                private final Iterator<Vector2i> iterator = positions.iterator();
 
-            MemorySegment dst = null;
-
-            switch (compression) {
-                case ZSTD -> {
-                    contentSize = writtenSegment.byteSize();
-                    long smallestSize = zstd.compressBound(writtenSegment.byteSize());
-                    dst = arena.allocate(smallestSize);
-                    long compressedSize = zstd.compress(dst, smallestSize, writtenSegment, writtenSegment.byteSize(), compressionLevel);
-                    dst = dst.asSlice(0, compressedSize);
+                @Override
+                public boolean hasNext() {
+                    return iterator.hasNext();
                 }
-                case NONE -> {
-                    dst = writtenSegment;
-                    contentSize = writtenSegment.byteSize();
+
+                @Override
+                public @Nullable PolarChunk next() {
+                    Vector2i pos = iterator.next();
+                    return PolarChunk.convert(world, pos.x, pos.y, worldAccess, selector, saveLight, loadChunks).join();
                 }
+            };
+
+            write(source, (byte) CoordConversion.sectionIndex(world.getMinHeight()),
+                    (byte) CoordConversion.sectionIndex(world.getMaxHeight() - 1), userData, chunkIterator,
+                    PolarDataConverter.DEFAULT, compression, compressionLevel);
+        });
+    }
+
+    private static void write(PolarSource source, byte minSection, byte maxSection, byte[] userData,
+            Iterable<@Nullable PolarChunk> chunks, PolarDataConverter dataConverter,
+            PolarWorld.CompressionType compression, int compressionLevel) {
+        try {
+            var body = Files.createTempFile("polar-chunks-", ".tmp");
+            try {
+                long chunkBytes = 0;
+                int chunkCount = 0;
+                try (var spool = new BufferedOutputStream(Files.newOutputStream(body))) {
+                    for (PolarChunk chunk : chunks) {
+                        if (chunk == null || chunk.isEmpty()) continue;
+                        try (var writer = new MemorySegmentWriter(256)) {
+                            int sectionCount = maxSection - minSection + 1;
+                            writeChunk(writer, chunk, sectionCount);
+                            chunkBytes += writer.getWriteIndex();
+                            if (chunkBytes > Integer.MAX_VALUE) {
+                                throw new IllegalArgumentException("Polar body exceeds the format's maximum supported size");
+                            }
+                            spool.write(writer.getWrittenBytes());
+                            chunkCount++;
+                        }
+                    }
+                }
+                try (var prefix = new MemorySegmentWriter(256); var header = new MemorySegmentWriter(17)) {
+                    prefix.writeByte(minSection);
+                    prefix.writeByte(maxSection);
+                    prefix.writeByteArray(userData);
+                    prefix.writeVarInt(chunkCount);
+                    long contentSize = chunkBytes + prefix.getWriteIndex();
+                    if (contentSize > Integer.MAX_VALUE) {
+                        throw new IllegalArgumentException("Polar body exceeds the format's maximum supported size");
+                    }
+                    header.writeInt(PolarConstants.POLAR_MAGIC);
+                    header.writeShort(PolarConstants.LATEST_VERSION);
+                    header.writeVarInt(dataConverter.dataVersion());
+                    header.writeByte((byte) compression.ordinal());
+                    header.writeVarInt((int) contentSize);
+                    byte[] headerBytes = header.getWrittenBytes();
+                    byte[] prefixBytes = prefix.getWrittenBytes();
+                    source.save(output -> {
+                        output.write(headerBytes);
+                        switch (compression) {
+                            case NONE -> copyBody(output, prefixBytes, body);
+                            case ZSTD -> {
+                                try (var compressed = Zstd.zstd().createCompressorOutputStream(new OutputStream() {
+                                    @Override
+                                    public void write(int value) throws IOException {
+                                        output.write(value);
+                                    }
+
+                                    @Override
+                                    public void write(byte[] bytes, int offset, int length) throws IOException {
+                                        output.write(bytes, offset, length);
+                                    }
+
+                                    @Override
+                                    public void flush() throws IOException {
+                                        output.flush();
+                                    }
+                                }, compressionLevel)) {
+                                    copyBody(compressed, prefixBytes, body);
+                                }
+                            }
+                        }
+                    });
+                }
+            } finally {
+                Files.deleteIfExists(body);
             }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
-            // write header:
-            // magic (int)
-            // version (short)
-            // dataversion (varint)
-            // compression (byte)
-            // content length (varint)
-            // content (byte[])
-            long headerSize = ValueLayout.JAVA_INT.byteSize() +
-                    ValueLayout.JAVA_SHORT.byteSize() +
-                    5 /* (varint max size) */ +
-                    ValueLayout.JAVA_BYTE.byteSize() +
-                    5 /* (varint max size) */;
-
-            try (var finalWriter = new MemorySegmentWriter(headerSize + dst.byteSize())) {
-                finalWriter.writeInt(PolarConstants.POLAR_MAGIC);
-                finalWriter.writeShort(PolarConstants.LATEST_VERSION);
-                finalWriter.writeVarInt(dataConverter.dataVersion());
-                finalWriter.writeByte((byte) compression.ordinal());
-                finalWriter.writeVarInt((int) contentSize);
-                finalWriter.writeSegment(dst);
-
-                source.save(finalWriter.getWrittenSegment());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-
+    private static void copyBody(OutputStream output, byte[] prefix, Path payload) throws IOException {
+        output.write(prefix);
+        try (var input = Files.newInputStream(payload)) {
+            input.transferTo(output);
         }
     }
 
@@ -92,7 +188,9 @@ public class PolarWriter {
         writer.writeVarInt(chunk.x());
         writer.writeVarInt(chunk.z());
 
-        assert sectionCount == chunk.sections().length : "section count and chunk section length mismatch";
+        if (sectionCount != chunk.sections().length) {
+            throw new IllegalArgumentException("Section count and chunk section length mismatch");
+        }
 
         for (var section : chunk.sections()) {
             writeSection(writer, section);

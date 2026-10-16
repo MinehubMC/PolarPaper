@@ -212,11 +212,6 @@ public class PolarStreamLoader extends PolarGenerator {
         }
     }
 
-    @Override
-    public boolean isParallelCapable() {
-        return true;
-    }
-
     public byte[] getUserData() {
         return userData;
     }

@@ -10,10 +10,10 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import live.minehub.polarpaper.Polar;
 import live.minehub.polarpaper.PolarPaper;
+import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.world.BlockSelector;
-import live.minehub.polarpaper.core.world.PolarWorld;
 import live.minehub.polarpaper.core.world.PolarWriter;
 import live.minehub.polarpaper.nms.VersionUtil;
 import live.minehub.polarpaper.util.WorldKey;
@@ -30,6 +30,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
 
 public class ConvertCommand extends PolarCmd {
 
@@ -109,11 +111,12 @@ public class ConvertCommand extends PolarCmd {
                         .append(Component.text("'...", NamedTextColor.GRAY))
         );
 
-        PolarWorld.convert(bukkitWorld, VersionUtil.getPolarFeaturesWorldAccess(), BlockSelector.square(offsetX, offsetZ, chunkRadius), saveLight, true).thenAcceptAsync(newPolarWorld -> {
-            PolarSource source = Polar.getDefaultFolderSource(newWorldName);
-            try {
-                PolarWriter.write(source, newPolarWorld);
-            } catch (Exception e) {
+        PolarSource source = Polar.getDefaultFolderSource(newWorldName);
+        PolarWriter.convertAndWrite(source, bukkitWorld, VersionUtil.getPolarFeaturesWorldAccess(),
+                Config.Builder.defaults().saveLight(saveLight).build(),
+                BlockSelector.square(offsetX, offsetZ, chunkRadius), List.of(), true,
+                new byte[0]).whenComplete((_, e) -> {
+            if (e != null) {
                 sender.sendMessage(Component.text("Failed to save '" + worldKey.getKey() + "'"));
                 LOGGER.error("Failed to save: " + worldKey.getKey(), e);
                 return;

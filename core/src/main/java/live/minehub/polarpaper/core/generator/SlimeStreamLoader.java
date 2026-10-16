@@ -390,11 +390,6 @@ public class SlimeStreamLoader extends PolarGenerator {
                 .append(Component.text(")", NamedTextColor.AQUA));
     }
 
-    @Override
-    public boolean isParallelCapable() {
-        return true;
-    }
-
     public byte[] getUserData() {
         return userData;
     }

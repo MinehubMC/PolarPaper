@@ -1,17 +1,13 @@
 package live.minehub.polarpaper.core.source;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
-import java.nio.ByteOrder;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 
 @SuppressWarnings("unused")
 public final class BytesPolarSource implements PolarSource {
-    private static final ValueLayout.OfByte BYTE_BE = ValueLayout.JAVA_BYTE.withOrder(ByteOrder.BIG_ENDIAN);
-
     private byte[] bytes;
 
     public BytesPolarSource() {
@@ -36,8 +32,10 @@ public final class BytesPolarSource implements PolarSource {
     }
 
     @Override
-    public void save(MemorySegment segment) throws IOException {
-        this.bytes = segment.toArray(BYTE_BE);
+    public void save(StreamWriter writer) throws IOException {
+        var output = new ByteArrayOutputStream();
+        writer.write(output);
+        this.bytes = output.toByteArray();
     }
 
     @Override
