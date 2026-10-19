@@ -70,17 +70,16 @@ public class SaveZSTDCommand extends PolarCmd {
             generator.setConfig(generator.getConfig().toBuilder().compressionLevel(i).build());
 
             BytesPolarSource source = new BytesPolarSource();
-            try {
-                Polar.saveWorld(bukkitWorld, source);
-            } catch (Exception e) {
+            int finalI = i;
+            Polar.saveWorld(bukkitWorld, source).thenRun(() -> {
+                double ms = ((int) ((System.nanoTime() - before) / 1_000_0)) / 100.0;
+                LOGGER.info("level: {}, {} bytes, {}ms", finalI, source.bytes().length, ms);
+            }).exceptionally(e -> {
                 String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getKey().getKey());
                 LOGGER.error(errorMsg, e);
                 ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
-                return Command.SINGLE_SUCCESS;
-            }
-
-            double ms = ((int) ((System.nanoTime() - before) / 1_000_0)) / 100.0;
-            LOGGER.info("level: {}, {} bytes, {}ms", i, source.bytes().length, ms);
+                return null;
+            });
         }
 
         return Command.SINGLE_SUCCESS;

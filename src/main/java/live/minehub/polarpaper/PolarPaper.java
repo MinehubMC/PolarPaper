@@ -150,7 +150,7 @@ public final class PolarPaper extends JavaPlugin {
 
         try (var files = Files.walk(worldsFolder, 4, FileVisitOption.FOLLOW_LINKS)) {
             files.forEach(path -> {
-                if (Files.isDirectory(path) || Format.isSupported(path)) return;
+                if (Files.isDirectory(path) || !Format.isSupported(path)) return;
 
                 String worldName = WorldKey.getWorldName(path);
 
