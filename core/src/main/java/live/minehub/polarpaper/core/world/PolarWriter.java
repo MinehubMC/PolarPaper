@@ -8,6 +8,7 @@ import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.util.CoordConversion;
 import live.minehub.polarpaper.core.util.MemorySegmentWriter;
 import live.minehub.polarpaper.core.util.PaletteUtil;
+import live.minehub.polarpaper.core.util.TaskFutures;
 import net.minecraft.nbt.NbtIo;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
@@ -23,10 +24,9 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
-/**
- *
- */
 public class PolarWriter {
+
+    private static final int CONVERSIONS_IN_FLIGHT = 64;
 
     private PolarWriter() {
     }
@@ -84,23 +84,34 @@ public class PolarWriter {
 
             Iterable<@Nullable PolarChunk> chunkIterator = () -> new Iterator<>() {
                 private final Iterator<Vector2i> iterator = positions.iterator();
+                private final ArrayDeque<CompletableFuture<@Nullable PolarChunk>> inFlight = new ArrayDeque<>();
+
+                private void fill() {
+                    while (inFlight.size() < CONVERSIONS_IN_FLIGHT && iterator.hasNext()) {
+                        Vector2i pos = iterator.next();
+                        inFlight.add(PolarChunk.convert(world, pos.x, pos.y, worldAccess, selector, saveLight, loadChunks));
+                    }
+                }
 
                 @Override
                 public boolean hasNext() {
-                    return iterator.hasNext();
+                    fill();
+                    return !inFlight.isEmpty();
                 }
 
                 @Override
                 public @Nullable PolarChunk next() {
-                    Vector2i pos = iterator.next();
-                    return PolarChunk.convert(world, pos.x, pos.y, worldAccess, selector, saveLight, loadChunks).join();
+                    fill();
+                    CompletableFuture<@Nullable PolarChunk> next = inFlight.poll();
+                    if (next == null) throw new NoSuchElementException();
+                    return next.join();
                 }
             };
 
             write(source, (byte) CoordConversion.sectionIndex(world.getMinHeight()),
                     (byte) CoordConversion.sectionIndex(world.getMaxHeight() - 1), userData, chunkIterator,
                     PolarDataConverter.DEFAULT, compression, compressionLevel);
-        });
+        }, TaskFutures.VIRTUAL_THREAD_EXECUTOR);
     }
 
     private static void write(PolarSource source, byte minSection, byte maxSection, byte[] userData,

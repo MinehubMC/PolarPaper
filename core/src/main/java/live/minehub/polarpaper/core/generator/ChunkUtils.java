@@ -226,6 +226,10 @@ public class ChunkUtils {
                 int finalX = x;
                 int finalZ = z;
                 CompletableFuture<Void> future = TaskFutures.runRegion(plugin, level.getWorld(), x, z, () -> {
+                    // Skip chunks already inserted by the loader
+                    NewChunkHolder holder = level.moonrise$getChunkTaskScheduler().chunkHolderManager.getChunkHolder(finalX, finalZ);
+                    if (holder != null && holder.getCurrentChunk() instanceof NoUnloadLevelChunk) return null;
+
                     NoUnloadLevelChunk emptyChunk = createEmptyChunk(level, finalX, finalZ);
                     insertChunk(level, emptyChunk);
                     return null;

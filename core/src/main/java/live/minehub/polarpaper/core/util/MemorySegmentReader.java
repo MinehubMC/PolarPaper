@@ -114,17 +114,17 @@ public class MemorySegmentReader implements DataInput {
     }
 
     public byte[] readByteArray(int bytes) {
-        long size = bytes * BYTE_BE.byteSize();
-        byte[] array = segment.asSlice(offset, size).toArray(BYTE_BE);
-        offset += size;
+        byte[] array = new byte[bytes];
+        MemorySegment.copy(segment, BYTE_BE, offset, array, 0, bytes);
+        offset += bytes * BYTE_BE.byteSize();
         return array;
     }
 
     public long[] readLongArray() {
         int longs = readVarInt();
-        long size = longs * LONG_BE.byteSize();
-        long[] array = segment.asSlice(offset, size).toArray(LONG_BE);
-        offset += size;
+        long[] array = new long[longs];
+        MemorySegment.copy(segment, LONG_BE, offset, array, 0, longs);
+        offset += longs * LONG_BE.byteSize();
         return array;
     }
 
@@ -167,7 +167,7 @@ public class MemorySegmentReader implements DataInput {
     }
 
     public void readFully(byte[] b, int off, int len) {
-        MemorySegment.copy(segment, offset, MemorySegment.ofArray(b), off, len);
+        MemorySegment.copy(segment, BYTE_BE, offset, b, off, len);
         offset += len;
     }
 

@@ -169,7 +169,7 @@ public record PolarChunk(
             if (isChunkEmpty(chunkHolder)) return CompletableFuture.completedFuture(null);
 
             ChunkEntitySlices entityChunk = chunkHolder.getEntityChunk();
-            CompletableFuture.supplyAsync(() -> convert(world, chunkHolder.getCurrentChunk(), entityChunk, worldAccess, blockSelector, saveLight))
+            CompletableFuture.supplyAsync(() -> convert(world, chunkHolder.getCurrentChunk(), entityChunk, worldAccess, blockSelector, saveLight), TaskFutures.VIRTUAL_THREAD_EXECUTOR)
                     .thenCompose(a -> a)
                     .thenAccept(future::complete)
                     .exceptionally(e -> {
@@ -195,7 +195,7 @@ public record PolarChunk(
 
             ChunkEntitySlices entityChunk = chunkHolder2.getEntityChunk();
 
-            CompletableFuture.supplyAsync(() -> convert(world, chunkAccess, entityChunk, worldAccess, blockSelector, saveLight))
+            CompletableFuture.supplyAsync(() -> convert(world, chunkAccess, entityChunk, worldAccess, blockSelector, saveLight), TaskFutures.VIRTUAL_THREAD_EXECUTOR)
                     .thenCompose(a -> a)
                     .thenAccept(future::complete)
                     .exceptionally(e -> {

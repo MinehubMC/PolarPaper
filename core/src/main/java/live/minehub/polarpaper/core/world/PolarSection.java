@@ -146,13 +146,13 @@ public record PolarSection(boolean empty, String[] blockPalette, long @Nullable 
         int bitsPerBlockEntry = Mth.ceillog2(blockPalette.length);
         int longBitsPerBlockEntry = bitsPerBlockEntry;
         if (blockData != null) {
-            longBitsPerBlockEntry = PaletteUtil.getBitsForLongLength(blockData.length, blockStrategy.entryCount());
+            longBitsPerBlockEntry = PaletteUtil.getBitsForData(blockPalette.length, blockData.length, blockStrategy.entryCount());
         }
 
         int bitsPerBiomeEntry = Mth.ceillog2(biomePalette.length);
         int longBitsPerBiomeEntry = bitsPerBiomeEntry;
         if (biomeData != null) {
-            longBitsPerBiomeEntry = PaletteUtil.getBitsForLongLength(biomeData.length, biomeStrategy.entryCount());
+            longBitsPerBiomeEntry = PaletteUtil.getBitsForData(biomePalette.length, biomeData.length, biomeStrategy.entryCount());
         }
 
         biomes.data = getPalettedContainer(biomeHolderPalette, biomeData, bitsPerBiomeEntry, longBitsPerBiomeEntry, biomeStrategy, registry.asHolderIdMap()::getId);
@@ -189,8 +189,11 @@ public record PolarSection(boolean empty, String[] blockPalette, long @Nullable 
         boolean global = created instanceof GlobalPalette;
 
         long[] packed;
-        if (!global && !configuration.alwaysRepack() && configuration.bitsInMemory() == bits && data.length == requiredLength) {
+        if (!global && !configuration.alwaysRepack() && configuration.bitsInMemory() == longBits && data.length == requiredLength) {
             packed = data.clone();
+        } else if (!global && !configuration.alwaysRepack()) {
+            // e.g. a block palette with 2-8 entries is stored with 1-3 bits but vanilla always uses 4 in memory
+            packed = PaletteUtil.repack(data, longBits, configuration.bitsInMemory(), strategy.entryCount());
         } else {
             int[] unpacked = new int[strategy.entryCount()];
             PaletteUtil.unpack(unpacked, data, longBits);

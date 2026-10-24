@@ -80,6 +80,59 @@ public final class PaletteUtil {
         }
     }
 
+    /**
+     * Repacks entries from one bits per entry to another without unpacking into an intermediate array
+     */
+    public static long[] repack(long[] in, int fromBits, int toBits, int entryCount) {
+        final int fromPerLong = 64 / fromBits;
+        final int toPerLong = 64 / toBits;
+        final long mask = (1L << fromBits) - 1L;
+        final long[] out = new long[packedLength(entryCount, toBits)];
+
+        int outIndex = 0;
+        int outSub = 0;
+        long outValue = 0L;
+        int remaining = entryCount;
+        for (int longIndex = 0; longIndex < in.length && remaining > 0; longIndex++) {
+            long value = in[longIndex];
+            int entries = Math.min(fromPerLong, remaining);
+            for (int i = 0; i < entries; i++) {
+                outValue |= (value & mask) << (outSub * toBits);
+                value >>>= fromBits;
+                if (++outSub == toPerLong) {
+                    out[outIndex++] = outValue;
+                    outValue = 0L;
+                    outSub = 0;
+                }
+            }
+            remaining -= entries;
+        }
+        if (outSub != 0) out[outIndex] = outValue;
+        return out;
+    }
+
+    /**
+     * @return the number of longs needed to pack the entries, with entries not spanning longs
+     */
+    public static int packedLength(int entryCount, int bitsPerEntry) {
+        final int perLong = 64 / bitsPerEntry;
+        return (entryCount + perLong - 1) / perLong;
+    }
+
+    /**
+     * Works out the bits per entry palette data was packed with. Several widths can pack into the same number of
+     * longs (e.g. 3 and 4 bits for the 64 biomes in a section), so the narrowest width that can index the palette
+     * and matches the data length is used
+     */
+    public static int getBitsForData(int paletteSize, int longLength, int stratEntryCount) {
+        if (longLength == 1024 && stratEntryCount == 4096) return 15; // see getBitsForLongLength
+        int minBits = paletteSize > 1 ? bitsToRepresent(paletteSize - 1) : 1;
+        for (int bits = minBits; bits <= Integer.SIZE; bits++) {
+            if (packedLength(stratEntryCount, bits) == longLength) return bits;
+        }
+        return getBitsForLongLength(longLength, stratEntryCount);
+    }
+
     public static int getBitsForLongLength(int longLength, int stratEntryCount) {
         if (longLength == 1024) return 15;
         return (longLength * 64) / stratEntryCount;

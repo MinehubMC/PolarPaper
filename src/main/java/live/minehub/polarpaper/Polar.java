@@ -212,19 +212,23 @@ public class Polar {
 
         @NotNull String finalWorldName = worldName;
         return VersionUtil.createNoSaveLevel(worldCreator, config.spawn(), config.difficulty(), config.gamerules(), config.time())
-                .thenCompose(world -> {
-                    if (world == null) return CompletableFuture.completedFuture(null);
+                .thenApply(world -> {
+                    if (world == null) return null;
 
                     // Since saving is disabled in the level anyway, setAutoSave is now essentially setting whether
                     // chunks should be allowed to unload and be removed from memory
                     world.setAutoSave(false);
-
-                    ServerLevel level = ((CraftWorld) world).getHandle();
-                    return ChunkUtils.insertEmptyChunks(generator.getWorldAccess().getPlugin(), level).thenApply(_ -> world);
+                    return world;
                 }).thenComposeAsync(world -> {
-                    if (world == null) return null;
+                    if (world == null) return CompletableFuture.completedFuture(null);
 
                     return generator.load(world).thenApply(_ -> world);
+                }).thenCompose(world -> {
+                    if (world == null) return CompletableFuture.completedFuture(null);
+
+                    // Fill the rest of the area around spawn after loading so chunks are only inserted once
+                    ServerLevel level = ((CraftWorld) world).getHandle();
+                    return ChunkUtils.insertEmptyChunks(generator.getWorldAccess().getPlugin(), level).thenApply(_ -> world);
                 }).thenApply(world -> {
                     if (world == null) return null;
                     LOGGER.info("Loaded {} in {}ms", finalWorldName, (System.nanoTime() - beforeTime) / 1_000_000);

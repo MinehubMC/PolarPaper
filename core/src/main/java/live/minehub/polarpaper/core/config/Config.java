@@ -13,8 +13,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * @see Config#getDefaultConfig(FileConfiguration) 
@@ -72,25 +74,24 @@ public record Config(
     }};
 
     private static final List<Property<?>> PROPERTIES = List.of(
-            new Property<>("autosaveIntervalTicks", -1, Config::autoSaveIntervalTicks, Builder::autoSaveIntervalTicks, "-1 to disable"),
-            new Property<>("announceAutosave", true, Config::announceAutosave, Builder::announceAutosave),
-            new Property<Number>("time", 1000L, Config::time, (b, n) -> b.time(n.longValue())),
-            new Property<>("saveOnStop", false, Config::saveOnStop, Builder::saveOnStop),
-            new Property<>("loadOnStartup", true, Config::loadOnStartup, Builder::loadOnStartup),
-            new LocationProperty("spawn", new Location(null, 0, 64, 0), Config::spawn, Builder::spawn),
-            new EnumProperty<>(Difficulty.class, "difficulty", Difficulty.NORMAL, Config::difficulty, Builder::difficulty),
-            new Property<>("async", false, Config::async, Builder::async, "Experimental, may cause issues with other plugins"),
-            new Property<>("saveLight", true, Config::saveLight, Builder::saveLight, "Whether chunks are saved with light data. Reduces load time and CPU usage while loading but increases world size"),
-            new EnumProperty<>(PolarWorld.CompressionType.class, "compression", PolarConstants.DEFAULT_COMPRESSION, Config::compression, Builder::compression),
-            new Property<>("compressionLevel", PolarConstants.DEFAULT_COMPRESSION_LEVEL, Config::compressionLevel, Builder::compressionLevel, "ZSTD compression level, higher means smaller file size but longer save times. Max %s, default %s".formatted(Zstd.zstd().maxCompressionLevel(), PolarConstants.DEFAULT_COMPRESSION_LEVEL)),
-            new EnumProperty<>(WorldType.class, "worldType", WorldType.FLAT, Config::worldType, Builder::worldType),
-            new EnumProperty<>(World.Environment.class, "environment", World.Environment.NORMAL, Config::environment, Builder::environment),
-            new GamerulesProperty("gamerules", DEFAULT_GAMERULES, Config::gamerules, (b, m) -> {
+            Property.of("autosaveIntervalTicks", -1, Config::autoSaveIntervalTicks, Builder::autoSaveIntervalTicks, "-1 to disable"),
+            Property.of("announceAutosave", true, Config::announceAutosave, Builder::announceAutosave),
+            new Property<>("time", 1000L, Config::time, Builder::time, Codec.LONG),
+            Property.of("saveOnStop", false, Config::saveOnStop, Builder::saveOnStop),
+            Property.of("loadOnStartup", true, Config::loadOnStartup, Builder::loadOnStartup),
+            new Property<>("spawn", new Location(null, 0, 64, 0), Config::spawn, Builder::spawn, Codec.LOCATION),
+            Property.ofEnum("difficulty", Difficulty.NORMAL, Config::difficulty, Builder::difficulty),
+            Property.of("async", false, Config::async, Builder::async, "Experimental, may cause issues with other plugins"),
+            Property.of("saveLight", true, Config::saveLight, Builder::saveLight, "Whether chunks are saved with light data. Reduces load time and CPU usage while loading but increases world size"),
+            Property.ofEnum("compression", PolarConstants.DEFAULT_COMPRESSION, Config::compression, Builder::compression),
+            Property.of("compressionLevel", PolarConstants.DEFAULT_COMPRESSION_LEVEL, Config::compressionLevel, Builder::compressionLevel, "ZSTD compression level, higher means smaller file size but longer save times. Max %s, default %s".formatted(Zstd.zstd().maxCompressionLevel(), PolarConstants.DEFAULT_COMPRESSION_LEVEL)),
+            Property.ofEnum("worldType", WorldType.FLAT, Config::worldType, Builder::worldType),
+            Property.ofEnum("environment", World.Environment.NORMAL, Config::environment, Builder::environment),
+            new Property<>("gamerules", DEFAULT_GAMERULES, Config::gamerules, (b, m) -> {
                 for (Map.Entry<String, Object> entry : m.entrySet()) { // add instead of replacing gamerules
                     b.gamerule(entry.getKey(), entry.getValue());
                 }
-                return b;
-            }, "Custom rules: liquidPhysics, blockPhysics, blockGravity, blockFade")
+            }, Codec.GAMERULES, "Custom rules: liquidPhysics, blockPhysics, blockGravity, blockFade")
     );
 
     public static Map<String, Object> getDefaultGamerules() {
@@ -106,7 +107,7 @@ public record Config(
     }
 
     public String spawnString() {
-        return LocationProperty.locationToString(spawn());
+        return locationToString(spawn());
     }
 
     public static Config readFromConfig(FileConfiguration config, World world) {
@@ -335,259 +336,181 @@ public record Config(
         }
     }
 
-    private static class Property<T> {
-        private final String path;
-        private final T defaultValue;
-        private final Function<Config, T> getter;
-        private final BiFunction<Builder, T, Builder> writer;
-        private final List<String> comments;
-        public Property(String path,
-                        T defaultValue,
-                        Function<Config, T> getter,
-                        BiFunction<Builder, T, Builder> writer,
-                        List<String> comments) {
-            this.path = path;
-            this.defaultValue = defaultValue;
-            this.getter = getter;
-            this.writer = writer;
-            this.comments = comments;
+    /**
+     * A config value: where it lives in the yml, its default, how to get it from a {@link Config} and set it on a
+     * {@link Builder}, and the {@link Codec} that converts it to and from the yml
+     */
+    private record Property<T>(String path, T defaultValue, Function<Config, T> getter,
+                               BiConsumer<Builder, T> setter, Codec<T> codec, List<String> comments) {
+
+        Property(String path, T defaultValue, Function<Config, T> getter, BiConsumer<Builder, T> setter, Codec<T> codec, String... comments) {
+            this(path, defaultValue, getter, setter, codec, List.of(comments));
         }
 
-        public Property(String path,
-                        T defaultValue,
-                        Function<Config, T> getter,
-                        BiFunction<Builder, T, Builder> writer) {
-            this(path, defaultValue, getter, writer, List.of());
+        /**
+         * A value stored as is in the yml, e.g. a boolean or an int
+         */
+        static <T> Property<T> of(String path, T defaultValue, Function<Config, T> getter, BiConsumer<Builder, T> setter, String... comments) {
+            return new Property<>(path, defaultValue, getter, setter, Codec.value(), comments);
         }
 
-        public Property(String path,
-                        T defaultValue,
-                        Function<Config, T> getter,
-                        BiFunction<Builder, T, Builder> writer,
-                        String comment) {
-            this(path, defaultValue, getter, writer, List.of(comment));
+        /**
+         * An enum stored by name, with a comment listing the possible values
+         */
+        static <T extends Enum<T>> Property<T> ofEnum(String path, T defaultValue, Function<Config, T> getter, BiConsumer<Builder, T> setter) {
+            return new Property<>(path, defaultValue, getter, setter, Codec.ofEnum(defaultValue.getDeclaringClass()));
         }
 
-        public T get(Config config) {
-            return getter.apply(config);
+        void applyDefault(Builder builder) {
+            setter.accept(builder, defaultValue);
         }
 
-        public void applyDefault(Builder builder) {
-            writer.apply(builder, defaultValue);
+        void apply(Builder builder, FileConfiguration config, String prefix) {
+            T value = codec.read(config.get(prefix + path), defaultValue);
+            if (value != null) setter.accept(builder, value);
         }
 
-        public void apply(Builder builder, FileConfiguration config, String prefix) {
-            T value = read(config, prefix);
-            if (value == null) return;
-            writer.apply(builder, value);
-        }
-
-        public @Nullable T read(FileConfiguration config, String prefix) {
-            String fullPath = prefix + path;
-            return (T) config.get(fullPath);
-        }
-
-        public void write(FileConfiguration fileConfig, String prefix, Config config, Config defaultConfig) {
-            T value = get(config);
-            T defaultValue = get(defaultConfig);
+        void write(FileConfiguration fileConfig, String prefix, Config config, Config defaultConfig) {
             String fullPath = prefix + path;
             // only save if the config differs from the default
-            if (value.equals(defaultValue)) fileConfig.set(fullPath, null);
-            else fileConfig.set(fullPath, value);
-            if (!comments.isEmpty()) fileConfig.setInlineComments(fullPath, comments);
-        }
+            fileConfig.set(fullPath, codec.write(getter.apply(config), getter.apply(defaultConfig)));
 
-        public String getPath() {
-            return path;
-        }
-
-        public T getDefault() {
-            return defaultValue;
-        }
-
-        public List<String> getComments() {
-            return comments;
+            List<String> inlineComments = comments.isEmpty() ? codec.comments() : comments;
+            if (!inlineComments.isEmpty()) fileConfig.setInlineComments(fullPath, inlineComments);
         }
     }
 
-    private static class EnumProperty<T extends Enum<T>> extends Property<T> {
-        private final Class<T> enumClass;
-
-        public EnumProperty(Class<T> enumClass, String path, T defaultValue, Function<Config, T> getter, BiFunction<Builder, T, Builder> writer, List<String> comments) {
-            this.enumClass = enumClass;
-            super(path, defaultValue, getter, writer, comments);
-        }
-
-        public EnumProperty(Class<T> enumClass, String path, T defaultValue, Function<Config, T> getter, BiFunction<Builder, T, Builder> writer) {
-            this(enumClass, path, defaultValue, getter, writer, List.of());
-        }
-
-        public EnumProperty(Class<T> enumClass, String path, T defaultValue, Function<Config, T> getter, BiFunction<Builder, T, Builder> writer, String comment) {
-            this(enumClass, path, defaultValue, getter, writer, List.of(comment));
-        }
-
-        @Override
-        public @Nullable T read(FileConfiguration config, String prefix) {
-            String fullPath = prefix + getPath();
-
-            String string = config.getString(fullPath);
-            if (string == null) return null;
-            try {
-                return T.valueOf(enumClass, string);
-            } catch (IllegalArgumentException _) {
-                LOGGER.warn("Failed to read enum value: {}", string);
-                return getDefault();
-            }
-        }
-
-        @Override
-        public void write(FileConfiguration fileConfig, String prefix, Config config, Config defaultConfig) {
-            T value = get(config);
-            T defaultValue = get(defaultConfig);
-            String fullPath = prefix + getPath();
-            // only save if the config differs from the default
-            if (value.equals(defaultValue)) fileConfig.set(fullPath, null);
-            else fileConfig.set(fullPath, value.name());
-
-            // generate a string based on all the enum values
-            StringBuilder commentBuilder = new StringBuilder();
-            commentBuilder.append("One of: ");
-            T[] enums = enumClass.getEnumConstants();
-            boolean first = true;
-            for (T anEnum : enums) {
-                if (!first) {
-                    commentBuilder.append(", ");
-                } else first = false;
-                commentBuilder.append(anEnum.name());
+    private interface Codec<T> {
+        Codec<Long> LONG = of((raw, _) -> {
+            if (raw == null) return null;
+            if (raw instanceof Number number) return number.longValue();
+            LOGGER.warn("Failed to read number value: {}", raw);
+            return null;
+        }, value -> value);
+        Codec<Location> LOCATION = of((raw, defaultValue) -> stringToLocation(raw == null ? null : raw.toString(), defaultValue), Config::locationToString);
+        Codec<Map<String, Object>> GAMERULES = new Codec<>() {
+            @SuppressWarnings("unchecked")
+            @Override
+            public Map<String, Object> read(@Nullable Object raw, Map<String, Object> defaultValue) {
+                return convertYmlGamerules((List<Map<?, ?>>) raw);
             }
 
-            fileConfig.setInlineComments(fullPath, List.of(commentBuilder.toString()));
-        }
-    }
-
-    private static class LocationProperty extends Property<Location> {
-        public LocationProperty(String path, Location defaultValue, Function<Config, Location> getter, BiFunction<Builder, Location, Builder> writer, List<String> comments) {
-            super(path, defaultValue, getter, writer, comments);
-        }
-
-        public LocationProperty(String path, Location defaultValue, Function<Config, Location> getter, BiFunction<Builder, Location, Builder> writer) {
-            this(path, defaultValue, getter, writer, List.of());
-        }
-
-        public LocationProperty(String path, Location defaultValue, Function<Config, Location> getter, BiFunction<Builder, Location, Builder> writer, String comment) {
-            this(path, defaultValue, getter, writer, List.of(comment));
-        }
-
-        @Override
-        public Location read(FileConfiguration config, String prefix) {
-            String fullPath = prefix + getPath();
-            return stringToLocation(config.getString(fullPath));
-        }
-
-        @Override
-        public void write(FileConfiguration fileConfig, String prefix, Config config, Config defaultConfig) {
-            Location value = get(config);
-            Location defaultValue = get(defaultConfig);
-            String fullPath = prefix + getPath();
-            // only save if the config differs from the default
-            if (value.equals(defaultValue)) fileConfig.set(fullPath, null);
-            else {
-                fileConfig.set(fullPath, locationToString(value));
+            @Override
+            public @Nullable Object write(Map<String, Object> value, Map<String, Object> defaultValue) {
+                List<Map<String, ?>> gamerulesToSave = gamerulesList(value);
+                gamerulesToSave.removeAll(gamerulesList(defaultValue));
+                return gamerulesToSave.isEmpty() ? null : gamerulesToSave;
             }
-            if (!getComments().isEmpty()) fileConfig.setInlineComments(fullPath, getComments());
+        };
+
+        /**
+         * @param raw the value in the yml, null if missing
+         * @return the value to set on the builder, null to leave the builder unchanged
+         */
+        @Nullable T read(@Nullable Object raw, T defaultValue);
+
+        /**
+         * @return the value to put in the yml, null to remove it
+         */
+        @Nullable Object write(T value, T defaultValue);
+
+        default List<String> comments() {
+            return List.of();
         }
 
-        protected static String locationToString(Location spawn) {
-            return String.format("%s, %s, %s, %s, %s",
-                    spawn.x(),
-                    spawn.y(),
-                    spawn.z(),
-                    spawn.getYaw(),
-                    spawn.getPitch());
-        }
-
-        private Location stringToLocation(@Nullable String string) {
-            if (string == null) return getDefault();
-
-            String[] split = string.split(",");
-            try {
-                if (split.length == 3) { // x y z
-                    String x = split[0];
-                    String y = split[1];
-                    String z = split[2];
-                    return new Location(null, Double.parseDouble(x), Double.parseDouble(y), Double.parseDouble(z));
-                } else if (split.length == 5) { // x y z yaw pitch
-                    String x = split[0];
-                    String y = split[1];
-                    String z = split[2];
-                    String yaw = split[3];
-                    String pitch = split[4];
-                    return new Location(null, Double.parseDouble(x), Double.parseDouble(y), Double.parseDouble(z), Float.parseFloat(yaw), Float.parseFloat(pitch));
-                } else {
-                    LOGGER.warn("Failed to parse spawn pos: {}", string);
-                    return getDefault();
+        /**
+         * A codec that only writes values that differ from the default
+         */
+        static <T> Codec<T> of(BiFunction<@Nullable Object, T, @Nullable T> read, Function<T, Object> serialize, List<String> comments) {
+            return new Codec<>() {
+                @Override
+                public @Nullable T read(@Nullable Object raw, T defaultValue) {
+                    return read.apply(raw, defaultValue);
                 }
-            } catch (Exception e) {
-                LOGGER.warn("Failed to parse spawn pos: {}", string);
-                return getDefault();
-            }
+
+                @Override
+                public @Nullable Object write(T value, T defaultValue) {
+                    return value.equals(defaultValue) ? null : serialize.apply(value);
+                }
+
+                @Override
+                public List<String> comments() {
+                    return comments;
+                }
+            };
+        }
+
+        static <T> Codec<T> of(BiFunction<@Nullable Object, T, @Nullable T> read, Function<T, Object> serialize) {
+            return of(read, serialize, List.of());
+        }
+
+        @SuppressWarnings("unchecked")
+        static <T> Codec<T> value() {
+            return of((raw, _) -> (T) raw, value -> value);
+        }
+
+        static <T extends Enum<T>> Codec<T> ofEnum(Class<T> enumClass) {
+            List<String> comments = List.of("One of: " + Arrays.stream(enumClass.getEnumConstants())
+                    .map(Enum::name)
+                    .collect(Collectors.joining(", ")));
+            return of((raw, defaultValue) -> {
+                if (raw == null) return null;
+                try {
+                    return Enum.valueOf(enumClass, raw.toString());
+                } catch (IllegalArgumentException _) {
+                    LOGGER.warn("Failed to read enum value: {}", raw);
+                    return defaultValue;
+                }
+            }, Enum::name, comments);
         }
     }
 
-    private static class GamerulesProperty extends Property<Map<String, Object>> {
-        public GamerulesProperty(String path, Map<String, Object> defaultValue, Function<Config, Map<String, Object>> getter, BiFunction<Builder, Map<String, Object>, Builder> writer, List<String> comments) {
-            super(path, defaultValue, getter, writer, comments);
-        }
+    private static String locationToString(Location spawn) {
+        return String.format("%s, %s, %s, %s, %s",
+                spawn.x(),
+                spawn.y(),
+                spawn.z(),
+                spawn.getYaw(),
+                spawn.getPitch());
+    }
 
-        public GamerulesProperty(String path, Map<String, Object> defaultValue, Function<Config, Map<String, Object>> getter, BiFunction<Builder, Map<String, Object>, Builder> writer) {
-            this(path, defaultValue, getter, writer, List.of());
-        }
+    private static Location stringToLocation(@Nullable String string, Location defaultValue) {
+        if (string == null) return defaultValue;
 
-        public GamerulesProperty(String path, Map<String, Object> defaultValue, Function<Config, Map<String, Object>> getter, BiFunction<Builder, Map<String, Object>, Builder> writer, String comment) {
-            this(path, defaultValue, getter, writer, List.of(comment));
-        }
-
-        @Override
-        public Map<String, Object> read(FileConfiguration config, String prefix) {
-            String fullPath = prefix + getPath();
-            return convertYmlGamerules((List<Map<?, ?>>) config.get(fullPath));
-        }
-
-        @Override
-        public void write(FileConfiguration fileConfig, String prefix, Config config, Config defaultConfig) {
-            Map<String, Object> value = get(config);
-            Map<String, Object> defaultValue = get(defaultConfig);
-            String fullPath = prefix + getPath();
-
-            // only save if the config differs from the default
-            List<Map<String, ?>> gamerulesToSave = gamerulesList(value);
-            gamerulesToSave.removeAll(gamerulesList(defaultValue));
-            if (gamerulesToSave.isEmpty()) gamerulesToSave = null;
-
-            fileConfig.set(fullPath, gamerulesToSave);
-            if (!getComments().isEmpty()) fileConfig.setInlineComments(fullPath, getComments());
-        }
-
-        private Map<String, Object> convertYmlGamerules(@Nullable List<Map<?, ?>> ymlGamerules) {
-            if (ymlGamerules == null) return Map.of();
-            Map<String, Object> gamerules = new HashMap<>();
-
-            for (Map<?, ?> ymlGamerule : ymlGamerules) {
-                for (Map.Entry<?, ?> entry : ymlGamerule.entrySet()) {
-                    if (!(entry.getKey() instanceof String key)) continue;
-
-                    gamerules.put(key, entry.getValue());
-                }
+        String[] split = string.split(",");
+        try {
+            if (split.length == 3) { // x y z
+                return new Location(null, Double.parseDouble(split[0]), Double.parseDouble(split[1]), Double.parseDouble(split[2]));
+            } else if (split.length == 5) { // x y z yaw pitch
+                return new Location(null, Double.parseDouble(split[0]), Double.parseDouble(split[1]), Double.parseDouble(split[2]),
+                        Float.parseFloat(split[3]), Float.parseFloat(split[4]));
             }
-            return gamerules;
+        } catch (NumberFormatException _) {
+            // fall through to the warning below
         }
+        LOGGER.warn("Failed to parse spawn pos: {}", string);
+        return defaultValue;
+    }
 
-        private List<Map<String, ?>> gamerulesList(Map<String, Object> gamerules) {
-            List<Map<String, ?>> gamerulesList = new ArrayList<>(gamerules.size());
-            for (Map.Entry<String, Object> entry : gamerules.entrySet()) {
-                gamerulesList.add(Map.of(entry.getKey(), entry.getValue()));
+    private static Map<String, Object> convertYmlGamerules(@Nullable List<Map<?, ?>> ymlGamerules) {
+        if (ymlGamerules == null) return Map.of();
+        Map<String, Object> gamerules = new HashMap<>();
+
+        for (Map<?, ?> ymlGamerule : ymlGamerules) {
+            for (Map.Entry<?, ?> entry : ymlGamerule.entrySet()) {
+                if (!(entry.getKey() instanceof String key)) continue;
+
+                gamerules.put(key, entry.getValue());
             }
-            return gamerulesList;
         }
+        return gamerules;
+    }
+
+    private static List<Map<String, ?>> gamerulesList(Map<String, Object> gamerules) {
+        List<Map<String, ?>> gamerulesList = new ArrayList<>(gamerules.size());
+        for (Map.Entry<String, Object> entry : gamerules.entrySet()) {
+            gamerulesList.add(Map.of(entry.getKey(), entry.getValue()));
+        }
+        return gamerulesList;
     }
 }
