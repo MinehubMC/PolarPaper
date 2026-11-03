@@ -4,6 +4,7 @@ import ca.spottedleaf.concurrentutil.lock.ReentrantAreaLock;
 import ca.spottedleaf.concurrentutil.util.ConcurrentUtil;
 import ca.spottedleaf.moonrise.common.util.WorldUtil;
 import ca.spottedleaf.moonrise.patches.chunk_system.level.entity.ChunkEntitySlices;
+import ca.spottedleaf.moonrise.patches.chunk_system.level.poi.PoiChunk;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkTaskScheduler;
 import ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder;
@@ -55,6 +56,7 @@ public class ChunkUtils {
     private static final VarHandle CHUNK_COMPLETIONS_HANDLE;
     private static final VarHandle LAST_CHUNK_COMPLETION_HANDLE;
     private static final VarHandle ENTITY_CHUNK_HANDLE;
+    private static final VarHandle POI_CHUNK_HANDLE;
     private static final VarHandle CHUNK_COMPLETION_ARRAY_HANDLE = ConcurrentUtil.getArrayHandle(NewChunkHolder.ChunkCompletion[].class);
     private static final ChunkStatus[] ALL_STATUSES = ChunkStatus.getStatusList().toArray(new ChunkStatus[0]);
 
@@ -79,6 +81,9 @@ public class ChunkUtils {
             ENTITY_CHUNK_HANDLE = MethodHandles
                     .privateLookupIn(NewChunkHolder.class, MethodHandles.lookup())
                     .findVarHandle(NewChunkHolder.class, "entityChunk", ChunkEntitySlices.class);
+            POI_CHUNK_HANDLE = MethodHandles
+                    .privateLookupIn(NewChunkHolder.class, MethodHandles.lookup())
+                    .findVarHandle(NewChunkHolder.class, "poiChunk", PoiChunk.class);
         } catch (NoSuchFieldException | IllegalAccessException | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
@@ -99,6 +104,10 @@ public class ChunkUtils {
         NewChunkHolder newChunkHolder;
         try {
             newChunkHolder = (NewChunkHolder) GET_OR_CREATE_CHUNK_HOLDER_HANDLE.invokeExact(chunkHolderManager, chunkX, chunkZ);
+            // POI are not stored in polar files, give the holder an empty POI chunk which is filled from the blocks below
+            if (newChunkHolder.getPoiChunk() == null) {
+                POI_CHUNK_HANDLE.set(newChunkHolder, PoiChunk.empty(serverLevel, chunkX, chunkZ));
+            }
         } catch (Throwable e) {
             throw new RuntimeException(e);
         } finally {
@@ -108,6 +117,9 @@ public class ChunkUtils {
 
         newLevelChunk.needsDecoration = false;
         newLevelChunk.mustNotSave = true;
+        // Heightmaps have to be valid before the chunk can be ticked or read
+        Heightmap.primeHeightmaps(newLevelChunk, ChunkStatus.FULL.heightmapsAfter());
+
         CURRENT_CHUNK_HANDLE.set(newChunkHolder, newLevelChunk);
         CURRENT_GEN_STATUS_HANDLE.set(newChunkHolder, ChunkStatus.FULL);
         newLevelChunk.moonrise$setChunkHolder(newChunkHolder);
@@ -124,17 +136,12 @@ public class ChunkUtils {
             }
         }
 
-        CompletableFuture.runAsync(() -> Heightmap.primeHeightmaps(newLevelChunk, ChunkStatus.FULL.heightmapsAfter()))
-                .exceptionally(e -> {
-                    LOGGER.error("Heightmaps failed to prime", e);
-                    return null;
-                });
-
         newLevelChunk.setFullStatus(() -> FullChunkStatus.ENTITY_TICKING);
         newLevelChunk.runPostLoad();
         newLevelChunk.setLoaded(true);
         newLevelChunk.registerAllBlockEntitiesAfterLevelLoad();
         newLevelChunk.registerTickContainerInLevel(serverLevel);
+        serverLevel.getPoiManager().moonrise$checkConsistency(newLevelChunk);
 
         initializeEntityChunk(newChunkHolder);
     }
