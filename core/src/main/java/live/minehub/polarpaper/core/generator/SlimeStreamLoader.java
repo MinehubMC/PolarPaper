@@ -150,11 +150,12 @@ public class SlimeStreamLoader extends PolarGenerator {
         SWMRNibbleArray[] skyNibbles = ChunkUtils.createNibbleArray(sectionCount + 2);
         boolean lightPresent = false;
         LevelChunkSection[] levelChunkSections = new LevelChunkSection[sectionCount];
+        ChunkPos chunkPos = new ChunkPos(chunkX, chunkZ);
         for (int i = 0; i < sectionCount; i++) {
             try {
                 PolarSection polarSection = readSection(dataConverter, dataVersion, reader);
                 if (!lightPresent && (polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) lightPresent = true;
-                LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess());
+                LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess(), PolarSection.getPresetBlockStates(serverLevel, chunkPos, serverLevel.getMinSectionY() + i));
                 levelChunkSections[i] = section;
                 emptinessMap[i] = section.hasOnlyAir();
                 skyNibbles[i + 1] = polarSection.skyLight();
@@ -199,7 +200,7 @@ public class SlimeStreamLoader extends PolarGenerator {
         }
         // TODO: count of unsupported data
         // TODO: give block/fluid ticks to chunk
-        NoUnloadLevelChunk newLevelChunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(chunkX, chunkZ), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
+        NoUnloadLevelChunk newLevelChunk = new NoUnloadLevelChunk(serverLevel, chunkPos, UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
 
         try {
             int length = reader.readInt();

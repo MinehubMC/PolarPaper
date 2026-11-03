@@ -144,12 +144,13 @@ public class PolarStreamLoader extends PolarGenerator {
         SWMRNibbleArray[] skyNibbles = ChunkUtils.createNibbleArray(sectionCount + 2);
         boolean lightPresent = false;
         LevelChunkSection[] levelChunkSections = new LevelChunkSection[sectionCount];
+        ChunkPos chunkPos = new ChunkPos(chunkX, chunkZ);
         for (int i = 0; i < sectionCount; i++) {
             PolarSection polarSection = PolarReader.readSection(dataConverter, dataVersion, reader);
             if (!lightPresent && (polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) lightPresent = true;
 
             try {
-                LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess());
+                LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess(), PolarSection.getPresetBlockStates(serverLevel, chunkPos, serverLevel.getMinSectionY() + i));
                 levelChunkSections[i] = section;
                 emptinessMap[i] = section.hasOnlyAir();
                 skyNibbles[i + 1] = polarSection.skyLight();
@@ -160,7 +161,7 @@ public class PolarStreamLoader extends PolarGenerator {
             }
         }
 
-        NoUnloadLevelChunk newLevelChunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(chunkX, chunkZ), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
+        NoUnloadLevelChunk newLevelChunk = new NoUnloadLevelChunk(serverLevel, chunkPos, UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
 
         int blockEntityCount = reader.readVarInt();
         for (int i = 0; i < blockEntityCount; i++) {

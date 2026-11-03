@@ -97,16 +97,17 @@ public record PolarChunk(
         skyNibbles[sectionCount + 1] = new SWMRNibbleArray();
         boolean lightPresent = false;
         LevelChunkSection[] levelChunkSections = new LevelChunkSection[sectionCount];
+        ChunkPos chunkPos = new ChunkPos(x, z);
         for (int i = 0; i < sectionCount; i++) {
             PolarSection polarSection = sections()[i];
             if ((polarSection.skyLightContent() != PolarSection.LightContent.MISSING || polarSection.blockLightContent() != PolarSection.LightContent.MISSING)) lightPresent = true;
-            LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess());
+            LevelChunkSection section = polarSection.createLevelChunkSection(serverLevel.registryAccess(), PolarSection.getPresetBlockStates(serverLevel, chunkPos, serverLevel.getMinSectionY() + i));
             levelChunkSections[i] = section;
             skyNibbles[i + 1] = polarSection.skyLight();
             blockNibbles[i + 1] = polarSection.blockLight();
 
         }
-        NoUnloadLevelChunk chunk = new NoUnloadLevelChunk(serverLevel, new ChunkPos(x, z), UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
+        NoUnloadLevelChunk chunk = new NoUnloadLevelChunk(serverLevel, chunkPos, UpgradeData.EMPTY, new LevelChunkTicks<>(), new LevelChunkTicks<>(), 0L, levelChunkSections, null, null);
 
         if (lightPresent) {
             @Nullable Boolean[] emptinessMap = StarLightEngine.getEmptySectionsForChunk(chunk);

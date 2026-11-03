@@ -1,6 +1,7 @@
 package live.minehub.polarpaper.core.world;
 
 import ca.spottedleaf.moonrise.patches.starlight.light.SWMRNibbleArray;
+import io.papermc.paper.antixray.ChunkPacketBlockController;
 import live.minehub.polarpaper.core.util.BlockCodec;
 import live.minehub.polarpaper.core.util.PaletteUtil;
 import net.minecraft.core.Holder;
@@ -11,6 +12,8 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.util.SimpleBitStorage;
 import net.minecraft.util.ZeroBitStorage;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Block;
@@ -23,7 +26,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.ToIntFunction;
 
 /**
@@ -97,10 +102,23 @@ public record PolarSection(boolean empty, String[] blockPalette, long @Nullable 
         return skyLight;
     }
 
+    /**
+     * Returns the anti-xray preset block states Paper expects in the block palette of a section, null when anti-xray is
+     * disabled for the level. Sections created for a level must carry exactly this array.
+     */
+    public static BlockState @Nullable [] getPresetBlockStates(Level level, ChunkPos chunkPos, int sectionY) {
+        ChunkPacketBlockController controller = level.chunkPacketBlockController;
+        return controller == null ? null : controller.getPresetBlockStates(level, chunkPos, sectionY);
+    }
+
     public LevelChunkSection createEmptyLevelChunkSection(RegistryAccess registryAccess) {
+        return createEmptyLevelChunkSection(registryAccess, null);
+    }
+
+    public LevelChunkSection createEmptyLevelChunkSection(RegistryAccess registryAccess, BlockState @Nullable [] presets) {
         Registry<Biome> registry = registryAccess.lookupOrThrow(Registries.BIOME);
         Strategy<BlockState> blockStrategy = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
-        PalettedContainer<BlockState> states = new PalettedContainer<>(Blocks.AIR.defaultBlockState(), blockStrategy, null);
+        PalettedContainer<BlockState> states = new PalettedContainer<>(Blocks.AIR.defaultBlockState(), blockStrategy, presets);
 
         Strategy<Holder<Biome>> biomeStrategy = Strategy.createForBiomes(registry.asHolderIdMap());
         Holder.Reference<Biome> orThrow = registry.getOrThrow(Biomes.PLAINS);
@@ -109,7 +127,14 @@ public record PolarSection(boolean empty, String[] blockPalette, long @Nullable 
     }
 
     public LevelChunkSection createLevelChunkSection(RegistryAccess registryAccess) {
-        if (empty) return createEmptyLevelChunkSection(registryAccess);
+        return createLevelChunkSection(registryAccess, null);
+    }
+
+    /**
+     * @param presets the level's anti-xray presets for this section, from {@link #getPresetBlockStates}
+     */
+    public LevelChunkSection createLevelChunkSection(RegistryAccess registryAccess, BlockState @Nullable [] presets) {
+        if (empty) return createEmptyLevelChunkSection(registryAccess, presets);
 
         // Blocks
         BlockState[] materialPalette = new BlockState[blockPalette.length];
@@ -138,10 +163,12 @@ public record PolarSection(boolean empty, String[] blockPalette, long @Nullable 
         }
 
         Strategy<BlockState> blockStrategy = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
-        PalettedContainer<BlockState> states = new PalettedContainer<>(Blocks.AIR.defaultBlockState(), blockStrategy, materialPalette);
+        // Paper's anti-xray reads the preset values with the length of the level's own preset list, so they must be
+        // exactly the level's presets and never the section palette
+        PalettedContainer<BlockState> states = new PalettedContainer<>(Blocks.AIR.defaultBlockState(), blockStrategy, presets);
 
         Strategy<Holder<Biome>> biomeStrategy = Strategy.createForBiomes(registry.asHolderIdMap());
-        PalettedContainer<Holder<Biome>> biomes = new PalettedContainer<>(orThrow, biomeStrategy, biomeHolderPalette);
+        PalettedContainer<Holder<Biome>> biomes = new PalettedContainer<>(orThrow, biomeStrategy, null);
 
         int bitsPerBlockEntry = Mth.ceillog2(blockPalette.length);
         int longBitsPerBlockEntry = bitsPerBlockEntry;
@@ -157,6 +184,7 @@ public record PolarSection(boolean empty, String[] blockPalette, long @Nullable 
 
         biomes.data = getPalettedContainer(biomeHolderPalette, biomeData, bitsPerBiomeEntry, longBitsPerBiomeEntry, biomeStrategy, registry.asHolderIdMap()::getId);
         states.data = getPalettedContainer(materialPalette, blockData, bitsPerBlockEntry, longBitsPerBlockEntry, blockStrategy, Block.BLOCK_STATE_REGISTRY::getId);
+        if (presets != null) addPresets(states, presets);
 
         try {
             return new LevelChunkSection(states, biomes);
@@ -169,6 +197,36 @@ public record PolarSection(boolean empty, String[] blockPalette, long @Nullable 
             if (blockData != null) LOGGER.info("Block Data Length: {}", blockData.length);
             LOGGER.info("Block Palette Length: {}", materialPalette.length);
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Adds the anti-xray presets to the palette of a container whose data was set directly, the same way Paper does when
+     * it reads a section from disk. The chunk packet looks the presets up in the palette without resizing it.
+     */
+    private static void addPresets(PalettedContainer<BlockState> states, BlockState[] presets) {
+        Configuration configuration = states.data.configuration();
+        boolean singleValue = configuration instanceof Configuration.Simple simple && simple.factory() == Strategy.SINGLE_VALUE_PALETTE_FACTORY;
+        if (singleValue ? states.data.palette().valueFor(0) == Blocks.AIR.defaultBlockState() : configuration instanceof Configuration.Global) {
+            return;
+        }
+
+        int maxSize = 1 << configuration.bitsInMemory();
+        for (int i = 0; i < presets.length; i++) {
+            Palette<BlockState> palette = states.data.palette();
+            if (palette.getSize() >= maxSize) {
+                Set<BlockState> allValues = new HashSet<>();
+                for (int j = 0; j < palette.getSize(); j++) allValues.add(palette.valueFor(j));
+                allValues.addAll(Arrays.asList(presets));
+                int newBits = Mth.ceillog2(allValues.size());
+                if (newBits > configuration.bitsInMemory()) {
+                    states.onResize(newBits, null); // copies into a bigger palette and adds all presets
+                } else {
+                    for (int j = i; j < presets.length; j++) states.data.palette().idFor(presets[j], states);
+                }
+                return;
+            }
+            palette.idFor(presets[i], states);
         }
     }
 
