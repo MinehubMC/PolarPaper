@@ -16,7 +16,10 @@ import live.minehub.polarpaper.core.util.TaskFutures;
 import live.minehub.polarpaper.core.world.NoUnloadLevelChunk;
 import live.minehub.polarpaper.core.world.PolarChunk;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.FullChunkStatus;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ThreadedLevelLightEngine;
@@ -24,6 +27,7 @@ import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -168,52 +172,88 @@ public class ChunkUtils {
 
     public static void addBlockEntity(PolarChunk.BlockEntity polarBlockEntity, ChunkAccess chunk) {
         int posIndex = polarBlockEntity.index();
-        CompoundTag nbt = polarBlockEntity.data();
 
         int x = CoordConversion.chunkBlockIndexGetX(posIndex);
         int y = CoordConversion.chunkBlockIndexGetY(posIndex);
         int z = CoordConversion.chunkBlockIndexGetZ(posIndex);
 
-        addBlockEntity(x, y, z, nbt, chunk);
+        addBlockEntity(x, y, z, polarBlockEntity.id(), polarBlockEntity.data(), chunk);
     }
 
+    /**
+     * Adds a block entity from vanilla shaped NBT, where x and z are world coordinates (Slime)
+     */
     public static void addBlockEntity(CompoundTag tag, ChunkAccess chunk) {
-        int x = tag.getIntOr("x", 0);
+        int x = tag.getIntOr("x", 0) & 15;
         int y = tag.getIntOr("y", 0);
-        int z = tag.getIntOr("z", 0);
-        addBlockEntity(x, y, z, tag, chunk);
+        int z = tag.getIntOr("z", 0) & 15;
+        addBlockEntity(x, y, z, null, tag, chunk);
     }
 
     public static void addBlockEntity(int x, int y, int z, @Nullable CompoundTag nbt, ChunkAccess chunk) {
+        addBlockEntity(x, y, z, null, nbt, chunk);
+    }
+
+    /**
+     * Adds a block entity at chunk relative x, y, z
+     * <p>
+     * Like vanilla chunk loading, the block entity is created from its stored id (the one in the NBT, otherwise
+     * {@code storedId}) with {@link BlockEntity#loadStatic}. This keeps block entities that are not the block's default
+     * one, e.g. the piston block entity of a moving_piston block saved mid-move.
+     * When there is no usable id, the block's own block entity is created and the data loaded into it.
+     */
+    public static void addBlockEntity(int x, int y, int z, @Nullable String storedId, @Nullable CompoundTag nbt, ChunkAccess chunk) {
         BlockState blockState = chunk.getBlockState(x, y, z);
         BlockPos blockPos = new BlockPos(chunk.locX * 16 + x, y, chunk.locZ * 16 + z);
-
-        if (!(blockState.getBlock() instanceof EntityBlock entityBlock)) {
-//            PolarPaper.logger().warning("Block " + blockState + " does not have a block entity");
-//            throw new IllegalArgumentException("Block " + blockState + " does not have a block entity");
-            return;
-        }
-
-        BlockEntity blockEntity = entityBlock.newBlockEntity(blockPos, blockState);
-        if (blockEntity == null) {
-//            PolarPaper.logger().warning("Block " + blockState + " returned null block entity");
-//            throw new IllegalArgumentException("Block " + blockState + " returned null block entity");
-            return;
-        }
-
+        CompoundTag data = nbt == null ? new CompoundTag() : nbt;
         var registryAccess = ((CraftServer) Bukkit.getServer()).getServer().registryAccess();
 
-        try (var problemReporter = new ProblemReporter.ScopedCollector(() -> "addBlockEntity", LOGGER)) {
-            // Load NBT data into the block entity
-            blockEntity.loadWithComponents(TagValueInput.create(problemReporter, registryAccess, nbt));
-
-            if (chunk instanceof LevelChunk levelChunk) {
-                blockEntity.setLevel(levelChunk.getLevel());
-                levelChunk.addAndRegisterBlockEntity(blockEntity);
-            } else {
-                chunk.blockEntities.put(blockPos, blockEntity);
-            }
+        String id = data.getString("id").filter(s -> !s.isEmpty()).orElse(storedId);
+        BlockEntity blockEntity = null;
+        // "DUMMY" is what vanilla writes for a block entity without data, use the block's own one
+        if (id != null && !id.isEmpty() && !id.equals("DUMMY")) {
+            blockEntity = blockEntityFromId(blockPos, blockState, id, data, registryAccess);
         }
+        if (blockEntity == null) {
+            blockEntity = blockEntityFromBlock(blockPos, blockState, data, registryAccess);
+        }
+        if (blockEntity == null) {
+            LOGGER.debug("Skipping block entity {} at {}, block {} has no block entity", id, blockPos, blockState);
+            return;
+        }
+
+        if (chunk instanceof LevelChunk levelChunk) {
+            blockEntity.setLevel(levelChunk.getLevel());
+            levelChunk.addAndRegisterBlockEntity(blockEntity);
+        } else {
+            chunk.blockEntities.put(blockPos, blockEntity);
+        }
+    }
+
+    private static @Nullable BlockEntity blockEntityFromId(BlockPos pos, BlockState state, String id, CompoundTag data, HolderLookup.Provider registries) {
+        Identifier key = Identifier.tryParse(id);
+        BlockEntityType<?> type = key == null ? null : BuiltInRegistries.BLOCK_ENTITY_TYPE.getValue(key);
+        // checked here so loadStatic does not log an error for these
+        if (type == null || !type.isValid(state)) return null;
+
+        CompoundTag tag = data;
+        if (!tag.getString("id").map(id::equals).orElse(false)) {
+            tag = data.copy();
+            tag.putString("id", id);
+        }
+        return BlockEntity.loadStatic(pos, state, tag, registries);
+    }
+
+    private static @Nullable BlockEntity blockEntityFromBlock(BlockPos pos, BlockState state, CompoundTag data, HolderLookup.Provider registries) {
+        if (!(state.getBlock() instanceof EntityBlock entityBlock)) return null;
+
+        BlockEntity blockEntity = entityBlock.newBlockEntity(pos, state);
+        if (blockEntity == null) return null;
+
+        try (var problemReporter = new ProblemReporter.ScopedCollector(() -> "addBlockEntity", LOGGER)) {
+            blockEntity.loadWithComponents(TagValueInput.create(problemReporter, registries, data));
+        }
+        return blockEntity;
     }
 
     public static CompletableFuture<Void> insertEmptyChunks(Plugin plugin, ServerLevel level) {
