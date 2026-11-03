@@ -75,7 +75,7 @@ public class SaveZSTDCommand extends PolarCmd {
                 double ms = ((int) ((System.nanoTime() - before) / 1_000_0)) / 100.0;
                 LOGGER.info("level: {}, {} bytes, {}ms", finalI, source.bytes().length, ms);
             }).exceptionally(e -> {
-                String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getKey().getKey());
+                String errorMsg = String.format("Failed to save '%s'. Check the console for details.", bukkitWorld.getKey().getKey());
                 LOGGER.error(errorMsg, e);
                 ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
                 return null;

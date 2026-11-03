@@ -141,7 +141,7 @@ public class PasteCommand extends PolarCmd {
             Setter setter = new Setter.World(player.getWorld());
             Schematic.paste(polarWorld, setter, pasteOffset, rotation, ignoreAir);
         } catch (Exception e) {
-            String errorMsg = "Failed to paste schematic, please check logs for error";
+            String errorMsg = "Failed to paste schematic. Check the console for details.";
             LOGGER.error(errorMsg, e);
             ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
             return Command.SINGLE_SUCCESS;

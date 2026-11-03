@@ -273,7 +273,7 @@ public class Polar {
             saveWorld(world)
                     .whenComplete((_, e) -> {
                         if (e != null) {
-                            String errorMsg = String.format("Failed to save '%s', please check logs for error", world.getKey().getKey());
+                            String errorMsg = String.format("Failed to save '%s'. Check the console for details.", world.getKey().getKey());
                             LOGGER.error(errorMsg, e);
                             for (Player plr : Bukkit.getOnlinePlayers()) {
                                 if (!plr.hasPermission("polar.notifications")) continue;

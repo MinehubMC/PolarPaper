@@ -21,10 +21,14 @@ import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 
 public class GotoCommand extends PolarCmd {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GotoCommand.class);
 
     public GotoCommand() {
         super("goto", "Teleport to a world");
@@ -87,7 +91,18 @@ public class GotoCommand extends PolarCmd {
             );
 
             spawnPos.setWorld(bukkitWorld);
-            player.teleportAsync(spawnPos);
+            player.teleportAsync(spawnPos).whenComplete((success, error) -> {
+                if (error != null) {
+                    LOGGER.error("Failed to teleport {} to {}", player.getName(), bukkitWorld.getKey(), error);
+                    sender.sendMessage(Component.text("Failed to teleport. Check the console for details.", NamedTextColor.RED));
+                } else if (!Boolean.TRUE.equals(success)) {
+                    LOGGER.warn("Teleport rejected for {} to {}. Passengers: {}, vehicle: {}",
+                            player.getName(), bukkitWorld.getKey(),
+                            player.getPassengers().stream().map(Entity::getType).toList(),
+                            player.getVehicle() == null ? null : player.getVehicle().getType());
+                    sender.sendMessage(Component.text("Teleport was rejected, make sure you have no passengers. Check the console for details.", NamedTextColor.RED));
+                }
+            });
         });
 
         return Command.SINGLE_SUCCESS;

@@ -10,9 +10,6 @@ import live.minehub.polarpaper.PolarPaper;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.source.PolarSource;
 import live.minehub.polarpaper.core.userdata.WorldUserData;
-import live.minehub.polarpaper.core.world.PolarReader;
-import live.minehub.polarpaper.core.world.PolarWorld;
-import live.minehub.polarpaper.core.world.PolarWriter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -55,19 +52,21 @@ public class SetCenterCommand extends PolarCmd {
                     sender.sendMessage(Component.text("No source is defined for this world", NamedTextColor.RED));
                     return;
                 }
-                PolarReader polarReader = new PolarReader();
-                PolarWorld newPolarWorld = polarReader.read(source);
-                newPolarWorld.userData(WorldUserData.writeSchematicOffset(center));
-                PolarWriter.write(source, newPolarWorld, polarGenerator.getConfig());
+                byte[] userData = WorldUserData.writeSchematicOffset(center);
+                polarGenerator.setUserData(userData);
             } catch (Exception e) {
-                String errorMsg = String.format("Failed to save '%s', please check logs for error", bukkitWorld.getKey().getKey());
+                String errorMsg = String.format("Failed to save '%s'. Check the console for details.", bukkitWorld.getKey().getKey());
                 LOGGER.error(errorMsg, e);
                 sender.sendMessage(Component.text(errorMsg, NamedTextColor.RED));
                 return;
             }
 
             String formattedPos = String.format("%s, %s, %s", center.x(), center.y(), center.z());
-            sender.sendMessage(Component.text("Set schematic center position to " + formattedPos, NamedTextColor.AQUA));
+            sender.sendMessage(Component.text()
+                    .append(Component.text("Set schematic center position to " + formattedPos, NamedTextColor.AQUA))
+                    .appendNewline()
+                    .append(Component.text("Save the world to save the new schematic center", NamedTextColor.AQUA))
+                    .build());
         });
 
         return Command.SINGLE_SUCCESS;

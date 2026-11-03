@@ -77,7 +77,7 @@ public class CreateFromRegionCommand extends PolarCmd {
                 WorldUserData.writeSchematicOffset(finalSchemOffset)
         ).whenComplete((_, e) -> {
             if (e != null) {
-                String errorMsg = String.format("Failed to create '%s', please check logs for error", newWorldName);
+                String errorMsg = String.format("Failed to create '%s'. Check the console for details.", newWorldName);
                 LOGGER.error(errorMsg, e);
                 ctx.getSource().getSender().sendMessage(Component.text(errorMsg, NamedTextColor.RED));
                 return;
