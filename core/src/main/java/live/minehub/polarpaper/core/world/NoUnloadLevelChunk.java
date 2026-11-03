@@ -15,6 +15,11 @@ import org.jspecify.annotations.Nullable;
 
 public class NoUnloadLevelChunk extends LevelChunk {
 
+    /**
+     * Whether the load events were fired and the unload events were not fired since, only accessed on the chunk's thread
+     */
+    private boolean loadEventsFired;
+
     public NoUnloadLevelChunk(Level level, ChunkPos pos) {
         super(level, pos);
     }
@@ -27,13 +32,27 @@ public class NoUnloadLevelChunk extends LevelChunk {
         super(level, chunk, postLoad);
     }
 
+    /**
+     * Fires ChunkLoadEvent and EntitiesLoadEvent like for any other chunk, called by the chunk system when the chunk
+     * becomes accessible
+     */
     @Override
     public void loadCallback() {
-
+        if (this.loadEventsFired) return;
+        this.loadEventsFired = true;
+        super.loadCallback();
     }
 
+    /**
+     * Fires EntitiesUnloadEvent and ChunkUnloadEvent like for any other chunk. The chunk is never saved by the chunk
+     * system, whatever the event's save flag is
+     */
     @Override
     public void unloadCallback() {
-
+        if (!this.loadEventsFired) return;
+        this.loadEventsFired = false;
+        boolean mustNotSave = this.mustNotSave;
+        super.unloadCallback();
+        this.mustNotSave |= mustNotSave;
     }
 }
