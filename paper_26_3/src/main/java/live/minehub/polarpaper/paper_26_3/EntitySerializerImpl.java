@@ -22,18 +22,25 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class EntitySerializerImpl implements EntitySerializer {
 
     @Override
     public net.minecraft.world.entity.@Nullable Entity compoundToEntity(World world, CompoundTag compound) {
+        var level = ((CraftWorld) world).getHandle();
         ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "deserialiseEntity", LogUtils.getLogger());
-        ValueInput tagValueInput = TagValueInput.create(problemReporter, ((CraftWorld) world).getHandle().registryAccess(), compound);
+        ValueInput tagValueInput = TagValueInput.create(problemReporter, level.registryAccess(), compound);
 
         return net.minecraft.world.entity.EntityType
-                .create(tagValueInput, ((CraftWorld) world).getHandle(), new EntitySpawnRequest(EntitySpawnReason.LOAD, false))
-                .orElse(null);
+                .loadEntityRecursive(tagValueInput, level, new EntitySpawnRequest(EntitySpawnReason.LOAD, false), entity -> {
+                    if (level.moonrise$getEntityLookup().hasEntity(entity.getUUID())) {
+                        LOGGER.warn("Entity already exists with UUID {}, using random UUID", entity.getUUID());
+                        entity.setUUID(UUID.randomUUID());
+                    }
+                    return entity;
+                });
     }
 
     @Override
@@ -44,14 +51,14 @@ public class EntitySerializerImpl implements EntitySerializer {
 
         boolean successful;
         try {
-            successful = ((CraftEntity) entity).getHandle().saveAsPassenger(tagValueOutput, true, false, false);
+            successful = nmsEntity.save(tagValueOutput);
         } catch (Exception e) {
-            // saveAsPassenger sometimes calls events (e.g. VillagerAcquireTradeEvent), causing errors when called async so try again synchronously
+            // Saving sometimes calls events (e.g. VillagerAcquireTradeEvent), causing errors when called async so try again synchronously
             CompletableFuture<Boolean> successfulFuture = new CompletableFuture<>();
 
             FoliaUtil.scheduleOnEntityIfFolia(plugin, entity, () -> {
                 try {
-                    boolean successful2 = ((CraftEntity) entity).getHandle().saveAsPassenger(tagValueOutput, true, false, false);
+                    boolean successful2 = nmsEntity.save(tagValueOutput);
                     successfulFuture.complete(successful2);
                 } catch (Exception e2) {
                     LOGGER.error("Failed to serialize entity", e2);
