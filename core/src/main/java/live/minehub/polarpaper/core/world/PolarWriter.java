@@ -124,7 +124,9 @@ public class PolarWriter {
                 int chunkCount = 0;
                 try (var spool = new BufferedOutputStream(Files.newOutputStream(body))) {
                     for (PolarChunk chunk : chunks) {
-                        if (chunk == null || chunk.isEmpty()) continue;
+                        if (chunk == null) continue;
+                        // An all-air chunk can still hold entities or chunk data (an armor stand in the air), keep it
+                        if (chunk.isEmpty() && chunk.blockEntities().length == 0 && chunk.userData().length == 0) continue;
                         try (var writer = new MemorySegmentWriter(256)) {
                             int sectionCount = maxSection - minSection + 1;
                             writeChunk(writer, chunk, sectionCount);
