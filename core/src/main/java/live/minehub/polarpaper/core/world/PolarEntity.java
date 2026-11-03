@@ -22,7 +22,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.foreign.MemorySegment;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 public record PolarEntity(double x, double y, double z, float yaw, float pitch, byte[] bytes) {
@@ -47,15 +49,7 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         compound = PlatformHooks.get().convertNBT(References.ENTITY, MinecraftServer.getServer().getFixerUpper(), compound, dataVersion, SharedConstants.getCurrentVersion().dataVersion().version());
 
         ServerLevel level = ((CraftWorld) world).getHandle();
-        EntityLookup entityLookup = level.moonrise$getEntityLookup();
-        UUID entityUUID = getUUID(compound);
-        if (entityUUID != null) {
-            boolean hasEntity = entityLookup.hasEntity(entityUUID);
-            if (hasEntity) {
-                LOGGER.warn("Entity already exists with UUID {}, using random UUID", entityUUID);
-                compound.remove("UUID"); // do not read UUID from bytes, instead use the default random uuid
-            }
-        }
+        removeTakenUUIDs(compound, level.moonrise$getEntityLookup(), new HashSet<>());
 
         ListTag posTag = new ListTag();
         posTag.add(DoubleTag.valueOf(spawnLocation.x()));
@@ -122,6 +116,22 @@ public record PolarEntity(double x, double y, double z, float yaw, float pitch, 
         if (z < 0) realZ += 16;
 
         return new Location(world, realX + chunkX * 16, y, realZ + chunkZ * 16, yaw, pitch);
+    }
+
+    /**
+     * Removes the stored UUID of the entity and of its stored passengers when it is already taken, so they are loaded
+     * with a random one instead of being refused by the entity lookup
+     */
+    private static void removeTakenUUIDs(CompoundTag compound, EntityLookup entityLookup, Set<UUID> seen) {
+        UUID entityUUID = getUUID(compound);
+        if (entityUUID != null && (entityLookup.hasEntity(entityUUID) || !seen.add(entityUUID))) {
+            LOGGER.warn("Entity already exists with UUID {}, using random UUID", entityUUID);
+            compound.remove("UUID"); // do not read UUID from bytes, instead use the default random uuid
+        }
+
+        for (net.minecraft.nbt.Tag passenger : compound.getListOrEmpty("Passengers")) {
+            if (passenger instanceof CompoundTag passengerCompound) removeTakenUUIDs(passengerCompound, entityLookup, seen);
+        }
     }
 
     private static @Nullable UUID getUUID(CompoundTag compound) {

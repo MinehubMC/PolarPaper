@@ -8,6 +8,7 @@ import net.minecraft.SharedConstants;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.entity.EntityProcessor;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.level.storage.TagValueOutput;
@@ -30,9 +31,9 @@ public class EntitySerializerImpl implements EntitySerializer {
         ProblemReporter.ScopedCollector problemReporter = new ProblemReporter.ScopedCollector(() -> "deserialiseEntity", LogUtils.getLogger());
         ValueInput tagValueInput = TagValueInput.create(problemReporter, ((CraftWorld) world).getHandle().registryAccess(), compound);
 
+        // Recursive like vanilla chunk loading, so stored passengers are loaded and riding the entity
         return net.minecraft.world.entity.EntityType
-                .create(tagValueInput, ((CraftWorld) world).getHandle(), EntitySpawnReason.LOAD)
-                .orElse(null);
+                .loadEntityRecursive(tagValueInput, ((CraftWorld) world).getHandle(), EntitySpawnReason.LOAD, EntityProcessor.NOP);
     }
 
     @Override
