@@ -8,9 +8,11 @@ import live.minehub.polarpaper.core.config.Config;
 import live.minehub.polarpaper.core.generator.PolarGenerator;
 import live.minehub.polarpaper.core.source.FilePolarSource;
 import live.minehub.polarpaper.core.util.FoliaUtil;
+import live.minehub.polarpaper.core.util.SharedPaperWorldConfig;
 import live.minehub.polarpaper.core.util.ShutdownExecutor;
 import live.minehub.polarpaper.util.Format;
 import live.minehub.polarpaper.util.WorldKey;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -41,6 +43,14 @@ public final class PolarPaper extends JavaPlugin {
         registerEvents();
 
         saveDefaultConfig();
+
+        if (getConfig().getBoolean("sharePaperWorldConfig", false)) {
+            boolean installed = SharedPaperWorldConfig.install(key -> {
+                NamespacedKey worldKey = NamespacedKey.fromString(key);
+                return worldKey != null && Polar.isLoading(worldKey);
+            });
+            if (installed) getLogger().info("Polar worlds will share a single paper world config");
+        }
 
         try {
             loadStartupWorlds();
@@ -88,6 +98,7 @@ public final class PolarPaper extends JavaPlugin {
             }
         } finally {
             ShutdownExecutor.stop();
+            SharedPaperWorldConfig.uninstall();
         }
     }
 
