@@ -1,3 +1,7 @@
+# Share one paper world config between all polar worlds instead of loading it for every world.
+# Makes creating worlds a lot cheaper. Polar worlds will only use paper-world-defaults.yml. Requires a restart
+sharePaperWorldConfig: false
+
 # Config for polar worlds
 default:
   autosaveIntervalTicks: -1 # -1 to disable
